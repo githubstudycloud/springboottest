@@ -2,6 +2,7 @@ package com.study.scheduler.service;
 
 
 import com.study.scheduler.entity.JobInfo;
+import com.study.scheduler.mapper.JobInfoMapper;
 import org.quartz.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;

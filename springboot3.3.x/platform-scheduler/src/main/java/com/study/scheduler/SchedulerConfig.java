@@ -7,6 +7,7 @@ import org.quartz.impl.JobDetailImpl;
 import org.quartz.spi.TriggerFiredBundle;
 import org.redisson.Redisson;
 import org.redisson.api.RedissonClient;
+import org.redisson.config.Config;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
 import org.springframework.beans.factory.config.PropertiesFactoryBean;
