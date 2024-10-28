@@ -6,10 +6,15 @@
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
-        <module name="TestCron" />
-        <module name="springboot3.3.x" />
-        <module name="springboot1.5.x" />
+        <module name="platform-common" />
+        <module name="platform-scheduler" />
+        <module name="springboottest" />
       </profile>
     </annotationProcessing>
+    <bytecodeTargetLevel>
+      <module name="springboot1.5.x" target="1.8" />
+      <module name="springboot2.7.x" target="1.8" />
+      <module name="TestCron" target="1.8" />
+    </bytecodeTargetLevel>
   </component>
 </project>

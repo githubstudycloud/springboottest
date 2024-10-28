@@ -41,6 +41,7 @@
             <commons-lang3.version>3.14.0</commons-lang3.version>
             <commons-io.version>2.15.1</commons-io.version>
             <guava.version>32.1.3-jre</guava.version>
+            <jackson.version>2.17.2</jackson.version>
 
             <!-- 日志监控 -->
             <logback.version>1.4.14</logback.version>
@@ -114,6 +115,32 @@
                     <groupId>com.google.guava</groupId>
                     <artifactId>guava</artifactId>
                     <version>${guava.version}</version>
+                </dependency>
+                <!-- 覆盖 Spring Boot 依赖的 Jackson 版本 -->
+                <dependency>
+                    <groupId>com.fasterxml.jackson.core</groupId>
+                    <artifactId>jackson-core</artifactId>
+                    <version>${jackson.version}</version>
+                </dependency>
+                <dependency>
+                    <groupId>com.fasterxml.jackson.core</groupId>
+                    <artifactId>jackson-databind</artifactId>
+                    <version>${jackson.version}</version>
+                </dependency>
+                <dependency>
+                    <groupId>com.fasterxml.jackson.core</groupId>
+                    <artifactId>jackson-annotations</artifactId>
+                    <version>${jackson.version}</version>
+                </dependency>
+                <dependency>
+                    <groupId>com.fasterxml.jackson.datatype</groupId>
+                    <artifactId>jackson-datatype-jsr310</artifactId>
+                    <version>${jackson.version}</version>
+                </dependency>
+                <dependency>
+                    <groupId>com.fasterxml.jackson.datatype</groupId>
+                    <artifactId>jackson-datatype-jdk8</artifactId>
+                    <version>${jackson.version}</version>
                 </dependency>
             </dependencies>
         </dependencyManagement>
