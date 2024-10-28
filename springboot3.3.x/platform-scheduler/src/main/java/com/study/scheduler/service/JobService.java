@@ -1,14 +1,21 @@
 package com.study.scheduler.service;
 
 
+import com.study.scheduler.config.RedisConfig;
 import com.study.scheduler.entity.JobInfo;
 import com.study.scheduler.mapper.JobInfoMapper;
 import org.quartz.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
+
+import java.time.Duration;
 
 @Service
 public class JobService {
+    private static final Logger logger = LoggerFactory.getLogger(RedisConfig.class);
     @Autowired
     private Scheduler scheduler;
 
@@ -85,5 +92,30 @@ public class JobService {
 
     private Class<? extends Job> getJobClass(String jobClass) throws Exception {
         return (Class<? extends Job>) Class.forName(jobClass);
+    }
+
+
+    @Autowired
+    private RedisTemplate<String, Object> redisTemplate;
+
+    private static final String JOB_LOCK_KEY_PREFIX = "scheduler:job:lock:";
+
+    /**
+     * 使用Redis分布式锁执行任务
+     */
+    public void executeJob(String jobName, Runnable task) {
+        String lockKey = JOB_LOCK_KEY_PREFIX + jobName;
+        Boolean acquired = redisTemplate.opsForValue()
+                .setIfAbsent(lockKey, "LOCKED", Duration.ofMinutes(10));
+
+        if (Boolean.TRUE.equals(acquired)) {
+            try {
+                task.run();
+            } finally {
+                redisTemplate.delete(lockKey);
+            }
+        } else {
+            logger.warn("Job {} is already running on another instance", jobName);
+        }
     }
 }

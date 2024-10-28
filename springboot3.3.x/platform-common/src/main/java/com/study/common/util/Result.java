@@ -68,4 +68,20 @@ public class Result<T> {
     public void setTimestamp(Long timestamp) {
         this.timestamp = timestamp;
     }
+
+    public Result<T> code(int code) {
+        this.code = code;
+        return this;
+    }
+
+    public Result<T> message(String message) {
+        this.message = message;
+        return this;
+    }
+
+    // 预定义状态码
+    public static final int SUCCESS = 200;
+    public static final int PARAM_ERROR = 400;
+    public static final int UNAUTHORIZED = 401;
+    public static final int SERVER_ERROR = 500;
 }

@@ -12,10 +12,11 @@ import org.redisson.api.RedissonClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.net.InetAddress;
 import java.util.Date;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 public abstract class BaseJob implements Job {
     protected final Logger logger = LoggerFactory.getLogger(getClass());
@@ -78,4 +79,5 @@ public abstract class BaseJob implements Job {
             return "unknown";
         }
     }
+
 }
