@@ -27,10 +27,24 @@ spring:
   quartz:
     job-store-type: jdbc
     jdbc:
-      initialize-schema: never  # never: 不初始化表结构，always: 总是初始化表结构
+      initialize-schema: always
     properties:
+      org.quartz.jobStore.useProperties: false
       org.quartz.scheduler.instanceName: ClusterScheduler
       org.quartz.scheduler.instanceId: AUTO
+      org.quartz.jobStore.class: org.quartz.impl.jdbcjobstore.JobStoreTX
+      org.quartz.jobStore.driverDelegateClass: org.quartz.impl.jdbcjobstore.StdJDBCDelegate
+      org.quartz.jobStore.tablePrefix: QRTZ_
+      org.quartz.jobStore.isClustered: true
+      org.quartz.jobStore.clusterCheckinInterval: 10000
+      org.quartz.jobStore.dataSource: quartzDataSource
+#  quartz:
+#    job-store-type: jdbc
+#    jdbc:
+#      initialize-schema: never  # never: 不初始化表结构，always: 总是初始化表结构
+#    properties:
+#      org.quartz.scheduler.instanceName: ClusterScheduler
+#      org.quartz.scheduler.instanceId: AUTO
   # Redis配置
   data:
     redis:
