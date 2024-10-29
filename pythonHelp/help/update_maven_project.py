@@ -21,50 +21,62 @@ class ProjectUpdater:
         shutil.copytree(self.project_dir, backup_path, ignore=shutil.ignore_patterns('backup', '.git', 'target'))
         print(f"项目已备份到: {backup_path}")
 
-    def update_package_structure(self):
-        """更新包结构（文件夹）"""
-        src_folders = []
+def update_package_structure(self):
+    """更新包结构（文件夹）"""
+    try:
         # 查找所有src/main/java和src/test/java目录
+        src_folders = []
         for src_path in self.project_dir.rglob('src/*/java'):
             if 'main/java' in str(src_path) or 'test/java' in str(src_path):
                 src_folders.append(src_path)
 
         for src_folder in src_folders:
             old_package_path = src_folder / self.old_path
-            if old_package_path.exists():
-                new_package_path = src_folder / self.new_path
+            new_package_path = src_folder / self.new_path
 
-                # 创建新的包路径
+            if old_package_path.exists():
+                print(f"处理目录: {old_package_path}")
+
+                # 确保新目录的父目录存在
                 new_package_path.parent.mkdir(parents=True, exist_ok=True)
 
-                # 如果新路径已存在，先合并内容
+                # 如果新路径已存在，需要合并内容
                 if new_package_path.exists():
+                    print(f"目标目录已存在，合并内容: {new_package_path}")
+                    # 复制所有文件
                     for item in old_package_path.rglob('*'):
                         if item.is_file():
-                            relative_path = item.relative_to(old_package_path)
-                            new_file_path = new_package_path / relative_path
+                            # 计算相对路径
+                            rel_path = item.relative_to(old_package_path)
+                            new_file_path = new_package_path / rel_path
+                            # 确保目标文件的父目录存在
                             new_file_path.parent.mkdir(parents=True, exist_ok=True)
+                            # 复制文件
                             shutil.copy2(str(item), str(new_file_path))
+                            print(f"复制文件: {item} -> {new_file_path}")
                 else:
+                    # 创建完整的目标目录路径
+                    new_package_path.parent.mkdir(parents=True, exist_ok=True)
                     # 直接移动整个目录
+                    print(f"移动目录: {old_package_path} -> {new_package_path}")
                     shutil.move(str(old_package_path), str(new_package_path))
 
-                print(f"已更新包结构: {old_package_path} -> {new_package_path}")
-
-                # 删除空的旧包目录
+                # 清理旧目录结构
                 try:
-                    if old_package_path.exists():
-                        shutil.rmtree(str(old_package_path))
-                    # 递归删除空父目录
-                    current_dir = old_package_path.parent
-                    while current_dir.exists() and current_dir != src_folder:
-                        if not any(current_dir.iterdir()):
+                    # 从最深层目录开始，逐级向上删除空目录
+                    current_dir = old_package_path
+                    while current_dir != src_folder:
+                        if current_dir.exists() and not any(current_dir.iterdir()):
+                            print(f"删除空目录: {current_dir}")
                             current_dir.rmdir()
                             current_dir = current_dir.parent
                         else:
                             break
                 except Exception as e:
-                    print(f"清理旧目录时出错: {str(e)}")
+                    print(f"清理目录时出错: {str(e)}")
+
+    except Exception as e:
+        print(f"更新包结构时出错: {str(e)}")
 
     def update_pom_files(self):
         """更新pom.xml文件中的包名"""
