@@ -54,16 +54,16 @@ public class SchedulerConfig {
     }
 }
 
-@Configuration
-class RedissonConfig {
-    @Bean
-    public RedissonClient redisson() {
-        Config config = new Config();
-        config.useSingleServer()
-                .setAddress("redis://localhost:6379");
-        return Redisson.create(config);
-    }
-}
+//@Configuration
+//class RedissonConfig {
+//    @Bean
+//    public RedissonClient redisson() {
+//        Config config = new Config();
+//        config.useSingleServer()
+//                .setAddress("redis://localhost:6379");
+//        return Redisson.create(config);
+//    }
+//}
 
 class CustomJobFactory extends SpringBeanJobFactory implements ApplicationContextAware {
     private AutowireCapableBeanFactory beanFactory;

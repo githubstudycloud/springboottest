@@ -7,6 +7,11 @@ import com.fasterxml.jackson.databind.jsontype.impl.LaissezFaireSubTypeValidator
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import jakarta.annotation.PostConstruct;
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
+import org.redisson.Redisson;
+import org.redisson.api.RedissonClient;
+import org.redisson.config.Config;
+import org.redisson.config.ClusterServersConfig;
+import org.redisson.config.SingleServerConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,7 +34,7 @@ import java.time.Duration;
 import java.util.List;
 
 @Configuration
-@AutoConfigureBefore(RedisAutoConfiguration.class)  // 确保在Redis自动配置之前执行
+@AutoConfigureBefore(RedisAutoConfiguration.class)
 public class RedisConfig {
 
     private static final Logger logger = LoggerFactory.getLogger(RedisConfig.class);
@@ -80,7 +85,7 @@ public class RedisConfig {
     }
 
     @Bean
-    @Primary  // 确保这个Bean是主要的RedisConnectionFactory
+    @Primary
     public RedisConnectionFactory redisConnectionFactory() {
         logger.info("Creating RedisConnectionFactory...");
         LettuceClientConfiguration clientConfig = getLettuceClientConfiguration();
@@ -90,6 +95,40 @@ public class RedisConfig {
         } else {
             return createStandaloneConnectionFactory(clientConfig);
         }
+    }
+
+    @Bean
+    public RedissonClient redissonClient() {
+        logger.info("Creating RedissonClient...");
+        Config config = new Config();
+
+        if (!clusterNodes.isEmpty()) {
+            // 集群模式
+            ClusterServersConfig clusterConfig = config.useClusterServers();
+            for (String node : clusterNodes) {
+                clusterConfig.addNodeAddress("redis://" + node);
+            }
+            if (!password.isEmpty()) {
+                clusterConfig.setPassword(password);
+            }
+            clusterConfig.setTimeout((int) timeout)
+                    .setMasterConnectionPoolSize(maxActive)
+                    .setSlaveConnectionPoolSize(maxActive);
+            logger.info("Configured Redisson for cluster mode");
+        } else {
+            // 单机模式
+            SingleServerConfig serverConfig = config.useSingleServer()
+                    .setAddress("redis://" + host + ":" + port)
+                    .setTimeout((int) timeout)
+                    .setConnectionPoolSize(maxActive)
+                    .setConnectionMinimumIdleSize(minIdle);
+            if (!password.isEmpty()) {
+                serverConfig.setPassword(password);
+            }
+            logger.info("Configured Redisson for standalone mode");
+        }
+
+        return Redisson.create(config);
     }
 
     private LettuceClientConfiguration getLettuceClientConfiguration() {
@@ -124,7 +163,7 @@ public class RedisConfig {
     }
 
     @Bean
-    @Primary  // 确保这个Bean是主要的RedisTemplate
+    @Primary
     public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory connectionFactory) {
         logger.info("Initializing RedisTemplate...");
         RedisTemplate<String, Object> template = new RedisTemplate<>();
