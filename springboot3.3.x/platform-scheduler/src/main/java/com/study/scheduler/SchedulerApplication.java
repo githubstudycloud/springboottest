@@ -6,7 +6,7 @@ import org.springframework.context.annotation.ComponentScan;
 
 @SpringBootApplication
 @ComponentScan(basePackages = {
-        "com.study.scheduler",
+        "com.study",
         "com.study.scheduler.config"  // 确保扫描到配置包
 })
 public class SchedulerApplication {
