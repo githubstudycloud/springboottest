@@ -1,3 +1,8 @@
+问题在于 Quartz 需要一个指定名称的数据源。让我们修改 SchedulerConfig，为数据源设置一个明确的名称，并在配置中引用它：
+
+
+
+```java
 package com.study.scheduler;
 
 import com.study.scheduler.listener.SchedulerJobListener;
@@ -117,3 +122,46 @@ class CustomJobFactory extends SpringBeanJobFactory implements ApplicationContex
         return job;
     }
 }
+
+```
+
+主要更改：
+
+1. 移除了对外部 quartz.properties 文件的依赖，直接在代码中配置
+2. 明确指定了数据源名称为 "quartzDataSource"
+3. 使用 setQuartzDataSource() 方法设置数据源名称
+4. 确保 JobStore 配置中的数据源名称匹配
+5. 添加了更详细的日志记录
+
+同时，我们还应该更新 application.yml 中的 Quartz 配置：
+
+```yaml
+spring:
+  quartz:
+    job-store-type: jdbc
+    jdbc:
+      initialize-schema: never
+    properties:
+      org.quartz.jobStore.useProperties: false
+      org.quartz.scheduler.instanceName: ClusterScheduler
+      org.quartz.scheduler.instanceId: AUTO
+      org.quartz.jobStore.class: org.quartz.impl.jdbcjobstore.JobStoreTX
+      org.quartz.jobStore.driverDelegateClass: org.quartz.impl.jdbcjobstore.StdJDBCDelegate
+      org.quartz.jobStore.tablePrefix: QRTZ_
+      org.quartz.jobStore.isClustered: true
+      org.quartz.jobStore.clusterCheckinInterval: 10000
+      org.quartz.jobStore.dataSource: quartzDataSource
+```
+
+这些更改应该能解决 "DataSource name not set" 的错误。关键改动是：
+
+1. 明确设置了数据源名称
+2. 确保所有相关配置都使用相同的数据源名称
+3. 将配置移到代码中以避免配置文件加载问题
+4. 添加了更多的日志来帮助诊断问题
+
+如果仍然遇到问题，请检查日志输出，看是否有其他错误信息。也可以尝试在启动时添加 debug 标志：
+```
+java -Ddebug=true -jar your-application.jar
+```
+这将提供更详细的诊断信息。
