@@ -32,7 +32,8 @@ spring:
       org.quartz.jobStore.useProperties: false
       org.quartz.scheduler.instanceName: ClusterScheduler
       org.quartz.scheduler.instanceId: AUTO
-      org.quartz.jobStore.class: org.quartz.impl.jdbcjobstore.JobStoreTX
+      org.quartz.jobStore.class: org.springframework.scheduling.quartz.LocalDataSourceJobStore
+#      org.quartz.jobStore.class: org.quartz.impl.jdbcjobstore.JobStoreTX
       org.quartz.jobStore.driverDelegateClass: org.quartz.impl.jdbcjobstore.StdJDBCDelegate
       org.quartz.jobStore.tablePrefix: QRTZ_
       org.quartz.jobStore.isClustered: true
