@@ -1,199 +1,127 @@
 import os
+from pathlib import Path
 import re
 import shutil
-from pathlib import Path
 from datetime import datetime
-import xml.etree.ElementTree as ET
-import argparse
 
-class MavenProjectUpdater:
-    def __init__(self, project_dir):
+class ProjectUpdater:
+    def __init__(self, project_dir, old_package, new_package):
         self.project_dir = Path(project_dir)
+        self.old_package = old_package
+        self.new_package = new_package
         self.backup_dir = self.project_dir / 'backup'
-        self.original_group_id = None
-        self.pom_files = {}  # 存储所有pom文件及其内容的缓存
 
     def backup_project(self):
-        """备份整个项目"""
+        """备份项目"""
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         backup_path = self.backup_dir / timestamp
         shutil.copytree(self.project_dir, backup_path, ignore=shutil.ignore_patterns('backup', '.git', 'target'))
         print(f"项目已备份到: {backup_path}")
 
-    def load_pom_files(self):
-        """加载所有pom文件并缓存内容"""
+    def update_pom_files(self):
+        """更新pom.xml文件中的包名"""
         for pom_file in self.project_dir.rglob('pom.xml'):
-            with open(pom_file, 'r', encoding='utf-8') as f:
-                content = f.read()
-                self.pom_files[pom_file] = content
-                # 获取根项目的groupId
-                if pom_file.parent == self.project_dir:
-                    match = re.search(r'<groupId>([^<]+)</groupId>', content)
-                    if match:
-                        self.original_group_id = match.group(1)
-        print(f"已找到原始groupId: {self.original_group_id}")
+            self._update_pom(pom_file)
 
-    def update_pom_files(self, new_group_id=None, new_artifact_id=None, new_version=None):
-        """更新所有pom.xml文件"""
-        self.load_pom_files()
-
-        if not self.original_group_id:
-            print("警告：未找到原始groupId")
-            return
-
-        for pom_file, content in self.pom_files.items():
-            self._update_pom_file(pom_file, content, new_group_id, new_artifact_id, new_version)
-
-    def _update_pom_file(self, pom_file, content, new_group_id, new_artifact_id, new_version):
+    def _update_pom(self, pom_file):
         """更新单个pom.xml文件"""
-        try:
-            content_lines = content.split('\n')
-            updated_lines = []
-            in_dependencies = False
-            in_dependency = False
-            in_parent = False
-            current_dependency_group = None
+        with open(pom_file, 'r', encoding='utf-8') as f:
+            content = f.read()
 
-            for line in content_lines:
-                # 检查标签状态
-                if '<dependencies>' in line:
-                    in_dependencies = True
-                elif '</dependencies>' in line:
-                    in_dependencies = False
-                elif '<dependency>' in line:
-                    in_dependency = True
-                elif '</dependency>' in line:
-                    in_dependency = False
-                    current_dependency_group = None
-                elif '<parent>' in line:
-                    in_parent = True
-                elif '</parent>' in line:
-                    in_parent = False
+        # 更新项目本身的groupId
+        updated_content = re.sub(
+            f'<groupId>{self.old_package}</groupId>',
+            f'<groupId>{self.new_package}</groupId>',
+            content
+        )
 
-                # 处理行内容
-                if new_group_id:
-                    if '<groupId>' in line:
-                        group_id_match = re.search(r'<groupId>([^<]+)</groupId>', line)
-                        if group_id_match:
-                            current_group_id = group_id_match.group(1)
-                            # 更新条件：
-                            # 1. 在parent标签内且group_id匹配
-                            # 2. 不在dependencies内的project group_id
-                            # 3. 在dependencies内且是项目内部依赖
-                            if ((in_parent and current_group_id == self.original_group_id) or
-                                    (not in_dependencies and current_group_id == self.original_group_id) or
-                                    (in_dependency and current_group_id == self.original_group_id)):
-                                line = line.replace(current_group_id, new_group_id)
-                                if in_dependency:
-                                    current_dependency_group = new_group_id
-                                print(f"在 {pom_file} 中更新了 groupId: {current_group_id} -> {new_group_id}")
+        # 更新对其他模块的依赖
+        updated_content = re.sub(
+            f'<dependency>\\s*<groupId>{self.old_package}</groupId>',
+            f'<dependency><groupId>{self.new_package}</groupId>',
+            updated_content
+        )
 
-                if new_artifact_id and not in_dependencies and not in_dependency:
-                    if '<artifactId>' in line:
-                        line = re.sub(
-                            r'(<artifactId>)[^<]+(</artifactId>)',
-                            rf'\1{new_artifact_id}\2',
-                            line,
-                            count=1
-                        )
+        # 更新parent的groupId
+        updated_content = re.sub(
+            f'<parent>\\s*<groupId>{self.old_package}</groupId>',
+            f'<parent><groupId>{self.new_package}</groupId>',
+            updated_content
+        )
 
-                if new_version and not in_dependencies and not in_dependency:
-                    if '<version>' in line:
-                        line = re.sub(
-                            r'(<version>)[^<]+(</version>)',
-                            rf'\1{new_version}\2',
-                            line,
-                            count=1
-                        )
-
-                updated_lines.append(line)
-
-            # 写回文件
+        if content != updated_content:
             with open(pom_file, 'w', encoding='utf-8') as f:
-                f.write('\n'.join(updated_lines))
-
+                f.write(updated_content)
             print(f"已更新 POM 文件: {pom_file}")
 
-        except Exception as e:
-            print(f"更新POM文件 {pom_file} 时出错: {str(e)}")
-
-    def update_java_packages(self, old_group_id, new_group_id):
+    def update_java_files(self):
         """更新Java文件中的包名"""
-        if not old_group_id or not new_group_id:
-            return
+        old_path = self.old_package.replace('.', '/')
+        new_path = self.new_package.replace('.', '/')
 
-        old_package_path = old_group_id.replace('.', '/')
-        new_package_path = new_group_id.replace('.', '/')
+        for java_file in self.project_dir.rglob('*.java'):
+            self._update_java_file(java_file, old_path, new_path)
 
-        # 查找所有Java文件
-        java_files = list(self.project_dir.rglob('*.java'))
+    def _update_java_file(self, java_file, old_path, new_path):
+        """更新单个Java文件"""
+        try:
+            with open(java_file, 'r', encoding='utf-8') as f:
+                content = f.read()
 
-        for java_file in java_files:
-            try:
-                # 读取文件内容
-                with open(java_file, 'r', encoding='utf-8') as f:
-                    content = f.read()
+            # 更新package声明
+            updated_content = re.sub(
+                f'package {self.old_package}',
+                f'package {self.new_package}',
+                content
+            )
 
-                # 更新package语句
-                content = content.replace(
-                    f'package {old_group_id}',
-                    f'package {new_group_id}'
-                )
+            # 更新import语句
+            updated_content = re.sub(
+                f'import {self.old_package}',
+                f'import {self.new_package}',
+                updated_content
+            )
 
-                # 更新import语句
-                content = content.replace(
-                    f'import {old_group_id}',
-                    f'import {new_group_id}'
-                )
-
-                # 写回文件
+            if content != updated_content:
                 with open(java_file, 'w', encoding='utf-8') as f:
-                    f.write(content)
-
+                    f.write(updated_content)
                 print(f"已更新Java文件: {java_file}")
 
-            except Exception as e:
-                print(f"更新Java文件 {java_file} 时出错: {str(e)}")
+            # 移动文件到新的包路径
+            if old_path in str(java_file):
+                new_file_path = str(java_file).replace(old_path, new_path)
+                new_dir = os.path.dirname(new_file_path)
 
-        # 移动Java文件到新的包路径
-        for java_file in java_files:
-            if old_package_path in str(java_file):
-                new_file_path = str(java_file).replace(old_package_path, new_package_path)
-                new_file_path = Path(new_file_path)
+                if not os.path.exists(new_dir):
+                    os.makedirs(new_dir)
 
-                # 创建新目录
-                new_file_path.parent.mkdir(parents=True, exist_ok=True)
-
-                # 移动文件
-                if str(java_file) != str(new_file_path):
-                    shutil.move(str(java_file), str(new_file_path))
+                if str(java_file) != new_file_path:
+                    shutil.move(str(java_file), new_file_path)
                     print(f"已移动文件: {java_file} -> {new_file_path}")
 
+        except Exception as e:
+            print(f"处理文件 {java_file} 时出错: {str(e)}")
+
 def main():
-    parser = argparse.ArgumentParser(description='更新Maven项目的groupId、artifactId和version')
-    parser.add_argument('project_dir', help='Maven项目根目录')
-    parser.add_argument('--group-id', help='新的groupId')
-    parser.add_argument('--artifact-id', help='新的artifactId')
-    parser.add_argument('--version', help='新的version')
-    parser.add_argument('--old-group-id', help='原来的groupId（用于更新Java包名）')
+    # 配置项目路径和包名
+    project_dir = input("请输入项目根目录路径: ")
+    old_package = input("请输入原包名 (默认: com.study): ") or "com.study"
+    new_package = input("请输入新包名 (例如: com.test.yy): ")
 
-    args = parser.parse_args()
-
-    if not any([args.group_id, args.artifact_id, args.version]):
-        print("错误：至少需要指定一个要更新的值（groupId、artifactId 或 version）")
+    if not new_package:
+        print("错误：新包名不能为空")
         return
 
-    updater = MavenProjectUpdater(args.project_dir)
+    updater = ProjectUpdater(project_dir, old_package, new_package)
 
     # 备份项目
     updater.backup_project()
 
-    # 更新POM文件
-    updater.update_pom_files(args.group_id, args.artifact_id, args.version)
+    # 更新文件
+    updater.update_pom_files()
+    updater.update_java_files()
 
-    # 如果提供了新旧groupId，更新Java包名
-    if args.group_id and args.old_group_id:
-        updater.update_java_packages(args.old_group_id, args.group_id)
+    print("\n更新完成！请检查更新结果。")
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
