@@ -1,0 +1,74 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: platform-scheduler
+
+  # 数据源配置
+  datasource:
+    driver-class-name: org.mariadb.jdbc.Driver
+    url: jdbc:mariadb://192.168.80.131:3306/test?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
+    username: root
+    password: 123456
+    type: com.zaxxer.hikari.HikariDataSource
+    # Hikari 连接池配置
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 15
+      idle-timeout: 30000
+      pool-name: SchedulerHikariCP
+      max-lifetime: 1800000
+      connection-timeout: 30000
+      connection-test-query: SELECT 1
+
+  # Quartz配置
+  quartz:
+    job-store-type: jdbc
+    jdbc:
+      initialize-schema: never  # never: 不初始化表结构，always: 总是初始化表结构
+    properties:
+      org.quartz.scheduler.instanceName: ClusterScheduler
+      org.quartz.scheduler.instanceId: AUTO
+      org.quartz.jobStore.class: org.quartz.impl.jdbcjobstore.JobStoreTX
+      org.quartz.jobStore.driverDelegateClass: org.quartz.impl.jdbcjobstore.StdJDBCDelegate
+      org.quartz.jobStore.tablePrefix: QRTZ_
+      org.quartz.jobStore.isClustered: true
+      org.quartz.jobStore.clusterCheckinInterval: 10000
+      org.quartz.jobStore.useProperties: false
+      org.quartz.threadPool.class: org.quartz.simpl.SimpleThreadPool
+      org.quartz.threadPool.threadCount: 10
+      org.quartz.threadPool.threadPriority: 5
+      org.quartz.threadPool.threadsInheritContextClassLoaderOfInitializingThread: true
+      org.quartz.jobStore.misfireThreshold: 60000
+
+  data:
+    redis:
+      host: 192.168.80.131
+      port: 6379
+      password: 123456
+      timeout: 5000
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+          max-wait: 1000
+
+# MyBatis配置
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
+
+# 日志配置
+logging:
+  level:
+    com.study: debug
+    org.springframework.jdbc.core: debug
+
+# 定时任务配置
+scheduler:
+  log:
+    retain-days: 30  # 日志保留天数
