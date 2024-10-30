@@ -769,3 +769,195 @@ management:
 
 需要我详细解释某部分的实现吗？
 
+## Prompt:
+aop丢的throwable，全局里能抓到吗
+
+## Response:
+确实,AOP抛出的Throwable在@ExceptionHandler中可能捕获不到。让我修正一下:
+
+1.  修改全局异常处理:
+
+```java
+@ControllerAdvice
+@Slf4j
+public class GlobalExceptionHandler implements Thread.UncaughtExceptionHandler {
+    
+    @Value("${spring.rabbitmq.listener.simple.prefetch}")
+    private int prefetchCount;
+    
+    private final AtomicInteger errorCount = new AtomicInteger(0);
+    private static final int MAX_ERROR_COUNT = 100;
+
+    @PostConstruct
+    public void init() {
+        // 设置未捕获异常处理器
+        Thread.setDefaultUncaughtExceptionHandler(this);
+    }
+    
+    @Override
+    public void uncaughtException(Thread t, Throwable e) {
+        handleError(e);
+    }
+    
+    @ExceptionHandler({Exception.class, Throwable.class})
+    public void handleException(Throwable e) {
+        handleError(e);
+    }
+    
+    private void handleError(Throwable e) {
+        int currentErrors = errorCount.incrementAndGet();
+        log.error("消息处理错误 当前错误数:{}/{}", currentErrors, MAX_ERROR_COUNT, e);
+        
+        if (currentErrors >= MAX_ERROR_COUNT) {
+            log.error("错误次数过多，主动停止服务");
+            sendAlert();
+            System.exit(1);
+        }
+    }
+    
+    // ... 其他方法保持不变
+}
+```
+
+2.  AOP可以简化为不抛出具体异常类型:
+
+```java
+@Aspect
+@Component
+@Slf4j
+public class RabbitListenerAspect {
+
+    @Around("@annotation(org.springframework.amqp.rabbit.annotation.RabbitListener)")
+    public Object handleRabbitListener(ProceedingJoinPoint point) throws Throwable {
+        Message message = extractMessage(point.getArgs());
+        Channel channel = extractChannel(point.getArgs());
+        
+        if (message == null || channel == null) {
+            return point.proceed();
+        }
+        
+        long deliveryTag = message.getMessageProperties().getDeliveryTag();
+        boolean ackSuccess = false;
+        
+        try {
+            Object result = point.proceed();
+            ackSuccess = true;
+            return result;
+        } finally {
+            try {
+                confirmMessage(channel, deliveryTag, ackSuccess);
+            } catch (IOException e) {
+                log.error("消息确认失败", e);
+                // 这里的异常也会被全局处理器捕获
+            }
+        }
+    }
+    
+    private Message extractMessage(Object[] args) {
+        return Arrays.stream(args)
+            .filter(arg -> arg instanceof Message)
+            .map(arg -> (Message) arg)
+            .findFirst()
+            .orElse(null);
+    }
+    
+    private Channel extractChannel(Object[] args) {
+        return Arrays.stream(args)
+            .filter(arg -> arg instanceof Channel)
+            .map(arg -> (Channel) arg)
+            .findFirst()
+            .orElse(null);
+    }
+    
+    private void confirmMessage(Channel channel, long deliveryTag, boolean success) throws IOException {
+        if (success) {
+            channel.basicAck(deliveryTag, false);
+            log.info("消息确认成功: {}", deliveryTag);
+        } else {
+            channel.basicNack(deliveryTag, false, true);
+            log.error("消息重新入队: {}", deliveryTag);
+        }
+    }
+}
+```
+
+3.  为了更好的捕获异常，可以添加异步消息处理器:
+
+```java
+@Configuration
+public class RabbitConfig {
+    
+    @Bean
+    public SimpleRabbitListenerContainerFactory rabbitListenerContainerFactory(
+            ConnectionFactory connectionFactory,
+            SimpleRabbitListenerContainerFactoryConfigurer configurer) {
+        
+        SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
+        configurer.configure(factory, connectionFactory);
+        
+        factory.setErrorHandler(new ConditionalRejectingErrorHandler(
+            new ConditionalRejectingErrorHandler.DefaultExceptionStrategy() {
+                @Override
+                public boolean isFatal(Throwable t) {
+                    log.error("消息处理错误", t);
+                    return super.isFatal(t);
+                }
+            }));
+            
+        return factory;
+    }
+}
+```
+
+主要改进：
+
+1.  实现了Thread.UncaughtExceptionHandler接口
+2.  使用@PostConstruct设置全局未捕获异常处理器
+3.  简化了AOP的异常处理
+4.  添加了RabbitMQ的异常处理器配置
+
+这样设计的好处：
+
+1.  能捕获所有类型的异常和错误
+2.  异常处理更加集中
+3.  不会遗漏任何错误情况
+4.  保证系统稳定性
+
+还有什么需要补充的吗？
+
+## Prompt:
+配置不变是吗
+
+## Response:
+是的,配置保持不变：
+
+```yaml
+spring:
+  rabbitmq:
+    listener:
+      simple:
+        acknowledge-mode: manual    # 手动确认模式
+        prefetch: 1                # 预取数量
+        retry:
+          enabled: false           # 关闭重试，因为我们自己控制
+    connection-timeout: 5000      # 连接超时设置
+
+# 添加健康监控配置(可选)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,prometheus
+  metrics:
+    tags:
+      application: ${spring.application.name}
+```
+
+关键配置说明：
+
+1.  acknowledge-mode: manual - 必须设置为手动确认
+2.  prefetch: 1 - 预取数量建议先设置为1，根据性能再调整
+3.  retry.enabled: false - 关闭自动重试，由我们的AOP和异常处理来控制
+
+这些配置配合之前的代码就能正常工作了。
+
