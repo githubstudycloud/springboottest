@@ -961,3 +961,83 @@ management:
 
 这些配置配合之前的代码就能正常工作了。
 
+## Prompt:
+对于Object\[\]，优先使用泛型集合，而不是数组，修改下
+
+## Response:
+好的,我来修改使用泛型集合来处理参数：
+
+```java
+@Aspect
+@Component
+@Slf4j
+public class RabbitListenerAspect {
+
+    @Around("@annotation(org.springframework.amqp.rabbit.annotation.RabbitListener)")
+    public Object handleRabbitListener(ProceedingJoinPoint point) throws Throwable {
+        List<Object> args = Arrays.asList(point.getArgs());
+        Message message = extractMessage(args);
+        Channel channel = extractChannel(args);
+        
+        if (message == null || channel == null) {
+            return point.proceed();
+        }
+        
+        long deliveryTag = message.getMessageProperties().getDeliveryTag();
+        boolean ackSuccess = false;
+        
+        try {
+            Object result = point.proceed();
+            ackSuccess = true;
+            return result;
+        } finally {
+            try {
+                confirmMessage(channel, deliveryTag, ackSuccess);
+            } catch (IOException e) {
+                log.error("消息确认失败", e);
+            }
+        }
+    }
+    
+    private Message extractMessage(List<Object> args) {
+        return args.stream()
+            .filter(Message.class::isInstance)
+            .map(Message.class::cast)
+            .findFirst()
+            .orElse(null);
+    }
+    
+    private Channel extractChannel(List<Object> args) {
+        return args.stream()
+            .filter(Channel.class::isInstance)
+            .map(Channel.class::cast)
+            .findFirst()
+            .orElse(null);
+    }
+    
+    private void confirmMessage(Channel channel, long deliveryTag, boolean success) throws IOException {
+        if (success) {
+            channel.basicAck(deliveryTag, false);
+            log.info("消息确认成功: {}", deliveryTag);
+        } else {
+            channel.basicNack(deliveryTag, false, true);
+            log.error("消息重新入队: {}", deliveryTag);
+        }
+    }
+}
+```
+
+主要改进：
+
+1.  使用Arrays.asList转换数组为List
+2.  使用泛型Class::isInstance进行类型判断
+3.  使用Class::cast进行类型转换
+4.  使用Stream API处理集合
+
+这样的代码：
+
+1.  类型更安全
+2.  可读性更好
+3.  更符合Java现代编程风格
+4.  更容易进行单元测试
+
