@@ -1,7 +1,14 @@
 package com.study.scheduler.job;
 
+import com.study.scheduler.entity.JobInfo;
+import com.study.scheduler.entity.JobLog;
+import com.study.scheduler.mapper.JobLogMapper;
+import com.study.scheduler.service.JobService;
 import org.quartz.JobExecutionContext;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+
+import java.util.List;
 
 @Component
 public class DemoJob extends BaseJob {
@@ -15,5 +22,28 @@ public class DemoJob extends BaseJob {
         Thread.sleep(1000);
 
         // 任务逻辑...
+    }
+
+    // 执行查询日志
+    @Autowired
+    private JobLogMapper jobLogMapper;
+
+    public List<JobLog> getJobLogs(String jobName, String jobGroup) {
+        return jobLogMapper.findRecentLogs(jobName, jobGroup, 10);
+    }
+
+    // 创建新任务
+    @Autowired
+    private JobService jobService;
+
+    public void createJob() throws Exception {
+        JobInfo jobInfo = new JobInfo();
+        jobInfo.setJobName("demoJob");
+        jobInfo.setJobGroup("demo");
+        jobInfo.setJobClass("com.example.scheduler.job.DemoJob");
+        jobInfo.setCronExpression("0 0/5 * * * ?");
+        jobInfo.setDescription("示例任务");
+        jobInfo.setParameter("{\"key\":\"value\"}");
+        jobService.addJob(jobInfo);
     }
 }
