@@ -1,4 +1,16 @@
 https://claude.ai/chat/820ba08d-cf2c-48d9-a1ab-a6f80bc2de54
+
+
+https://gitee.com/xu_dazhous_spring/nginx-ui
+docker run -dit \
+--name=nginx-ui \
+--restart=always \
+-e TZ=Asia/Shanghai \
+-v /mnt/user/appdata/nginx:/etc/nginx \
+-v /mnt/user/appdata/nginx-ui:/etc/nginx-ui \
+-p 8080:80 -p 5443:443 \
+uozi/nginx-ui:latest
+
 ## Prompt:
 在Docker镜像部署指南中我们下载了许多镜像，在project\_overview中有目前的项目代码，现在使用Portainer，Nginx Proxy Manager，DPanel 如何使用
 

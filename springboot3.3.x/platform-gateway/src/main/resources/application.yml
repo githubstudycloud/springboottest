@@ -1,0 +1,64 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: platform-gateway
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 192.168.80.131:8848
+        username: nacos
+        password: nacos
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+      routes:
+        - id: scheduler-service
+          uri: lb://platform-scheduler
+          predicates:
+            - Path=/scheduler/**
+          filters:
+            - StripPrefix=1
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 10
+                redis-rate-limiter.burstCapacity: 20
+                redis-rate-limiter.requestedTokens: 1
+            - name: CircuitBreaker
+              args:
+                name: schedulerCircuitBreaker
+                fallbackUri: forward:/fallback
+
+  data:
+    redis:
+      cluster:
+        nodes:
+          - 192.168.80.131:6379
+          - 192.168.80.131:6380
+          - 192.168.80.131:6381
+          - 192.168.80.131:6382
+          - 192.168.80.131:6383
+          - 192.168.80.131:6384
+      password: 123456
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,gateway
+  endpoint:
+    health:
+      show-details: always
+    gateway:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+logging:
+  level:
+    org.springframework.cloud.gateway: DEBUG
+    reactor.netty: DEBUG
