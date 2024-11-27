@@ -87,11 +87,8 @@ logging:
   level:
     com.study: debug
     org.springframework.jdbc.core: debug
-    org.apache.http: DEBUG
-    javax.net: DEBUG
 
 # 定时任务配置
 scheduler:
   log:
     retain-days: 30  # 日志保留天数
-

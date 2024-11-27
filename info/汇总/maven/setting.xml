@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 http://maven.apache.org/xsd/settings-1.0.0.xsd">
+
+    <!-- 本地仓库路径 -->
+    <localRepository>${user.home}/.m2/repository</localRepository>
+
+    <!-- SSL/TLS 配置 -->
+    <servers>
+        <server>
+            <id>central</id>
+            <configuration>
+                <httpConfiguration>
+                    <all>
+                        <usePreemptive>true</usePreemptive>
+                        <params>
+                            <property>
+                                <name>http.protocol.handle-redirects</name>
+                                <value>true</value>
+                            </property>
+                        </params>
+                        <ssl>
+                            <protocol>TLS</protocol>
+                            <trustServerCertificate>true</trustServerCertificate>
+                            <allowAllCertificates>true</allowAllCertificates>
+                        </ssl>
+                    </all>
+                </httpConfiguration>
+            </configuration>
+        </server>
+    </servers>
+
+    <!-- 配置阿里云镜像 -->
+    <mirrors>
+        <!-- 阿里云公共仓库 -->
+        <mirror>
+            <id>aliyun</id>
+            <name>aliyun maven</name>
+            <url>https://maven.aliyun.com/repository/public</url>
+            <mirrorOf>central</mirrorOf>
+        </mirror>
+
+        <!-- 阿里云谷歌仓库 -->
+        <mirror>
+            <id>aliyun-google</id>
+            <name>aliyun google</name>
+            <url>https://maven.aliyun.com/repository/google</url>
+            <mirrorOf>google</mirrorOf>
+        </mirror>
+
+        <!-- 阿里云Spring仓库 -->
+        <mirror>
+            <id>aliyun-spring</id>
+            <name>aliyun spring</name>
+            <url>https://maven.aliyun.com/repository/spring</url>
+            <mirrorOf>spring</mirrorOf>
+        </mirror>
+
+        <!-- 阿里云Spring插件仓库 -->
+        <mirror>
+            <id>aliyun-spring-plugin</id>
+            <name>aliyun spring-plugin</name>
+            <url>https://maven.aliyun.com/repository/spring-plugin</url>
+            <mirrorOf>spring-plugin</mirrorOf>
+        </mirror>
+    </mirrors>
+
+    <!-- 配置profile -->
+    <profiles>
+        <profile>
+            <id>jdk-21</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+                <jdk>21</jdk>
+            </activation>
+            <!-- Java 21编译器设置 -->
+            <properties>
+                <maven.compiler.source>21</maven.compiler.source>
+                <maven.compiler.target>21</maven.compiler.target>
+                <maven.compiler.compilerVersion>21</maven.compiler.compilerVersion>
+                <java.version>21</java.version>
+            </properties>
+            <repositories>
+                <repository>
+                    <id>central</id>
+                    <url>https://repo1.maven.org/maven2</url>
+                    <releases>
+                        <enabled>true</enabled>
+                    </releases>
+                    <snapshots>
+                        <enabled>true</enabled>
+                    </snapshots>
+                </repository>
+
+                <!-- Spring repositories -->
+                <repository>
+                    <id>spring-milestones</id>
+                    <name>Spring Milestones</name>
+                    <url>https://repo.spring.io/milestone</url>
+                    <snapshots>
+                        <enabled>false</enabled>
+                    </snapshots>
+                </repository>
+
+                <!-- Apache Snapshots -->
+                <repository>
+                    <id>apache-snapshots</id>
+                    <name>Apache Development Snapshot Repository</name>
+                    <url>https://repository.apache.org/content/repositories/snapshots/</url>
+                    <releases>
+                        <enabled>false</enabled>
+                    </releases>
+                    <snapshots>
+                        <enabled>true</enabled>
+                    </snapshots>
+                </repository>
+            </repositories>
+
+            <pluginRepositories>
+                <pluginRepository>
+                    <id>central</id>
+                    <url>https://repo1.maven.org/maven2</url>
+                    <releases>
+                        <enabled>true</enabled>
+                    </releases>
+                    <snapshots>
+                        <enabled>true</enabled>
+                    </snapshots>
+                </pluginRepository>
+
+                <!-- Spring plugin repositories -->
+                <pluginRepository>
+                    <id>spring-milestones</id>
+                    <name>Spring Milestones</name>
+                    <url>https://repo.spring.io/milestone</url>
+                    <snapshots>
+                        <enabled>false</enabled>
+                    </snapshots>
+                </pluginRepository>
+            </pluginRepositories>
+        </profile>
+    </profiles>
+
+    <!-- 激活配置 -->
+    <activeProfiles>
+        <activeProfile>jdk-21</activeProfile>
+    </activeProfiles>
+</settings>

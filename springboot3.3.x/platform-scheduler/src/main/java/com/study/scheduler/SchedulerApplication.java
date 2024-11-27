@@ -11,6 +11,9 @@ import org.springframework.context.annotation.ComponentScan;
 })
 public class SchedulerApplication {
     public static void main(String[] args) {
+
+        // 开启SSL调试（可选）
+        System.setProperty("javax.net.debug", "ssl,handshake");
         SpringApplication.run(SchedulerApplication.class, args);
     }
 }
