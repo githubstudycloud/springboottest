@@ -6,6 +6,7 @@ import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.config.Registry;
 import org.apache.http.config.RegistryBuilder;
 import org.apache.http.conn.ConnectionKeepAliveStrategy;
@@ -13,7 +14,6 @@ import org.apache.http.conn.socket.ConnectionSocketFactory;
 import org.apache.http.conn.socket.PlainConnectionSocketFactory;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
-import org.apache.http.conn.ssl.TrustStrategy;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
@@ -25,7 +25,6 @@ import org.apache.http.util.EntityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.SSLContext;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -33,22 +32,15 @@ import java.security.KeyManagementException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.X509Certificate;
-import java.util.concurrent.Executors;
-import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.List;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class HttpClientUtil {
     private static final Logger logger = LoggerFactory.getLogger(HttpClientUtil.class);
 
-    private static CloseableHttpClient httpClient;
-    private static PoolingHttpClientConnectionManager connectionManager;
-    private static RequestConfig requestConfig;
-    private static ScheduledExecutorService connectionMonitorExecutor;
-    private static final AtomicBoolean isMonitorRunning = new AtomicBoolean(false);
-
-    // Configuration constants
+    // HTTP客户端相关配置
     private static final int MAX_TOTAL_CONNECTIONS = 500;
     private static final int DEFAULT_MAX_PER_ROUTE = 100;
     private static final int REQUEST_TIMEOUT = 10000;
@@ -56,11 +48,26 @@ public class HttpClientUtil {
     private static final int SOCKET_TIMEOUT = 10000;
     private static final int DEFAULT_KEEP_ALIVE_TIME_MILLIS = 20 * 1000;
     private static final int CLOSE_IDLE_CONNECTION_WAIT_TIME_SECS = 30;
-    private static final int MONITOR_THREAD_POOL_SIZE = 1;
+
+    // 线程池配置
+    private static final int CORE_POOL_SIZE = 1;
+    private static final int MAX_POOL_SIZE = 1;
+    private static final int QUEUE_CAPACITY = 100;
     private static final int MONITOR_PERIOD_SECONDS = 10;
     private static final int SHUTDOWN_TIMEOUT_SECONDS = 5;
+    private static final String MONITOR_THREAD_PREFIX = "http-connection-monitor-";
+
+    // 实例变量
+    private static CloseableHttpClient httpClient;
+    private static PoolingHttpClientConnectionManager connectionManager;
+    private static RequestConfig requestConfig;
+    private static ScheduledThreadPoolExecutor connectionMonitorExecutor;
+    private static final AtomicBoolean isMonitorRunning = new AtomicBoolean(false);
 
     static {
+        Thread.setDefaultUncaughtExceptionHandler((thread, throwable) ->
+                logger.error("Uncaught exception in thread {}", thread.getName(), throwable));
+
         try {
             init();
         } catch (KeyManagementException | NoSuchAlgorithmException | KeyStoreException e) {
@@ -70,51 +77,39 @@ public class HttpClientUtil {
     }
 
     private HttpClientUtil() {
-        // Utility class, hide constructor
+        // 工具类禁止实例化
     }
 
     private static void init() throws KeyManagementException, NoSuchAlgorithmException, KeyStoreException {
-        initializeSSLComponents();
-        initializeConnectionManager();
-        initializeHttpClient();
+        initSslContext();
+        initConnectionManager();
+        initHttpClient();
         startIdleConnectionMonitor();
         logger.info("HttpClientUtil initialized successfully");
     }
 
-    private static void initializeSSLComponents() throws KeyManagementException, NoSuchAlgorithmException, KeyStoreException {
-        SSLContext sslContext = createSSLContext();
-        HostnameVerifier hostnameVerifier = NoopHostnameVerifier.INSTANCE;
-        SSLConnectionSocketFactory sslSocketFactory = createSSLSocketFactory(sslContext, hostnameVerifier);
-        Registry<ConnectionSocketFactory> socketFactoryRegistry = createSocketFactoryRegistry(sslSocketFactory);
+    private static void initSslContext() throws KeyManagementException, NoSuchAlgorithmException, KeyStoreException {
+        SSLContext sslContext = SSLContextBuilder.create()
+                .loadTrustMaterial(null, (X509Certificate[] chain, String authType) -> true)
+                .build();
 
-        connectionManager = new PoolingHttpClientConnectionManager(socketFactoryRegistry);
+        SSLConnectionSocketFactory sslFactory = new SSLConnectionSocketFactory(
+                sslContext,
+                new String[]{"TLSv1", "TLSv1.1", "TLSv1.2", "TLSv1.3"},
+                null,
+                NoopHostnameVerifier.INSTANCE);
+
+        Registry<ConnectionSocketFactory> registry = RegistryBuilder.<ConnectionSocketFactory>create()
+                .register("http", PlainConnectionSocketFactory.getSocketFactory())
+                .register("https", sslFactory)
+                .build();
+
+        connectionManager = new PoolingHttpClientConnectionManager(registry);
         connectionManager.setMaxTotal(MAX_TOTAL_CONNECTIONS);
         connectionManager.setDefaultMaxPerRoute(DEFAULT_MAX_PER_ROUTE);
     }
 
-    private static SSLContext createSSLContext() throws KeyManagementException, NoSuchAlgorithmException, KeyStoreException {
-        return SSLContextBuilder
-                .create()
-                .loadTrustMaterial((X509Certificate[] chain, String authType) -> true)
-                .build();
-    }
-
-    private static SSLConnectionSocketFactory createSSLSocketFactory(SSLContext sslContext, HostnameVerifier hostnameVerifier) {
-        return new SSLConnectionSocketFactory(
-                sslContext,
-                new String[]{"TLSv1", "TLSv1.1", "TLSv1.2", "TLSv1.3"},
-                null,
-                hostnameVerifier);
-    }
-
-    private static Registry<ConnectionSocketFactory> createSocketFactoryRegistry(SSLConnectionSocketFactory sslSocketFactory) {
-        return RegistryBuilder.<ConnectionSocketFactory>create()
-                .register("http", PlainConnectionSocketFactory.getSocketFactory())
-                .register("https", sslSocketFactory)
-                .build();
-    }
-
-    private static void initializeConnectionManager() {
+    private static void initConnectionManager() {
         requestConfig = RequestConfig.custom()
                 .setConnectTimeout(CONNECT_TIMEOUT)
                 .setSocketTimeout(SOCKET_TIMEOUT)
@@ -122,17 +117,8 @@ public class HttpClientUtil {
                 .build();
     }
 
-    private static void initializeHttpClient() {
-        ConnectionKeepAliveStrategy keepAliveStrategy = createKeepAliveStrategy();
-        httpClient = HttpClients.custom()
-                .setConnectionManager(connectionManager)
-                .setKeepAliveStrategy(keepAliveStrategy)
-                .setDefaultRequestConfig(requestConfig)
-                .build();
-    }
-
-    private static ConnectionKeepAliveStrategy createKeepAliveStrategy() {
-        return (response, context) -> {
+    private static void initHttpClient() {
+        ConnectionKeepAliveStrategy keepAliveStrategy = (response, context) -> {
             HeaderElementIterator it = new BasicHeaderElementIterator(
                     response.headerIterator(HTTP.CONN_KEEP_ALIVE));
             while (it.hasNext()) {
@@ -145,6 +131,12 @@ public class HttpClientUtil {
             }
             return DEFAULT_KEEP_ALIVE_TIME_MILLIS;
         };
+
+        httpClient = HttpClients.custom()
+                .setConnectionManager(connectionManager)
+                .setKeepAliveStrategy(keepAliveStrategy)
+                .setDefaultRequestConfig(requestConfig)
+                .build();
     }
 
     private static void startIdleConnectionMonitor() {
@@ -156,11 +148,28 @@ public class HttpClientUtil {
     }
 
     private static void createAndScheduleMonitor() {
-        connectionMonitorExecutor = Executors.newScheduledThreadPool(MONITOR_THREAD_POOL_SIZE, r -> {
-            Thread thread = new Thread(r, "connection-monitor");
-            thread.setDaemon(true);
-            return thread;
-        });
+        ThreadFactory threadFactory = new ThreadFactory() {
+            private final AtomicInteger threadNumber = new AtomicInteger(1);
+
+            @Override
+            public Thread newThread(Runnable r) {
+                Thread thread = new Thread(r);
+                thread.setName(MONITOR_THREAD_PREFIX + threadNumber.getAndIncrement());
+                thread.setDaemon(true);
+                return thread;
+            }
+        };
+
+        RejectedExecutionHandler rejectedHandler = (r, executor) ->
+                logger.error("Task rejected from connection monitor executor");
+
+        connectionMonitorExecutor = new ScheduledThreadPoolExecutor(
+                CORE_POOL_SIZE,
+                threadFactory,
+                rejectedHandler
+        );
+        connectionMonitorExecutor.setMaximumPoolSize(MAX_POOL_SIZE);
+        connectionMonitorExecutor.setKeepAliveTime(60, TimeUnit.SECONDS);
 
         try {
             connectionMonitorExecutor.scheduleAtFixedRate(
@@ -179,55 +188,31 @@ public class HttpClientUtil {
     private static class ConnectionMonitorTask implements Runnable {
         @Override
         public void run() {
-            synchronized (connectionManager) {
-                connectionManager.closeExpiredConnections();
-                connectionManager.closeIdleConnections(
-                        CLOSE_IDLE_CONNECTION_WAIT_TIME_SECS,
-                        TimeUnit.SECONDS
-                );
+            try {
+                synchronized (connectionManager) {
+                    connectionManager.closeExpiredConnections();
+                    connectionManager.closeIdleConnections(
+                            CLOSE_IDLE_CONNECTION_WAIT_TIME_SECS,
+                            TimeUnit.SECONDS
+                    );
+                }
+                logger.debug("Connection maintenance completed");
+            } catch (RuntimeException e) {
+                logger.error("Error during connection maintenance", e);
             }
-            logger.debug("Connection maintenance completed");
-        }
-    }
-
-    private static void shutdownMonitor() {
-        if (!isMonitorRunning.get()) {
-            return;
-        }
-
-        try {
-            connectionMonitorExecutor.shutdown();
-            if (!connectionMonitorExecutor.awaitTermination(SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
-                connectionMonitorExecutor.shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            connectionMonitorExecutor.shutdownNow();
-            logger.error("Connection monitor shutdown interrupted", e);
-        } finally {
-            isMonitorRunning.set(false);
         }
     }
 
     public static String doGet(String url) throws IOException {
-        HttpGet httpGet = createGetRequest(url);
-        return executeRequest(httpGet);
-    }
-
-    private static HttpGet createGetRequest(String url) {
         HttpGet httpGet = new HttpGet(url);
         httpGet.setConfig(requestConfig);
         httpGet.setHeader("User-Agent", "Mozilla/5.0");
         httpGet.setHeader("Accept", "*/*");
-        return httpGet;
+
+        return executeRequest(httpGet);
     }
 
     public static String doPost(String url, String jsonBody) throws IOException {
-        HttpPost httpPost = createPostRequest(url, jsonBody);
-        return executeRequest(httpPost);
-    }
-
-    private static HttpPost createPostRequest(String url, String jsonBody) {
         HttpPost httpPost = new HttpPost(url);
         httpPost.setConfig(requestConfig);
         httpPost.setHeader("Content-Type", "application/json");
@@ -237,20 +222,13 @@ public class HttpClientUtil {
         if (jsonBody != null) {
             httpPost.setEntity(new StringEntity(jsonBody, StandardCharsets.UTF_8));
         }
-        return httpPost;
+
+        return executeRequest(httpPost);
     }
 
-    private static String executeRequest(HttpGet request) throws IOException {
-        logger.debug("Executing GET request to: {}", request.getURI());
-        return executeHttpRequest(request);
-    }
+    private static String executeRequest(HttpRequestBase request) throws IOException {
+        logger.debug("Executing request to: {}", request.getURI());
 
-    private static String executeRequest(HttpPost request) throws IOException {
-        logger.debug("Executing POST request to: {}", request.getURI());
-        return executeHttpRequest(request);
-    }
-
-    private static String executeHttpRequest(org.apache.http.client.methods.HttpRequestBase request) throws IOException {
         try (CloseableHttpResponse response = httpClient.execute(request)) {
             int statusCode = response.getStatusLine().getStatusCode();
             String responseBody = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
@@ -265,23 +243,49 @@ public class HttpClientUtil {
         }
     }
 
+    private static void shutdownMonitor() {
+        if (!isMonitorRunning.get()) {
+            return;
+        }
+
+        try {
+            if (connectionMonitorExecutor != null) {
+                connectionMonitorExecutor.shutdown();
+                boolean terminated = connectionMonitorExecutor.awaitTermination(
+                        SHUTDOWN_TIMEOUT_SECONDS,
+                        TimeUnit.SECONDS
+                );
+                if (!terminated) {
+                    List<Runnable> pendingTasks = connectionMonitorExecutor.shutdownNow();
+                    logger.warn("Force shutdown connection monitor, {} tasks not completed",
+                            pendingTasks.size());
+                    connectionMonitorExecutor.awaitTermination(1, TimeUnit.SECONDS);
+                }
+            }
+        } catch (InterruptedException e) {
+            logger.error("Error while shutting down connection monitor", e);
+            if (connectionMonitorExecutor != null) {
+                List<Runnable> pendingTasks = connectionMonitorExecutor.shutdownNow();
+                logger.warn("{} tasks not completed", pendingTasks.size());
+            }
+        } finally {
+            isMonitorRunning.set(false);
+        }
+    }
+
     public static void close() {
         try {
             logger.info("Shutting down HttpClientUtil...");
             shutdownMonitor();
-            closeResources();
+            if (httpClient != null) {
+                httpClient.close();
+            }
+            if (connectionManager != null) {
+                connectionManager.close();
+            }
             logger.info("HttpClientUtil shut down successfully");
         } catch (IOException e) {
             logger.error("Error while shutting down HttpClientUtil", e);
-        }
-    }
-
-    private static void closeResources() throws IOException {
-        if (httpClient != null) {
-            httpClient.close();
-        }
-        if (connectionManager != null) {
-            connectionManager.close();
         }
     }
 }
