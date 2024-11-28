@@ -2,7 +2,6 @@ package com.study.scheduler.util;
 
 import org.apache.http.HeaderElement;
 import org.apache.http.HeaderElementIterator;
-import org.apache.http.HttpHost;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
@@ -17,7 +16,6 @@ import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.conn.ssl.TrustStrategy;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.message.BasicHeaderElementIterator;
@@ -34,9 +32,12 @@ import java.nio.charset.StandardCharsets;
 import java.security.KeyManagementException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
-import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class HttpClientUtil {
     private static final Logger logger = LoggerFactory.getLogger(HttpClientUtil.class);
@@ -44,8 +45,10 @@ public class HttpClientUtil {
     private static CloseableHttpClient httpClient;
     private static PoolingHttpClientConnectionManager connectionManager;
     private static RequestConfig requestConfig;
+    private static ScheduledExecutorService connectionMonitorExecutor;
+    private static final AtomicBoolean isMonitorRunning = new AtomicBoolean(false);
 
-    // 连接池配置参数
+    // Configuration constants
     private static final int MAX_TOTAL_CONNECTIONS = 500;
     private static final int DEFAULT_MAX_PER_ROUTE = 100;
     private static final int REQUEST_TIMEOUT = 10000;
@@ -53,58 +56,83 @@ public class HttpClientUtil {
     private static final int SOCKET_TIMEOUT = 10000;
     private static final int DEFAULT_KEEP_ALIVE_TIME_MILLIS = 20 * 1000;
     private static final int CLOSE_IDLE_CONNECTION_WAIT_TIME_SECS = 30;
+    private static final int MONITOR_THREAD_POOL_SIZE = 1;
+    private static final int MONITOR_PERIOD_SECONDS = 10;
+    private static final int SHUTDOWN_TIMEOUT_SECONDS = 5;
 
     static {
         try {
             init();
-        } catch (Exception e) {
+        } catch (KeyManagementException | NoSuchAlgorithmException | KeyStoreException e) {
             logger.error("Failed to initialize HttpClientUtil", e);
-            throw new RuntimeException("Failed to initialize HttpClientUtil", e);
+            throw new IllegalStateException("Failed to initialize HttpClientUtil", e);
         }
     }
 
-    private static void init() throws KeyStoreException, NoSuchAlgorithmException, KeyManagementException {
-        // 创建SSL上下文
-        SSLContext sslContext = SSLContextBuilder
-                .create()
-                .loadTrustMaterial(new TrustStrategy() {
-                    @Override
-                    public boolean isTrusted(X509Certificate[] chain, String authType) throws CertificateException {
-                        return true;
-                    }
-                })
-                .build();
+    private HttpClientUtil() {
+        // Utility class, hide constructor
+    }
 
-        // 创建主机名验证器
+    private static void init() throws KeyManagementException, NoSuchAlgorithmException, KeyStoreException {
+        initializeSSLComponents();
+        initializeConnectionManager();
+        initializeHttpClient();
+        startIdleConnectionMonitor();
+        logger.info("HttpClientUtil initialized successfully");
+    }
+
+    private static void initializeSSLComponents() throws KeyManagementException, NoSuchAlgorithmException, KeyStoreException {
+        SSLContext sslContext = createSSLContext();
         HostnameVerifier hostnameVerifier = NoopHostnameVerifier.INSTANCE;
+        SSLConnectionSocketFactory sslSocketFactory = createSSLSocketFactory(sslContext, hostnameVerifier);
+        Registry<ConnectionSocketFactory> socketFactoryRegistry = createSocketFactoryRegistry(sslSocketFactory);
 
-        // 注册SSL连接工厂
-        SSLConnectionSocketFactory sslSocketFactory = new SSLConnectionSocketFactory(
+        connectionManager = new PoolingHttpClientConnectionManager(socketFactoryRegistry);
+        connectionManager.setMaxTotal(MAX_TOTAL_CONNECTIONS);
+        connectionManager.setDefaultMaxPerRoute(DEFAULT_MAX_PER_ROUTE);
+    }
+
+    private static SSLContext createSSLContext() throws KeyManagementException, NoSuchAlgorithmException, KeyStoreException {
+        return SSLContextBuilder
+                .create()
+                .loadTrustMaterial((X509Certificate[] chain, String authType) -> true)
+                .build();
+    }
+
+    private static SSLConnectionSocketFactory createSSLSocketFactory(SSLContext sslContext, HostnameVerifier hostnameVerifier) {
+        return new SSLConnectionSocketFactory(
                 sslContext,
                 new String[]{"TLSv1", "TLSv1.1", "TLSv1.2", "TLSv1.3"},
                 null,
                 hostnameVerifier);
+    }
 
-        // 注册http和https协议
-        Registry<ConnectionSocketFactory> socketFactoryRegistry = RegistryBuilder.<ConnectionSocketFactory>create()
+    private static Registry<ConnectionSocketFactory> createSocketFactoryRegistry(SSLConnectionSocketFactory sslSocketFactory) {
+        return RegistryBuilder.<ConnectionSocketFactory>create()
                 .register("http", PlainConnectionSocketFactory.getSocketFactory())
                 .register("https", sslSocketFactory)
                 .build();
+    }
 
-        // 创建连接管理器
-        connectionManager = new PoolingHttpClientConnectionManager(socketFactoryRegistry);
-        connectionManager.setMaxTotal(MAX_TOTAL_CONNECTIONS);
-        connectionManager.setDefaultMaxPerRoute(DEFAULT_MAX_PER_ROUTE);
-
-        // 创建请求配置
+    private static void initializeConnectionManager() {
         requestConfig = RequestConfig.custom()
                 .setConnectTimeout(CONNECT_TIMEOUT)
                 .setSocketTimeout(SOCKET_TIMEOUT)
                 .setConnectionRequestTimeout(REQUEST_TIMEOUT)
                 .build();
+    }
 
-        // 创建保活策略
-        ConnectionKeepAliveStrategy keepAliveStrategy = (response, context) -> {
+    private static void initializeHttpClient() {
+        ConnectionKeepAliveStrategy keepAliveStrategy = createKeepAliveStrategy();
+        httpClient = HttpClients.custom()
+                .setConnectionManager(connectionManager)
+                .setKeepAliveStrategy(keepAliveStrategy)
+                .setDefaultRequestConfig(requestConfig)
+                .build();
+    }
+
+    private static ConnectionKeepAliveStrategy createKeepAliveStrategy() {
+        return (response, context) -> {
             HeaderElementIterator it = new BasicHeaderElementIterator(
                     response.headerIterator(HTTP.CONN_KEEP_ALIVE));
             while (it.hasNext()) {
@@ -117,90 +145,113 @@ public class HttpClientUtil {
             }
             return DEFAULT_KEEP_ALIVE_TIME_MILLIS;
         };
-
-        // 创建HttpClient
-        httpClient = HttpClients.custom()
-                .setConnectionManager(connectionManager)
-                .setKeepAliveStrategy(keepAliveStrategy)
-                .setDefaultRequestConfig(requestConfig)
-                .setSSLSocketFactory(sslSocketFactory)
-                .setSSLContext(sslContext)
-                .setSSLHostnameVerifier(hostnameVerifier)
-                .build();
-
-        // 启动定时清理空闲连接的线程
-        startIdleConnectionMonitor();
-
-        logger.info("HttpClientUtil initialized successfully");
     }
 
     private static void startIdleConnectionMonitor() {
-        Thread monitorThread = new Thread(() -> {
-            while (true) {
-                try {
-                    synchronized (connectionManager) {
-                        TimeUnit.SECONDS.sleep(10);
-                        // 关闭过期的连接
-                        connectionManager.closeExpiredConnections();
-                        // 关闭空闲的连接
-                        connectionManager.closeIdleConnections(CLOSE_IDLE_CONNECTION_WAIT_TIME_SECS, TimeUnit.SECONDS);
-                    }
-                } catch (InterruptedException ex) {
-                    break;
-                } catch (Exception ex) {
-                    logger.error("Exception while closing expired connections", ex);
-                }
-            }
-        });
-        monitorThread.setDaemon(true);
-        monitorThread.start();
+        if (!isMonitorRunning.compareAndSet(false, true)) {
+            logger.warn("Connection monitor is already running");
+            return;
+        }
+        createAndScheduleMonitor();
     }
 
-    public static String doGet(String url) throws IOException {
-        HttpGet httpGet = new HttpGet(url);
-        httpGet.setConfig(requestConfig);
+    private static void createAndScheduleMonitor() {
+        connectionMonitorExecutor = Executors.newScheduledThreadPool(MONITOR_THREAD_POOL_SIZE, r -> {
+            Thread thread = new Thread(r, "connection-monitor");
+            thread.setDaemon(true);
+            return thread;
+        });
 
-        // 添加通用头信息
-        httpGet.setHeader("User-Agent", "Mozilla/5.0");
-        httpGet.setHeader("Accept", "*/*");
-
-        logger.debug("Executing GET request to: {}", url);
-        try (CloseableHttpResponse response = httpClient.execute(httpGet)) {
-            int statusCode = response.getStatusLine().getStatusCode();
-            String responseBody = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
-
-            logger.debug("Response status code: {}", statusCode);
-            logger.debug("Response body: {}", responseBody);
-
-            if (statusCode >= 200 && statusCode < 300) {
-                return responseBody;
-            } else {
-                throw new IOException("Unexpected response status: " + statusCode + ", body: " + responseBody);
-            }
-        } catch (IOException e) {
-            logger.error("Failed to execute GET request to {}", url, e);
-            throw e;
+        try {
+            connectionMonitorExecutor.scheduleAtFixedRate(
+                    new ConnectionMonitorTask(),
+                    0,
+                    MONITOR_PERIOD_SECONDS,
+                    TimeUnit.SECONDS
+            );
+            logger.info("Connection monitor scheduled successfully");
+        } catch (RejectedExecutionException e) {
+            logger.error("Failed to schedule connection monitor", e);
+            shutdownMonitor();
         }
     }
 
+    private static class ConnectionMonitorTask implements Runnable {
+        @Override
+        public void run() {
+            synchronized (connectionManager) {
+                connectionManager.closeExpiredConnections();
+                connectionManager.closeIdleConnections(
+                        CLOSE_IDLE_CONNECTION_WAIT_TIME_SECS,
+                        TimeUnit.SECONDS
+                );
+            }
+            logger.debug("Connection maintenance completed");
+        }
+    }
+
+    private static void shutdownMonitor() {
+        if (!isMonitorRunning.get()) {
+            return;
+        }
+
+        try {
+            connectionMonitorExecutor.shutdown();
+            if (!connectionMonitorExecutor.awaitTermination(SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                connectionMonitorExecutor.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            connectionMonitorExecutor.shutdownNow();
+            logger.error("Connection monitor shutdown interrupted", e);
+        } finally {
+            isMonitorRunning.set(false);
+        }
+    }
+
+    public static String doGet(String url) throws IOException {
+        HttpGet httpGet = createGetRequest(url);
+        return executeRequest(httpGet);
+    }
+
+    private static HttpGet createGetRequest(String url) {
+        HttpGet httpGet = new HttpGet(url);
+        httpGet.setConfig(requestConfig);
+        httpGet.setHeader("User-Agent", "Mozilla/5.0");
+        httpGet.setHeader("Accept", "*/*");
+        return httpGet;
+    }
+
     public static String doPost(String url, String jsonBody) throws IOException {
+        HttpPost httpPost = createPostRequest(url, jsonBody);
+        return executeRequest(httpPost);
+    }
+
+    private static HttpPost createPostRequest(String url, String jsonBody) {
         HttpPost httpPost = new HttpPost(url);
         httpPost.setConfig(requestConfig);
-
-        // 添加通用头信息
         httpPost.setHeader("Content-Type", "application/json");
         httpPost.setHeader("User-Agent", "Mozilla/5.0");
         httpPost.setHeader("Accept", "*/*");
 
         if (jsonBody != null) {
-            StringEntity entity = new StringEntity(jsonBody, StandardCharsets.UTF_8);
-            httpPost.setEntity(entity);
+            httpPost.setEntity(new StringEntity(jsonBody, StandardCharsets.UTF_8));
         }
+        return httpPost;
+    }
 
-        logger.debug("Executing POST request to: {}", url);
-        logger.debug("Request body: {}", jsonBody);
+    private static String executeRequest(HttpGet request) throws IOException {
+        logger.debug("Executing GET request to: {}", request.getURI());
+        return executeHttpRequest(request);
+    }
 
-        try (CloseableHttpResponse response = httpClient.execute(httpPost)) {
+    private static String executeRequest(HttpPost request) throws IOException {
+        logger.debug("Executing POST request to: {}", request.getURI());
+        return executeHttpRequest(request);
+    }
+
+    private static String executeHttpRequest(org.apache.http.client.methods.HttpRequestBase request) throws IOException {
+        try (CloseableHttpResponse response = httpClient.execute(request)) {
             int statusCode = response.getStatusLine().getStatusCode();
             String responseBody = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
 
@@ -209,27 +260,28 @@ public class HttpClientUtil {
 
             if (statusCode >= 200 && statusCode < 300) {
                 return responseBody;
-            } else {
-                throw new IOException("Unexpected response status: " + statusCode + ", body: " + responseBody);
             }
-        } catch (IOException e) {
-            logger.error("Failed to execute POST request to {}", url, e);
-            throw e;
+            throw new IOException("Unexpected response status: " + statusCode + ", body: " + responseBody);
         }
     }
 
     public static void close() {
         try {
             logger.info("Shutting down HttpClientUtil...");
-            if (httpClient != null) {
-                httpClient.close();
-            }
-            if (connectionManager != null) {
-                connectionManager.close();
-            }
+            shutdownMonitor();
+            closeResources();
             logger.info("HttpClientUtil shut down successfully");
         } catch (IOException e) {
             logger.error("Error while shutting down HttpClientUtil", e);
+        }
+    }
+
+    private static void closeResources() throws IOException {
+        if (httpClient != null) {
+            httpClient.close();
+        }
+        if (connectionManager != null) {
+            connectionManager.close();
         }
     }
 }
