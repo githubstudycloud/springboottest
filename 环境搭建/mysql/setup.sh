@@ -1,5 +1,17 @@
 #!/bin/bash
 
+# 检查docker compose命令
+if command -v docker-compose &> /dev/null; then
+    DOCKER_COMPOSE="docker-compose"
+elif docker compose version &> /dev/null; then
+    DOCKER_COMPOSE="docker compose"
+else
+    echo "Error: Neither docker-compose nor docker compose is available"
+    exit 1
+fi
+
+echo "Using command: $DOCKER_COMPOSE"
+
 # 创建必要的目录结构
 mkdir -p mysql/conf mysql/data mysql/init
 
@@ -33,7 +45,8 @@ innodb_log_buffer_size=64M
 innodb_flush_log_at_trx_commit=2
 innodb_flush_method=O_DIRECT
 
-# 慢查询配置
+# 日志配置
+log-error=/var/lib/mysql/error.log
 slow_query_log=1
 slow_query_log_file=/var/lib/mysql/slow.log
 long_query_time=2
@@ -45,8 +58,8 @@ default-character-set=utf8mb4
 default-character-set=utf8mb4
 EOF
 
-# 创建docker-compose.yml文件
-cat > docker-compose.yml << EOF
+# 创建docker-compose.yaml文件（注意扩展名改为.yaml）
+cat > docker-compose.yaml << EOF
 version: '3'
 services:
   mysql:
@@ -102,45 +115,67 @@ EOF
 cat > start.sh << EOF
 #!/bin/bash
 
+# 检查docker compose命令
+if command -v docker-compose &> /dev/null; then
+    DOCKER_COMPOSE="docker-compose"
+elif docker compose version &> /dev/null; then
+    DOCKER_COMPOSE="docker compose"
+else
+    echo "Error: Neither docker-compose nor docker compose is available"
+    exit 1
+fi
+
 # 停止并删除已存在的容器
-docker-compose down
+\$DOCKER_COMPOSE down
 
 # 启动新容器
-docker-compose up -d
+\$DOCKER_COMPOSE up -d
 
 # 等待MySQL启动
 echo "Waiting for MySQL to start..."
-sleep 10
+for i in {1..30}; do
+    if docker exec mysql5.7 mysqladmin -uroot -p123456 ping &>/dev/null; then
+        echo "MySQL is running successfully!"
+        echo "You can connect to MySQL using:"
+        echo "Host: localhost"
+        echo "Port: 3306"
+        echo "Username: root"
+        echo "Password: 123456"
+        echo "Database: test"
+        exit 0
+    fi
+    echo "Waiting... \$i/30"
+    sleep 2
+done
 
-# 检查MySQL是否正常运行
-docker exec mysql5.7 mysqladmin -uroot -p123456 ping
-
-if [ $? -eq 0 ]; then
-    echo "MySQL is running successfully!"
-    echo "You can connect to MySQL using:"
-    echo "Host: localhost"
-    echo "Port: 3306"
-    echo "Username: root"
-    echo "Password: 123456"
-    echo "Database: test"
-else
-    echo "MySQL failed to start properly!"
-fi
+echo "MySQL failed to start properly!"
+exit 1
 EOF
 
 # 创建停止脚本
 cat > stop.sh << EOF
 #!/bin/bash
-docker-compose down
+
+# 检查docker compose命令
+if command -v docker-compose &> /dev/null; then
+    DOCKER_COMPOSE="docker-compose"
+elif docker compose version &> /dev/null; then
+    DOCKER_COMPOSE="docker compose"
+else
+    echo "Error: Neither docker-compose nor docker compose is available"
+    exit 1
+fi
+
+\$DOCKER_COMPOSE down
 EOF
 
 # 设置脚本执行权限
 chmod +x start.sh stop.sh
 
 # 提供使用说明
-echo "MySQL Docker环境已配置完成！"
+echo "MySQL Docker环境配置完成！"
 echo "目录结构："
-echo "  ├── docker-compose.yml    # Docker编排文件"
+echo "  ├── docker-compose.yaml   # Docker编排文件"
 echo "  ├── start.sh             # 启动脚本"
 echo "  ├── stop.sh              # 停止脚本"
 echo "  └── mysql                # MySQL相关文件"
@@ -157,3 +192,10 @@ echo "- 端口: 3306"
 echo "- 用户名: root"
 echo "- 密码: 123456"
 echo "- 数据库: test"
+
+# 如果是第一次运行，直接启动MySQL
+if [ ! -d "mysql/data/mysql" ]; then
+    echo "First time setup, starting MySQL..."
+    chmod +x start.sh
+    ./start.sh
+fi
