@@ -1,5 +1,6 @@
 package com.study.collect.config;
 
+import com.study.collect.listener.RabbitMessageListener;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.*;
 import org.springframework.amqp.rabbit.connection.CachingConnectionFactory;
@@ -31,6 +32,19 @@ public class RabbitConfig {
 
     @Value("${spring.rabbitmq.virtual-host}")
     private String virtualHost;
+
+    // 测试用的交换机、队列和路由键名称
+    private static final String TEST_EXCHANGE = "test.exchange";
+    private static final String TEST_QUEUE = "test.queue";
+    private static final String TEST_ROUTING_KEY = "test.message";
+
+    // 数据采集用的交换机、队列和路由键名称
+    private static final String DATA_EXCHANGE = "data.collect.exchange";
+    private static final String DATA_QUEUE = "data.collect.queue";
+    private static final String DATA_ROUTING_KEY = "data.collect";
+    private static final String DEAD_LETTER_EXCHANGE = "data.collect.dlx";
+    private static final String DEAD_LETTER_QUEUE = "data.collect.dead.queue";
+    private static final String DEAD_LETTER_ROUTING_KEY = "data.collect.dead";
 
     @Bean
     public ConnectionFactory connectionFactory() {
@@ -75,57 +89,73 @@ public class RabbitConfig {
         return new RabbitAdmin(connectionFactory);
     }
 
+    // 测试相关的Bean定义
+    @Bean
+    public DirectExchange testExchange() {
+        return new DirectExchange(TEST_EXCHANGE);
+    }
+
+    @Bean
+    public Queue testQueue() {
+//        return new Queue(TEST_QUEUE);
+        return new Queue("test.message");
+    }
+
+    @Bean
+    public Binding testBinding() {
+        return BindingBuilder.bind(testQueue())
+                .to(testExchange())
+                .with(TEST_ROUTING_KEY);
+    }
+
+    // 数据采集相关的Bean定义
     @Bean
     public Queue dataCollectQueue() {
-        return QueueBuilder.durable("data.collect.queue")
-                .withArgument("x-dead-letter-exchange", "data.collect.dlx")
-                .withArgument("x-dead-letter-routing-key", "data.collect.dead")
+        return QueueBuilder.durable(DATA_QUEUE)
+                .withArgument("x-dead-letter-exchange", DEAD_LETTER_EXCHANGE)
+                .withArgument("x-dead-letter-routing-key", DEAD_LETTER_ROUTING_KEY)
                 .build();
     }
 
     @Bean
     public Queue dataCollectDeadQueue() {
-        return QueueBuilder.durable("data.collect.dead.queue").build();
+        return QueueBuilder.durable(DEAD_LETTER_QUEUE).build();
     }
 
     @Bean
     public DirectExchange dataCollectExchange() {
-        return ExchangeBuilder.directExchange("data.collect.exchange")
-                .durable(true)
-                .build();
+        return new DirectExchange(DATA_EXCHANGE);
     }
 
     @Bean
     public DirectExchange deadLetterExchange() {
-        return ExchangeBuilder.directExchange("data.collect.dlx")
-                .durable(true)
-                .build();
+        return new DirectExchange(DEAD_LETTER_EXCHANGE);
     }
 
     @Bean
-    public Binding bindingDataCollect() {
-        return BindingBuilder
-                .bind(dataCollectQueue())
+    public Binding dataCollectBinding() {
+        return BindingBuilder.bind(dataCollectQueue())
                 .to(dataCollectExchange())
-                .with("data.collect");
+                .with(DATA_ROUTING_KEY);
     }
 
     @Bean
-    public Binding bindingDeadLetter() {
-        return BindingBuilder
-                .bind(dataCollectDeadQueue())
+    public Binding deadLetterBinding() {
+        return BindingBuilder.bind(dataCollectDeadQueue())
                 .to(deadLetterExchange())
-                .with("data.collect.dead");
+                .with(DEAD_LETTER_ROUTING_KEY);
     }
 
     @Bean
-    public SimpleMessageListenerContainer messageListenerContainer(ConnectionFactory connectionFactory) {
+    public SimpleMessageListenerContainer messageListenerContainer(ConnectionFactory connectionFactory, RabbitMessageListener rabbitMessageListener) {
         SimpleMessageListenerContainer container = new SimpleMessageListenerContainer(connectionFactory);
-        container.setQueueNames("data.collect.queue");
+        container.setQueueNames(DATA_QUEUE, TEST_QUEUE);
+        container.setMessageListener(rabbitMessageListener); // 设置消息监听器
         container.setConcurrentConsumers(3);
         container.setMaxConcurrentConsumers(10);
         container.setPrefetchCount(1);
         container.setAcknowledgeMode(AcknowledgeMode.MANUAL);
         return container;
     }
+
 }

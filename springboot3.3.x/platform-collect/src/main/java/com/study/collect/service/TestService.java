@@ -117,7 +117,8 @@ public class TestService {
         log.info("RabbitMQ发送消息成功: {}", message);
 
         // 接收消息（这里为了测试，直接接收，实际应该使用监听器）
-        Object received = rabbitTemplate.receiveAndConvert(ROUTING_KEY);
+//        Object received = rabbitTemplate.receiveAndConvert(ROUTING_KEY);
+        Object received = rabbitTemplate.receiveAndConvert("test.message");
         log.info("RabbitMQ接收消息: {}", received);
     }
 }

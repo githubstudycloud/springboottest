@@ -17,7 +17,7 @@ public class TestController {
     private TestService testService;
 
     @PostMapping("/mysql")
-    public Result<TestEntity> testMySQL(@RequestParam String name, @RequestParam String description) {
+    public Result<TestEntity> testMySQL(@RequestParam("name") String name, @RequestParam("description") String description) {
         try {
             TestEntity result = testService.testMySQL(name, description);
             return Result.success(result);
@@ -28,7 +28,7 @@ public class TestController {
     }
 
     @PostMapping("/redis")
-    public Result<Void> testRedis(@RequestParam String key, @RequestParam String value) {
+    public Result<Void> testRedis(@RequestParam("key") String key, @RequestParam("value") String value) {
         try {
             testService.testRedis(key, value);
             return Result.success();
@@ -39,7 +39,7 @@ public class TestController {
     }
 
     @PostMapping("/mongodb")
-    public Result<MongoTestEntity> testMongoDB(@RequestParam String name, @RequestParam String description) {
+    public Result<MongoTestEntity> testMongoDB(@RequestParam("name") String name, @RequestParam("description") String description) {
         try {
             MongoTestEntity result = testService.testMongoDB(name, description);
             return Result.success(result);
@@ -50,7 +50,7 @@ public class TestController {
     }
 
     @PostMapping("/rabbitmq")
-    public Result<Void> testRabbitMQ(@RequestParam String message) {
+    public Result<Void> testRabbitMQ(@RequestParam("message") String message) {
         try {
             testService.testRabbitMQ(message);
             return Result.success();
