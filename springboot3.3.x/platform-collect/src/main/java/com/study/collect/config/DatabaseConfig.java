@@ -1,30 +1,26 @@
 package com.study.collect.config;
 
-
-import com.mongodb.ConnectionString;
-import com.mongodb.MongoClientSettings;
-import com.mongodb.client.MongoClient;
-import com.mongodb.client.MongoClients;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
-import org.springframework.data.mongodb.core.MongoTemplate;
-import org.springframework.data.mongodb.core.SimpleMongoClientDatabaseFactory;
-import org.springframework.data.mongodb.core.convert.DefaultDbRefResolver;
-import org.springframework.data.mongodb.core.convert.DefaultMongoTypeMapper;
-import org.springframework.data.mongodb.core.convert.MappingMongoConverter;
-import org.springframework.data.mongodb.core.mapping.MongoMappingContext;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 import javax.sql.DataSource;
 
 @Configuration
+@EnableTransactionManagement
 public class DatabaseConfig {
 
+    @Value("${spring.datasource.driver-class-name}")
+    private String driverClassName;
+
     @Value("${spring.datasource.url}")
-    private String jdbcUrl;
+    private String url;
 
     @Value("${spring.datasource.username}")
     private String username;
@@ -32,45 +28,54 @@ public class DatabaseConfig {
     @Value("${spring.datasource.password}")
     private String password;
 
-    @Value("${spring.data.mongodb.uri}")
-    private String mongoUri;
+    @Value("${spring.datasource.hikari.minimum-idle}")
+    private int minimumIdle;
+
+    @Value("${spring.datasource.hikari.maximum-pool-size}")
+    private int maximumPoolSize;
+
+    @Value("${spring.datasource.hikari.idle-timeout}")
+    private long idleTimeout;
+
+    @Value("${spring.datasource.hikari.pool-name}")
+    private String poolName;
+
+    @Value("${spring.datasource.hikari.max-lifetime}")
+    private long maxLifetime;
+
+    @Value("${spring.datasource.hikari.connection-timeout}")
+    private long connectionTimeout;
 
     @Bean
     @Primary
     public DataSource dataSource() {
         HikariConfig config = new HikariConfig();
-        config.setJdbcUrl(jdbcUrl);
+        config.setDriverClassName(driverClassName);
+        config.setJdbcUrl(url);
         config.setUsername(username);
         config.setPassword(password);
-        config.setDriverClassName("org.mariadb.jdbc.Driver");
+        config.setMinimumIdle(minimumIdle);
+        config.setMaximumPoolSize(maximumPoolSize);
+        config.setIdleTimeout(idleTimeout);
+        config.setPoolName(poolName);
+        config.setMaxLifetime(maxLifetime);
+        config.setConnectionTimeout(connectionTimeout);
 
-        config.setMinimumIdle(5);
-        config.setMaximumPoolSize(15);
-        config.setIdleTimeout(30000);
-        config.setPoolName("CollectHikariCP");
-        config.setMaxLifetime(1800000);
-        config.setConnectionTimeout(30000);
+        // 设置连接测试查询
         config.setConnectionTestQuery("SELECT 1");
+        config.setValidationTimeout(5000);
+
+        // 设置其他连接池属性
+        config.addDataSourceProperty("cachePrepStmts", "true");
+        config.addDataSourceProperty("prepStmtCacheSize", "250");
+        config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
+        config.addDataSourceProperty("useServerPrepStmts", "true");
 
         return new HikariDataSource(config);
     }
 
     @Bean
-    public MongoClient mongoClient() {
-        MongoClientSettings settings = MongoClientSettings.builder()
-                .applyConnectionString(new ConnectionString(mongoUri))
-                .build();
-        return MongoClients.create(settings);
-    }
-
-    @Bean
-    public MongoTemplate mongoTemplate(MongoClient mongoClient) {
-        SimpleMongoClientDatabaseFactory factory = new SimpleMongoClientDatabaseFactory(mongoClient, "test");
-        MappingMongoConverter converter = new MappingMongoConverter(
-                new DefaultDbRefResolver(factory),
-                new MongoMappingContext()
-        );
-        converter.setTypeMapper(new DefaultMongoTypeMapper(null));
-        return new MongoTemplate(factory, converter);
+    public PlatformTransactionManager transactionManager(DataSource dataSource) {
+        return new DataSourceTransactionManager(dataSource);
     }
 }

@@ -1,0 +1,20 @@
+# curl -X POST "http://localhost:8082/api/test/rabbitmq?message=test_message"curl -X POST "http://localhost:8082/api/test/rabbitmq?message=test_message"
+POST http://localhost:8082/api/test/rabbitmq?message=test_message
+
+###
+
+# curl -X POST "http://localhost:8082/api/test/mongodb?name=test&description=test_description"curl -X POST "http://localhost:8082/api/test/mongodb?name=test&description=test_description"
+POST http://localhost:8082/api/test/mongodb?name=test&description=test_description
+
+###
+
+# curl -X POST "http://localhost:8082/api/test/redis?key=test_key&value=test_value"curl -X POST "http://localhost:8082/api/test/redis?key=test_key&value=test_value"
+POST http://localhost:8082/api/test/redis?key=test_key&value=test_value
+
+###
+
+# curl -X POST "http://localhost:8082/api/test/mysql?name=test&description=test_description"curl -X POST "http://localhost:8082/api/test/mysql?name=test&description=test_description"
+POST http://localhost:8082/api/test/mysql?name=test&description=test_description
+
+###
+
