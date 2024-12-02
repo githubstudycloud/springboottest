@@ -133,4 +133,42 @@ public void checkAndAddFields() {
 3. 建议在正式环境使用前先在测试环境验证
 4. 所有SQL操作都在事务中执行，确保数据一致性
 
-使用该工具类可以安全地检查和添加数据库字段，避免了手动执行SQL的风险。如果你需要添加其他功能（如修改字段定义、删除字段等），我可以为你扩展这个工具类。
+使用该工具类可以安全地检查和添加数据库字段，避免了手动执行SQL的风险。如果你需要添加其他功能（如修改字段定义、删除字段等），我可以为你扩展这个工具类。明白了,我帮你写个简单的,专门处理单个字段的检查和添加。
+
+```sql
+-- 第一步：检查哪些表缺少指定字段（例如检查缺少 deleted 字段的表）
+SELECT table_name 
+FROM information_schema.tables t 
+WHERE table_schema = (SELECT DATABASE())
+  AND table_name LIKE '%_info'
+  AND NOT EXISTS (
+    SELECT 1 
+    FROM information_schema.columns c 
+    WHERE c.table_schema = t.table_schema 
+    AND c.table_name = t.table_name 
+    AND c.column_name = 'deleted'
+  );
+
+-- 第二步：为缺少字段的表生成ALTER语句
+SELECT CONCAT('ALTER TABLE ', table_name, ' ADD COLUMN deleted TINYINT(1) NOT NULL DEFAULT 0 COMMENT "是否删除：0否1是";') as alter_statement
+FROM information_schema.tables t 
+WHERE table_schema = (SELECT DATABASE())
+  AND table_name LIKE '%_info'
+  AND NOT EXISTS (
+    SELECT 1 
+    FROM information_schema.columns c 
+    WHERE c.table_schema = t.table_schema 
+    AND c.table_name = t.table_name 
+    AND c.column_name = 'deleted'
+  );
+
+```
+
+这样就简单多了:
+1. 第一步先看看哪些表缺这个字段
+2. 第二步直接生成添加语句
+
+使用时只需要修改:
+1. 字段名 `deleted`
+2. 字段定义 `TINYINT(1) NOT NULL DEFAULT 0 COMMENT "是否删除：0否1是"`
+3. 表名匹配规则 `%_info`
