@@ -172,3 +172,53 @@ WHERE table_schema = (SELECT DATABASE())
 1. 字段名 `deleted`
 2. 字段定义 `TINYINT(1) NOT NULL DEFAULT 0 COMMENT "是否删除：0否1是"`
 3. 表名匹配规则 `%_info`
+   明白了,先根据前缀缩小范围再查检查字段会快很多。
+
+```sql
+-- 第一步：先获取指定前缀的表清单(例如 t_order_ 开头的表)
+CREATE TEMPORARY TABLE IF NOT EXISTS temp_target_tables AS
+SELECT table_name 
+FROM information_schema.tables 
+WHERE table_schema = (SELECT DATABASE())
+  AND table_name LIKE 't_order_%'
+LIMIT 100;  -- 可以根据需要调整限制数量
+
+-- 第二步：基于临时表检查缺少字段的表
+SELECT t.table_name 
+FROM temp_target_tables t
+WHERE NOT EXISTS (
+    SELECT 1 
+    FROM information_schema.columns c 
+    WHERE c.table_schema = (SELECT DATABASE())
+    AND c.table_name = t.table_name 
+    AND c.column_name = 'deleted'
+);
+
+-- 第三步：生成ALTER语句
+SELECT CONCAT('ALTER TABLE ', table_name, ' ADD COLUMN deleted TINYINT(1) NOT NULL DEFAULT 0 COMMENT "是否删除：0否1是";') as alter_statement
+FROM temp_target_tables t
+WHERE NOT EXISTS (
+    SELECT 1 
+    FROM information_schema.columns c 
+    WHERE c.table_schema = (SELECT DATABASE())
+    AND c.table_name = t.table_name 
+    AND c.column_name = 'deleted'
+);
+
+-- 最后清理临时表
+DROP TEMPORARY TABLE IF EXISTS temp_target_tables;
+
+```
+
+主要改进：
+1. 使用临时表存储目标表清单
+2. 通过 LIKE 't_order_%' 只查询特定前缀的表
+3. 增加 LIMIT 控制处理表的数量
+4. 基于临时表进行后续检查，避免重复扫描全表
+
+你可以修改：
+1. 表名前缀 `t_order_%`
+2. LIMIT 数量限制
+3. 字段名和定义
+
+这样执行效率会快很多，因为限定了范围不用扫全部的表。
