@@ -1,4 +1,4 @@
-package com.study.collect.util;
+package com.study.collect.utils;
 
 
 import org.slf4j.Logger;

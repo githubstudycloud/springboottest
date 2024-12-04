@@ -1,6 +1,6 @@
 package com.study.scheduler.config;
 
-import com.study.scheduler.util.HttpClientUtil;
+import com.study.scheduler.utils.HttpClientUtil;
 import jakarta.annotation.PreDestroy;
 import org.springframework.context.annotation.Configuration;
 

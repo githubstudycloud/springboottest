@@ -3,7 +3,7 @@ package com.study.scheduler.crontroller;
 import com.study.scheduler.entity.CrawlerRecord;
 import com.study.scheduler.entity.CrawlerTask;
 import com.study.scheduler.service.CrawlerService;
-import com.study.scheduler.util.MongoDBUtils;
+import com.study.scheduler.utils.MongoDBUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;

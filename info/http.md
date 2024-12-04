@@ -1,7 +1,7 @@
 我来写一个最完整、最可靠的版本，包含了所有必要的配置和完整的错误处理：
 
 ```java
-package com.study.scheduler.util;
+package com.study.scheduler.utils;
 
 import org.apache.http.HeaderElement;
 import org.apache.http.HeaderElementIterator;
@@ -43,11 +43,11 @@ import java.util.concurrent.TimeUnit;
 
 public class HttpClientUtil {
     private static final Logger logger = LoggerFactory.getLogger(HttpClientUtil.class);
-    
+
     private static CloseableHttpClient httpClient;
     private static PoolingHttpClientConnectionManager connectionManager;
     private static RequestConfig requestConfig;
-    
+
     // 连接池配置参数
     private static final int MAX_TOTAL_CONNECTIONS = 500;
     private static final int DEFAULT_MAX_PER_ROUTE = 100;
@@ -56,7 +56,7 @@ public class HttpClientUtil {
     private static final int SOCKET_TIMEOUT = 10000;
     private static final int DEFAULT_KEEP_ALIVE_TIME_MILLIS = 20 * 1000;
     private static final int CLOSE_IDLE_CONNECTION_WAIT_TIME_SECS = 30;
-    
+
     static {
         try {
             init();
@@ -65,7 +65,7 @@ public class HttpClientUtil {
             throw new RuntimeException("Failed to initialize HttpClientUtil", e);
         }
     }
-    
+
     private static void init() throws KeyStoreException, NoSuchAlgorithmException, KeyManagementException {
         // 创建SSL上下文
         SSLContext sslContext = SSLContextBuilder
@@ -77,35 +77,35 @@ public class HttpClientUtil {
                     }
                 })
                 .build();
-        
+
         // 创建主机名验证器
         HostnameVerifier hostnameVerifier = NoopHostnameVerifier.INSTANCE;
-        
+
         // 注册SSL连接工厂
         SSLConnectionSocketFactory sslSocketFactory = new SSLConnectionSocketFactory(
                 sslContext,
                 new String[]{"TLSv1", "TLSv1.1", "TLSv1.2", "TLSv1.3"},
                 null,
                 hostnameVerifier);
-        
+
         // 注册http和https协议
         Registry<ConnectionSocketFactory> socketFactoryRegistry = RegistryBuilder.<ConnectionSocketFactory>create()
                 .register("http", PlainConnectionSocketFactory.getSocketFactory())
                 .register("https", sslSocketFactory)
                 .build();
-        
+
         // 创建连接管理器
         connectionManager = new PoolingHttpClientConnectionManager(socketFactoryRegistry);
         connectionManager.setMaxTotal(MAX_TOTAL_CONNECTIONS);
         connectionManager.setDefaultMaxPerRoute(DEFAULT_MAX_PER_ROUTE);
-        
+
         // 创建请求配置
         requestConfig = RequestConfig.custom()
                 .setConnectTimeout(CONNECT_TIMEOUT)
                 .setSocketTimeout(SOCKET_TIMEOUT)
                 .setConnectionRequestTimeout(REQUEST_TIMEOUT)
                 .build();
-        
+
         // 创建保活策略
         ConnectionKeepAliveStrategy keepAliveStrategy = (response, context) -> {
             HeaderElementIterator it = new BasicHeaderElementIterator(
@@ -120,7 +120,7 @@ public class HttpClientUtil {
             }
             return DEFAULT_KEEP_ALIVE_TIME_MILLIS;
         };
-        
+
         // 创建HttpClient
         httpClient = HttpClients.custom()
                 .setConnectionManager(connectionManager)
@@ -130,13 +130,13 @@ public class HttpClientUtil {
                 .setSSLContext(sslContext)
                 .setSSLHostnameVerifier(hostnameVerifier)
                 .build();
-        
+
         // 启动定时清理空闲连接的线程
         startIdleConnectionMonitor();
-        
+
         logger.info("HttpClientUtil initialized successfully");
     }
-    
+
     private static void startIdleConnectionMonitor() {
         Thread monitorThread = new Thread(() -> {
             while (true) {
@@ -158,23 +158,23 @@ public class HttpClientUtil {
         monitorThread.setDaemon(true);
         monitorThread.start();
     }
-    
+
     public static String doGet(String url) throws IOException {
         HttpGet httpGet = new HttpGet(url);
         httpGet.setConfig(requestConfig);
-        
+
         // 添加通用头信息
         httpGet.setHeader("User-Agent", "Mozilla/5.0");
         httpGet.setHeader("Accept", "*/*");
-        
+
         logger.debug("Executing GET request to: {}", url);
         try (CloseableHttpResponse response = httpClient.execute(httpGet)) {
             int statusCode = response.getStatusLine().getStatusCode();
             String responseBody = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
-            
+
             logger.debug("Response status code: {}", statusCode);
             logger.debug("Response body: {}", responseBody);
-            
+
             if (statusCode >= 200 && statusCode < 300) {
                 return responseBody;
             } else {
@@ -185,31 +185,31 @@ public class HttpClientUtil {
             throw e;
         }
     }
-    
+
     public static String doPost(String url, String jsonBody) throws IOException {
         HttpPost httpPost = new HttpPost(url);
         httpPost.setConfig(requestConfig);
-        
+
         // 添加通用头信息
         httpPost.setHeader("Content-Type", "application/json");
         httpPost.setHeader("User-Agent", "Mozilla/5.0");
         httpPost.setHeader("Accept", "*/*");
-        
+
         if (jsonBody != null) {
             StringEntity entity = new StringEntity(jsonBody, StandardCharsets.UTF_8);
             httpPost.setEntity(entity);
         }
-        
+
         logger.debug("Executing POST request to: {}", url);
         logger.debug("Request body: {}", jsonBody);
-        
+
         try (CloseableHttpResponse response = httpClient.execute(httpPost)) {
             int statusCode = response.getStatusLine().getStatusCode();
             String responseBody = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
-            
+
             logger.debug("Response status code: {}", statusCode);
             logger.debug("Response body: {}", responseBody);
-            
+
             if (statusCode >= 200 && statusCode < 300) {
                 return responseBody;
             } else {
@@ -220,7 +220,7 @@ public class HttpClientUtil {
             throw e;
         }
     }
-    
+
     public static void close() {
         try {
             logger.info("Shutting down HttpClientUtil...");
@@ -275,7 +275,7 @@ public class AppConfig {
 ```yaml
 logging:
   level:
-    com.study.scheduler.util: DEBUG
+    com.study.scheduler.utils: DEBUG
     org.apache.http: DEBUG
     javax.net: DEBUG
 ```

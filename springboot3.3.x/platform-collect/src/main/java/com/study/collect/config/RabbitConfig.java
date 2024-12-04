@@ -18,26 +18,10 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class RabbitConfig {
 
-    @Value("${spring.rabbitmq.host}")
-    private String host;
-
-    @Value("${spring.rabbitmq.port}")
-    private int port;
-
-    @Value("${spring.rabbitmq.username}")
-    private String username;
-
-    @Value("${spring.rabbitmq.password}")
-    private String password;
-
-    @Value("${spring.rabbitmq.virtual-host}")
-    private String virtualHost;
-
     // 测试用的交换机、队列和路由键名称
     private static final String TEST_EXCHANGE = "test.exchange";
     private static final String TEST_QUEUE = "test.queue";
     private static final String TEST_ROUTING_KEY = "test.message";
-
     // 数据采集用的交换机、队列和路由键名称
     private static final String DATA_EXCHANGE = "data.collect.exchange";
     private static final String DATA_QUEUE = "data.collect.queue";
@@ -45,6 +29,16 @@ public class RabbitConfig {
     private static final String DEAD_LETTER_EXCHANGE = "data.collect.dlx";
     private static final String DEAD_LETTER_QUEUE = "data.collect.dead.queue";
     private static final String DEAD_LETTER_ROUTING_KEY = "data.collect.dead";
+    @Value("${spring.rabbitmq.host}")
+    private String host;
+    @Value("${spring.rabbitmq.port}")
+    private int port;
+    @Value("${spring.rabbitmq.username}")
+    private String username;
+    @Value("${spring.rabbitmq.password}")
+    private String password;
+    @Value("${spring.rabbitmq.virtual-host}")
+    private String virtualHost;
 
     @Bean
     public ConnectionFactory connectionFactory() {

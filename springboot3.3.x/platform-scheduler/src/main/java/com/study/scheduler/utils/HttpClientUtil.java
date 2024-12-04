@@ -1,4 +1,4 @@
-package com.study.scheduler.util;
+package com.study.scheduler.utils;
 
 import org.apache.http.HeaderElement;
 import org.apache.http.HeaderElementIterator;

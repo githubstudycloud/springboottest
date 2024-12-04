@@ -12,28 +12,23 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Date;
-import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
 public class TestService {
 
-    @Autowired
-    private TestMySQLMapper mysqlMapper;
-
-    @Autowired
-    private TestMongoRepository mongoRepository;
-
-    @Autowired
-    private RedisTemplate<String, Object> redisTemplate;
-
-    @Autowired
-    private RabbitTemplate rabbitTemplate;
-
     private static final String REDIS_KEY_PREFIX = "test:entity:";
     private static final String EXCHANGE_NAME = "test.exchange";
     private static final String ROUTING_KEY = "test.message";
+    @Autowired
+    private TestMySQLMapper mysqlMapper;
+    @Autowired
+    private TestMongoRepository mongoRepository;
+    @Autowired
+    private RedisTemplate<String, Object> redisTemplate;
+    @Autowired
+    private RabbitTemplate rabbitTemplate;
 
     // MySQL测试方法
     @Transactional

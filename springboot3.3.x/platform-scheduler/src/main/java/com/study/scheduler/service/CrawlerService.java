@@ -2,10 +2,8 @@ package com.study.scheduler.service;
 
 import com.study.scheduler.entity.CrawlerRecord;
 import com.study.scheduler.entity.CrawlerTask;
-import com.study.scheduler.util.HttpClientUtil;
-import com.study.scheduler.util.MongoDBUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.study.scheduler.utils.HttpClientUtil;
+import com.study.scheduler.utils.MongoDBUtils;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
@@ -16,8 +14,6 @@ import java.util.List;
 
 @Service
 public class CrawlerService {
-    private static final Logger logger = LoggerFactory.getLogger(CrawlerService.class);
-
     private final MongoDBUtils mongoDBUtils;
 
     public CrawlerService(MongoDBUtils mongoDBUtils) {

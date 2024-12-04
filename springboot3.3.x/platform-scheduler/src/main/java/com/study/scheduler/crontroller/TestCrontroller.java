@@ -1,6 +1,6 @@
 package com.study.scheduler.crontroller;
 
-import com.study.scheduler.util.HttpClientUtil;
+import com.study.scheduler.utils.HttpClientUtil;
 
 public class TestCrontroller {
     public static void main(String[] args) {

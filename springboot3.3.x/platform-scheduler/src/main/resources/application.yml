@@ -96,4 +96,19 @@ logging:
 scheduler:
   log:
     retain-days: 30  # 日志保留天数
+collect:
+  service:
+    url: http://localhost:8082  # 默认的collect服务地址
+    urls:  # collect服务集群地址列表
+      - http://localhost:8082
+      - http://localhost:8083
+      - http://localhost:8084
+  scheduler:
+    tasks:
+      collect-distribution:  # 任务分发作业
+        cron: "0/30 * * * * ?"  # 每30秒执行一次
+      health-sync:  # 健康检查和同步作业
+        cron: "0 0/5 * * * ?"   # 每5分钟执行一次
+      failed-retry:  # 失败重试作业
+        cron: "0 0/10 * * * ?"  # 每10分钟执行一次
 
