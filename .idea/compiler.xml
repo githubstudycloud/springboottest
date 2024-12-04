@@ -11,6 +11,7 @@
         <module name="platform-common" />
         <module name="platform-scheduler" />
         <module name="springboottest" />
+        <module name="platform-collect" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
