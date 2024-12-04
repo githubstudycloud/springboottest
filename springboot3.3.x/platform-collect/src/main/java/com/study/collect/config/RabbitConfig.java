@@ -149,7 +149,7 @@ public class RabbitConfig {
     @Bean
     public SimpleMessageListenerContainer messageListenerContainer(ConnectionFactory connectionFactory, RabbitMessageListener rabbitMessageListener) {
         SimpleMessageListenerContainer container = new SimpleMessageListenerContainer(connectionFactory);
-        container.setQueueNames(DATA_QUEUE, TEST_QUEUE);
+        container.setQueueNames(DATA_QUEUE, TEST_ROUTING_KEY);
         container.setMessageListener(rabbitMessageListener); // 设置消息监听器
         container.setConcurrentConsumers(3);
         container.setMaxConcurrentConsumers(10);

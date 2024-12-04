@@ -69,11 +69,11 @@ public class RedisConfig {
     @PostConstruct
     public void init() {
         logger.info("=============== Redis Configuration Initializing ===============");
-        logger.info("Redis Mode: {}", clusterNodes.isEmpty() ? "Standalone" : "Cluster");
+        logger.info("Redis Mode: {}", (clusterNodes == null || clusterNodes.isEmpty()) ? "Standalone" : "Cluster");
         logger.info("Redis Host: {}", host);
         logger.info("Redis Port: {}", port);
         logger.info("Redis Password: {}", password.isEmpty() ? "Not Set" : "Set");
-        if (!clusterNodes.isEmpty()) {
+        if (clusterNodes != null && !clusterNodes.isEmpty()) {
             logger.info("Redis Cluster Nodes: {}", clusterNodes);
         }
         logger.info("Redis Pool Config:");
@@ -90,7 +90,7 @@ public class RedisConfig {
         logger.info("Creating RedisConnectionFactory...");
         LettuceClientConfiguration clientConfig = getLettuceClientConfiguration();
 
-        if (!clusterNodes.isEmpty()) {
+        if (clusterNodes != null && !clusterNodes.isEmpty()) {
             return createClusterConnectionFactory(clientConfig);
         } else {
             return createStandaloneConnectionFactory(clientConfig);
@@ -102,7 +102,7 @@ public class RedisConfig {
         logger.info("Creating RedissonClient...");
         Config config = new Config();
 
-        if (!clusterNodes.isEmpty()) {
+        if (clusterNodes != null && !clusterNodes.isEmpty()) {
             // 集群模式
             ClusterServersConfig clusterConfig = config.useClusterServers();
             for (String node : clusterNodes) {
@@ -113,7 +113,9 @@ public class RedisConfig {
             }
             clusterConfig.setTimeout((int) timeout)
                     .setMasterConnectionPoolSize(maxActive)
-                    .setSlaveConnectionPoolSize(maxActive);
+                    .setMasterConnectionMinimumIdleSize(minIdle)
+                    .setSlaveConnectionPoolSize(maxActive)
+                    .setSlaveConnectionMinimumIdleSize(minIdle);
             logger.info("Configured Redisson for cluster mode");
         } else {
             // 单机模式
