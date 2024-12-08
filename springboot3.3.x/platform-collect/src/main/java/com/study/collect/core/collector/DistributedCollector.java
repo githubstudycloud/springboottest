@@ -1,8 +1,10 @@
 package com.study.collect.core.collector;
 
+import com.study.collect.annotation.CollectorFor;
 import com.study.collect.core.executor.CollectExecutor;
 import com.study.collect.entity.CollectTask;
 import com.study.collect.entity.TaskResult;
+import com.study.collect.enums.CollectorType;
 import com.study.collect.enums.TaskStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,6 +17,7 @@ import java.util.concurrent.TimeUnit;
 
 // 核心采集实现
 @Component
+@CollectorFor(CollectorType.DEFAULT)
 public class DistributedCollector implements Collector {
     private static final Logger logger = LoggerFactory.getLogger(DistributedCollector.class);
     private static final String TASK_LOCK_PREFIX = "collect:task:lock:";

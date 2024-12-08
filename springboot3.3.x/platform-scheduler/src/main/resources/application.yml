@@ -111,4 +111,15 @@ collect:
         cron: "0 0/5 * * * ?"   # 每5分钟执行一次
       failed-retry:  # 失败重试作业
         cron: "0 0/10 * * * ?"  # 每10分钟执行一次
+#    jobs:
+#      tree-collection:
+#        cron: "0 0 1 * * ?"  # 每天凌晨1点执行
+#        parameters:
+#          projectId: "default-project"
+    jobs:
+      tree-collection:
+        cron: "0 0 1 * * ?"
+        data:
+          url: "http://example.com/api/tree-data"
+          method: "GET"
 

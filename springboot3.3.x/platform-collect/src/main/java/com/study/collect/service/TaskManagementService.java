@@ -1,6 +1,7 @@
 package com.study.collect.service;
 
 import com.study.collect.core.collector.Collector;
+import com.study.collect.core.collector.CollectorStrategy;
 import com.study.collect.entity.CollectTask;
 import com.study.collect.entity.TaskResult;
 import com.study.collect.enums.TaskStatus;
@@ -24,6 +25,26 @@ public class TaskManagementService {
 
     @Autowired
     private TaskRepository taskRepository;
+
+    @Autowired
+    private CollectorStrategy collectorStrategy;
+
+    public TaskResult executeTask(String taskId) {
+        Optional<CollectTask> taskOpt = getTask(taskId);
+        if (taskOpt.isEmpty()) {
+            return TaskResult.builder()
+                    .taskId(taskId)
+                    .status(TaskStatus.FAILED)
+                    .message("Task not found")
+                    .build();
+        }
+
+        CollectTask task = taskOpt.get();
+
+        // 根据任务类型获取对应的采集器
+        Collector collector = collectorStrategy.getCollector(task.getCollectorType());
+        return collector.collect(task);
+    }
 
     public CollectTask createTask(CollectTask task) {
         task.setStatus(TaskStatus.CREATED);
