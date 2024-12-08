@@ -1,9 +1,11 @@
 package com.study.collect.core.collector;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.study.collect.annotation.CollectorFor;
 import com.study.collect.entity.CollectTask;
 import com.study.collect.entity.TaskResult;
 import com.study.collect.entity.TreeNode;
+import com.study.collect.enums.CollectorType;
 import com.study.collect.enums.TaskStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,7 +27,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Component("treeCollector")
+@CollectorFor(CollectorType.TREE)  // 添加CollectorFor注解指定类型
 public class TreeCollector implements Collector {
+
     private static final Logger logger = LoggerFactory.getLogger(TreeCollector.class);
 
     @Autowired
@@ -36,6 +40,10 @@ public class TreeCollector implements Collector {
 
     @Autowired
     private RestTemplate restTemplate;
+
+    public TreeCollector() {
+        logger.info("TreeCollector initialized with type: {}", CollectorType.TREE);
+    }
 
     @Override
     public TaskResult collect(CollectTask task) {

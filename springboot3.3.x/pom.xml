@@ -271,6 +271,7 @@
                     <artifactId>maven-compiler-plugin</artifactId>
                     <version>3.11.0</version>
                     <configuration>
+                        <parameters>true</parameters>  <!-- 启用参数名保留 -->
                         <source>${java.version}</source>
                         <target>${java.version}</target>
                     </configuration>

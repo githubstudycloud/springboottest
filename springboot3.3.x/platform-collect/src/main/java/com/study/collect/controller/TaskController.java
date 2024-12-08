@@ -5,7 +5,6 @@ import com.study.collect.entity.TaskResult;
 import com.study.collect.enums.TaskStatus;
 import com.study.collect.service.TaskManagementService;
 import com.study.common.util.Result;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -14,8 +13,11 @@ import java.util.List;
 @RequestMapping("/api/tasks")
 public class TaskController {
 
-    @Autowired
-    private TaskManagementService taskService;
+    private final TaskManagementService taskService;
+
+    public TaskController(TaskManagementService taskService) {
+        this.taskService = taskService;
+    }
 
     @PostMapping
     public Result<CollectTask> createTask(@RequestBody CollectTask task) {

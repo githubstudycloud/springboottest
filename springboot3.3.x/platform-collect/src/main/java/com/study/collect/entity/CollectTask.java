@@ -29,6 +29,8 @@ public class CollectTask {
     private Date createTime;
     private Date updateTime;
     private CollectorType collectorType = CollectorType.DEFAULT; // 默认类型
+    private String lastError;
+
 }
 
 

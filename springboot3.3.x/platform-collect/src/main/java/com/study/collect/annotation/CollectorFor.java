@@ -1,8 +1,9 @@
 package com.study.collect.annotation;
 
 
-import java.lang.annotation.*;
 import com.study.collect.enums.CollectorType;
+
+import java.lang.annotation.*;
 
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)

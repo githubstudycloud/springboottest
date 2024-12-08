@@ -1,6 +1,7 @@
 package com.study.collect.controller;
 
 import com.study.collect.entity.CollectTask;
+import com.study.collect.entity.TaskResult;
 import com.study.collect.entity.TreeCollectRequest;
 import com.study.collect.enums.CollectorType;
 import com.study.collect.enums.TaskStatus;
@@ -16,9 +17,12 @@ import java.util.Optional;
 @RequestMapping("/api/tree")
 public class TreeCollectController {
 
-    @Autowired
-    private TaskManagementService taskService;
 
+    private final TaskManagementService taskService;
+
+    public TreeCollectController(TaskManagementService taskService) {
+        this.taskService = taskService;
+    }
 
 
     @PostMapping("/collect")
@@ -38,9 +42,37 @@ public class TreeCollectController {
                     .updateTime(new Date())
                     .build();
 
-            return Result.success(taskService.createTask(task));
+            // 先创建任务
+            CollectTask createdTask = taskService.createTask(task);
+
+            // 立即执行任务
+            TaskResult result = taskService.executeTask(createdTask.getId());
+
+            return Result.success(createdTask);
         } catch (Exception e) {
             return Result.error("Failed to create collection task: " + e.getMessage());
+        }
+    }
+
+
+    @PostMapping("/collect/{taskId}/execute")
+    public Result<TaskResult> executeCollectionTask(@PathVariable String taskId) {
+        try {
+            Optional<CollectTask> taskOpt = taskService.getTask(taskId);
+            if (taskOpt.isEmpty()) {
+                return Result.error("Task not found");
+            }
+
+            CollectTask task = taskOpt.get();
+            // 检查任务是否可执行
+            if (!TaskStatus.CREATED.equals(task.getStatus())) {
+                return Result.error("Task is not in CREATED status");
+            }
+
+            TaskResult result = taskService.executeTask(taskId);
+            return Result.success(result);
+        } catch (Exception e) {
+            return Result.error("Failed to execute task: " + e.getMessage());
         }
     }
 
