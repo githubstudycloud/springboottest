@@ -4,9 +4,8 @@ import lombok.Data;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-import java.util.Collection;
-import java.util.List;
 import java.util.Date;
+import java.util.List;
 
 @Data
 @Document(collection = "tree_nodes")
@@ -22,6 +21,7 @@ public class TreeNode {
     private Date createTime;
     private Date updateTime;
     private List<TreeNode> children;
+    private String taskId;
 
 
     public enum NodeType {
