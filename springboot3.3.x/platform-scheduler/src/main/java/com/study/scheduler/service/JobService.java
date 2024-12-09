@@ -16,11 +16,13 @@ import java.time.Duration;
 @Service
 public class JobService {
     private static final Logger logger = LoggerFactory.getLogger(RedisConfig.class);
+    private static final String JOB_LOCK_KEY_PREFIX = "scheduler:job:lock:";
     @Autowired
     private Scheduler scheduler;
-
     @Autowired
     private JobInfoMapper jobInfoMapper;
+    @Autowired
+    private RedisTemplate<String, Object> redisTemplate;
 
     /**
      * 添加任务
@@ -93,12 +95,6 @@ public class JobService {
     private Class<? extends Job> getJobClass(String jobClass) throws Exception {
         return (Class<? extends Job>) Class.forName(jobClass);
     }
-
-
-    @Autowired
-    private RedisTemplate<String, Object> redisTemplate;
-
-    private static final String JOB_LOCK_KEY_PREFIX = "scheduler:job:lock:";
 
     /**
      * 使用Redis分布式锁执行任务

@@ -75,6 +75,23 @@ public class MonitorService {
         return SystemResourceUtil.getMemoryUsage();
     }
 
+    public void acknowledgeAlert(String alertId) {
+        Query query = new Query(Criteria.where("_id").is(alertId));
+        Update update = new Update()
+                .set("acknowledged", true)
+                .set("acknowledgeTime", new Date());
+
+        // 更新告警状态
+        mongoTemplate.updateFirst(query, update, AlertMessage.class);
+
+        // 记录操作日志
+        AlertLog alertLog = new AlertLog();
+        alertLog.setAlertId(alertId);
+        alertLog.setOperation("ACKNOWLEDGE");
+        alertLog.setOperateTime(new Date());
+        mongoTemplate.save(alertLog);
+    }
+
     // 告警规则评估
     public class AlertRuleImpl extends AlertRule {
 
@@ -133,21 +150,5 @@ public class MonitorService {
                     return 0.0;
             }
         }
-    }
-    public void acknowledgeAlert(String alertId) {
-        Query query = new Query(Criteria.where("_id").is(alertId));
-        Update update = new Update()
-                .set("acknowledged", true)
-                .set("acknowledgeTime", new Date());
-
-        // 更新告警状态
-        mongoTemplate.updateFirst(query, update, AlertMessage.class);
-
-        // 记录操作日志
-        AlertLog alertLog = new AlertLog();
-        alertLog.setAlertId(alertId);
-        alertLog.setOperation("ACKNOWLEDGE");
-        alertLog.setOperateTime(new Date());
-        mongoTemplate.save(alertLog);
     }
 }

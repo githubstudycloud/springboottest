@@ -8,7 +8,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
@@ -23,11 +22,9 @@ import java.util.Properties;
 @Configuration
 public class SchedulerConfig {
     private static final Logger logger = LoggerFactory.getLogger(SchedulerConfig.class);
-
+    private final ApplicationContext applicationContext;
     @Autowired
     private DataSource dataSource;
-
-    private final ApplicationContext applicationContext;
 
     public SchedulerConfig(ApplicationContext applicationContext) {
         this.applicationContext = applicationContext;
@@ -119,8 +116,8 @@ public class SchedulerConfig {
 }
 
 class CustomJobFactory extends SpringBeanJobFactory implements ApplicationContextAware {
-    private AutowireCapableBeanFactory beanFactory;
     private static final Logger logger = LoggerFactory.getLogger(CustomJobFactory.class);
+    private AutowireCapableBeanFactory beanFactory;
 
     @Override
     public void setApplicationContext(ApplicationContext context) throws BeansException {

@@ -11,11 +11,11 @@ POST http://localhost:8082/api/tree/collect
 Content-Type: application/json
 
 {
-    "url": "http://example.com/api/tree-data",
-    "method": "GET",
-    "headers": {
-        "Authorization": "Bearer token123"
-    }
+  "url": "http://example.com/api/tree-data",
+  "method": "GET",
+  "headers": {
+    "Authorization": "Bearer token123"
+  }
 }
 
 ###

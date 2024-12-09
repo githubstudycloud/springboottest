@@ -1,7 +1,6 @@
 package com.study.scheduler.job;
 
 
-
 import com.study.scheduler.entity.JobLog;
 import com.study.scheduler.mapper.JobLogMapper;
 import org.quartz.Job;
@@ -12,11 +11,10 @@ import org.redisson.api.RedissonClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 
 import java.net.InetAddress;
 import java.util.Date;
-import java.util.concurrent.*;
+import java.util.concurrent.TimeUnit;
 
 public abstract class BaseJob implements Job {
     protected final Logger logger = LoggerFactory.getLogger(getClass());

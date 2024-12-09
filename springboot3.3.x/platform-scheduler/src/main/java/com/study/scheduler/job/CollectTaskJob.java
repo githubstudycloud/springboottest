@@ -1,24 +1,23 @@
 package com.study.scheduler.job;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.study.scheduler.utils.HttpClientUtil;
 import lombok.Data;
 import org.quartz.JobExecutionContext;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
 import java.util.List;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Component
 public class CollectTaskJob extends BaseJob {
     private static final Logger logger = LoggerFactory.getLogger(CollectTaskJob.class);
-
+    private final ObjectMapper objectMapper = new ObjectMapper();
     @Value("${collect.service.url}")
     private String collectServiceUrl;
-
-    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     protected void doExecute(JobExecutionContext context) throws Exception {
@@ -28,7 +27,8 @@ public class CollectTaskJob extends BaseJob {
         String tasksJson = HttpClientUtil.doGet(collectServiceUrl + "/api/tasks/status/CREATED");
         TaskResponse<List<CollectTask>> response = objectMapper.readValue(
                 tasksJson,
-                new TypeReference<TaskResponse<List<CollectTask>>>() {}
+                new TypeReference<TaskResponse<List<CollectTask>>>() {
+                }
         );
 
         if (response.getCode() == 200 && response.getData() != null) {

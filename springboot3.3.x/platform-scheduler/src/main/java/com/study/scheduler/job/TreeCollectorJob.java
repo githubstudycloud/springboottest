@@ -5,10 +5,8 @@ import com.study.scheduler.entity.TreeCollectRequest;
 import com.study.scheduler.utils.HttpClientUtil;
 import org.quartz.JobDataMap;
 import org.quartz.JobExecutionContext;
-import org.quartz.JobExecutionException;
-import org.springframework.stereotype.Component;
 import org.springframework.beans.factory.annotation.Value;
-
+import org.springframework.stereotype.Component;
 
 
 @Component

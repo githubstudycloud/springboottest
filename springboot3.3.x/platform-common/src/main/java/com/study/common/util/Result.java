@@ -4,6 +4,11 @@ package com.study.common.util;
  * 结果返回工具类
  */
 public class Result<T> {
+    // 预定义状态码
+    public static final int SUCCESS = 200;
+    public static final int PARAM_ERROR = 400;
+    public static final int UNAUTHORIZED = 401;
+    public static final int SERVER_ERROR = 500;
     private Integer code;
     private String message;
     private T data;
@@ -78,10 +83,4 @@ public class Result<T> {
         this.message = message;
         return this;
     }
-
-    // 预定义状态码
-    public static final int SUCCESS = 200;
-    public static final int PARAM_ERROR = 400;
-    public static final int UNAUTHORIZED = 401;
-    public static final int SERVER_ERROR = 500;
 }

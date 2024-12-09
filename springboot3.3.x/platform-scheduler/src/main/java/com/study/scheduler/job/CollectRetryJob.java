@@ -2,22 +2,21 @@ package com.study.scheduler.job;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.study.scheduler.utils.HttpClientUtil;
+import lombok.Data;
 import org.quartz.JobExecutionContext;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
 import java.util.List;
-import lombok.Data;
 
 @Component
 public class CollectRetryJob extends BaseJob {
     private static final Logger logger = LoggerFactory.getLogger(CollectRetryJob.class);
-
+    private final ObjectMapper objectMapper = new ObjectMapper();
     @Value("${collect.service.url}")
     private String collectServiceUrl;
-
-    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     protected void doExecute(JobExecutionContext context) throws Exception {
@@ -56,6 +55,10 @@ public class CollectRetryJob extends BaseJob {
         }
     }
 
+    private boolean error(Integer code) {
+        return code == null || code != 200;
+    }
+
     @Data
     public static class TaskResponse<T> {
         private Integer code;
@@ -71,9 +74,5 @@ public class CollectRetryJob extends BaseJob {
         private String status;
         private Integer retryCount = 0;
         private Integer maxRetries = 3;
-    }
-
-    private boolean error(Integer code) {
-        return code == null || code != 200;
     }
 }

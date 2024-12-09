@@ -12,6 +12,13 @@ import java.util.List;
 
 @Component
 public class DemoJob extends BaseJob {
+    // 执行查询日志
+    @Autowired
+    private JobLogMapper jobLogMapper;
+    // 创建新任务
+    @Autowired
+    private JobService jobService;
+
     @Override
     protected void doExecute(JobExecutionContext context) throws Exception {
         // 获取任务参数
@@ -24,17 +31,9 @@ public class DemoJob extends BaseJob {
         // 任务逻辑...
     }
 
-    // 执行查询日志
-    @Autowired
-    private JobLogMapper jobLogMapper;
-
     public List<JobLog> getJobLogs(String jobName, String jobGroup) {
         return jobLogMapper.findRecentLogs(jobName, jobGroup, 10);
     }
-
-    // 创建新任务
-    @Autowired
-    private JobService jobService;
 
     public void createJob() throws Exception {
         JobInfo jobInfo = new JobInfo();

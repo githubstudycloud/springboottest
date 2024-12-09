@@ -3,7 +3,6 @@ package com.study.collect.controller;
 import com.study.collect.entity.AlertMessage;
 import com.study.collect.entity.SystemMetrics;
 import com.study.collect.entity.TaskStatusStatistics;
-
 import com.study.collect.monitor.MonitorService;
 import com.study.common.util.Result;
 import org.springframework.beans.factory.annotation.Autowired;

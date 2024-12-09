@@ -12,12 +12,12 @@ public class DatabaseUtils {
     private static final Logger logger = LoggerFactory.getLogger(DatabaseUtils.class);
     private static final ThreadLocal<String> DATASOURCE_HOLDER = new ThreadLocal<>();
 
-    public static void setDataSource(String dataSource) {
-        DATASOURCE_HOLDER.set(dataSource);
-    }
-
     public static String getDataSource() {
         return DATASOURCE_HOLDER.get();
+    }
+
+    public static void setDataSource(String dataSource) {
+        DATASOURCE_HOLDER.set(dataSource);
     }
 
     public static void clearDataSource() {

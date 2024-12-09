@@ -56,13 +56,12 @@ public class HttpClientUtil {
     private static final int MONITOR_PERIOD_SECONDS = 10;
     private static final int SHUTDOWN_TIMEOUT_SECONDS = 5;
     private static final String MONITOR_THREAD_PREFIX = "http-connection-monitor-";
-
+    private static final AtomicBoolean isMonitorRunning = new AtomicBoolean(false);
     // 实例变量
     private static CloseableHttpClient httpClient;
     private static PoolingHttpClientConnectionManager connectionManager;
     private static RequestConfig requestConfig;
     private static ScheduledThreadPoolExecutor connectionMonitorExecutor;
-    private static final AtomicBoolean isMonitorRunning = new AtomicBoolean(false);
 
     static {
         Thread.setDefaultUncaughtExceptionHandler((thread, throwable) ->
@@ -185,24 +184,6 @@ public class HttpClientUtil {
         }
     }
 
-    private static class ConnectionMonitorTask implements Runnable {
-        @Override
-        public void run() {
-            try {
-                synchronized (connectionManager) {
-                    connectionManager.closeExpiredConnections();
-                    connectionManager.closeIdleConnections(
-                            CLOSE_IDLE_CONNECTION_WAIT_TIME_SECS,
-                            TimeUnit.SECONDS
-                    );
-                }
-                logger.debug("Connection maintenance completed");
-            } catch (RuntimeException e) {
-                logger.error("Error during connection maintenance", e);
-            }
-        }
-    }
-
     public static String doGet(String url) throws IOException {
         HttpGet httpGet = new HttpGet(url);
         httpGet.setConfig(requestConfig);
@@ -286,6 +267,24 @@ public class HttpClientUtil {
             logger.info("HttpClientUtil shut down successfully");
         } catch (IOException e) {
             logger.error("Error while shutting down HttpClientUtil", e);
+        }
+    }
+
+    private static class ConnectionMonitorTask implements Runnable {
+        @Override
+        public void run() {
+            try {
+                synchronized (connectionManager) {
+                    connectionManager.closeExpiredConnections();
+                    connectionManager.closeIdleConnections(
+                            CLOSE_IDLE_CONNECTION_WAIT_TIME_SECS,
+                            TimeUnit.SECONDS
+                    );
+                }
+                logger.debug("Connection maintenance completed");
+            } catch (RuntimeException e) {
+                logger.error("Error during connection maintenance", e);
+            }
         }
     }
 }

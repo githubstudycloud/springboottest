@@ -10,7 +10,9 @@ Content-Type: application/json
 {
   "url": "http://localhost:8082/api/test/tree/nodes",
   "method": "GET",
-  "headers": {"Authorization":"Bearer your-token"}
+  "headers": {
+    "Authorization": "Bearer your-token"
+  }
 }
 
 ### 查看采集任务结果

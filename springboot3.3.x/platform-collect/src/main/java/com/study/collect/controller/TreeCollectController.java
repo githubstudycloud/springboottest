@@ -7,7 +7,6 @@ import com.study.collect.enums.CollectorType;
 import com.study.collect.enums.TaskStatus;
 import com.study.collect.service.TaskManagementService;
 import com.study.common.util.Result;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Date;
