@@ -1,0 +1,74 @@
+{
+  "rabbit_version": "3.12.0",
+  "rabbitmq_version": "3.12.0",
+  "users": [
+    {
+      "name": "admin",
+      "password_hash": "your_hashed_password",
+      "hashing_algorithm": "rabbit_password_hashing_sha256",
+      "tags": ["administrator"]
+    }
+  ],
+  "vhosts": [
+    {
+      "name": "/"
+    }
+  ],
+  "permissions": [
+    {
+      "user": "admin",
+      "vhost": "/",
+      "configure": ".*",
+      "write": ".*",
+      "read": ".*"
+    }
+  ],
+  "exchanges": [
+    {
+      "name": "crawler.exchange",
+      "vhost": "/",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    }
+  ],
+  "queues": [
+    {
+      "name": "crawler.task.queue",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
+      "name": "crawler.retry.queue",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "crawler.exchange",
+        "x-dead-letter-routing-key": "crawler.task"
+      }
+    }
+  ],
+  "bindings": [
+    {
+      "source": "crawler.exchange",
+      "vhost": "/",
+      "destination": "crawler.task.queue",
+      "destination_type": "queue",
+      "routing_key": "crawler.task",
+      "arguments": {}
+    },
+    {
+      "source": "crawler.exchange",
+      "vhost": "/",
+      "destination": "crawler.retry.queue",
+      "destination_type": "queue",
+      "routing_key": "crawler.retry",
+      "arguments": {}
+    }
+  ]
+}

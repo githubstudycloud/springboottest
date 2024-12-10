@@ -1,0 +1,3 @@
+FROM redis:7.2
+COPY redis-node-5.conf /usr/local/etc/redis/redis.conf
+CMD ["redis-server", "/usr/local/etc/redis/redis.conf"]

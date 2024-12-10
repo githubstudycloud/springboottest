@@ -1,0 +1,109 @@
+# curl -X POST http://localhost:8082/api/tree/collect
+#-H "Content-Type: application/json"
+#-d '{
+#    "url": "http://example.com/api/tree-data",
+#    "method": "GET",
+#    "headers": {
+#        "Authorization": "Bearer token123"
+#    }
+#}'
+POST http://localhost:8082/api/tree/collect
+Content-Type: application/json
+
+{
+  "url": "http://example.com/api/tree-data",
+  "method": "GET",
+  "headers": {
+    "Authorization": "Bearer token123"
+  }
+}
+
+###
+
+
+
+# curl http://localhost:8082/api/tree/result/{taskId}
+GET http://localhost:8082/api/tree/result/{taskId}
+
+# curl -X POST "http://localhost:8082/api/tree/collect?projectId=project001"
+POST http://localhost:8082/api/tree/collect?projectId=project001
+
+
+
+
+
+
+
+
+
+## 创建采集任务
+#curl -X POST http://localhost:8082/api/tree/collect \
+#-H "Content-Type: application/json" \
+#-d '{
+#    "url": "http://example.com/api/tree-data",
+#    "method": "GET",
+#    "headers": {
+#        "Authorization": "Bearer token123"
+#    }
+#}'
+
+###
+#
+#1. 通过API手动触发：
+#```bash
+## 创建采集任务
+####
+#
+## curl -X POST "http://localhost:8082/api/tree/collect?projectId=project001
+#POST http://localhost:8082/api/tree/collect?projectId=project001
+#
+####
+#
+#"
+#
+## 查看任务结果
+#curl http://localhost:8082/api/tree/result/{taskId}
+#
+#```
+#
+#2. 通过调度器自动执行：
+#```java
+#// 创建调度任务
+#JobDetail job = JobBuilder.newJob(TreeCollectJob.class)
+#    .withIdentity("treeCollect", "defaultGroup")
+#    .usingJobData("projectId", "project001")
+#    .build();
+#
+#Trigger trigger = TriggerBuilder.newTrigger()
+#    .withSchedule(CronScheduleBuilder.cronSchedule("0 0 1 * * ?"))
+#    .build();
+#
+#scheduler.scheduleJob(job, trigger);
+#```
+#
+#
+#
+
+
+# curl http://localhost:8082/api/tree/nodes/project001curl http://localhost:8082/api/tree/nodes/project001
+GET http://localhost:8082/api/tree/nodes/project001
+
+###
+
+# curl -X POST http://localhost:8082/api/tree/collect/project001curl -X POST http://localhost:8082/api/tree/collect/project001
+POST http://localhost:8082/api/tree/collect/project001
+
+###
+
+#1. 启动应用后，调用接口创建一个采集任务：
+#```bash
+#curl -X POST http://localhost:8082/api/tree/collect/project001
+#```
+#
+#2. 查看采集的树状结构：
+#```bash
+#curl http://localhost:8082/api/tree/nodes/project001
+#```
+
+
+

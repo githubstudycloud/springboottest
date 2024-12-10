@@ -1,0 +1,76 @@
+### Test Tree Data Requests
+# 获取测试树数据
+GET http://localhost:8082/api/test/tree/nodes
+
+### Tree Collection Requests
+### 创建树结构采集任务
+POST http://localhost:8082/api/tree/collect
+Content-Type: application/json
+
+{
+  "url": "http://localhost:8082/api/test/tree/nodes",
+  "method": "GET",
+  "headers": {
+    "Authorization": "Bearer your-token"
+  }
+}
+
+### 查看采集任务结果
+GET http://localhost:8082/api/tree/result/{{taskId}}
+
+### Tree Node Query Requests
+# 获取项目树结构
+GET http://localhost:8082/api/tree/query/project/test-project
+
+# 获取指定节点的子树
+GET http://localhost:8082/api/tree/query/node/p/test-project/root1
+
+# 按类型查询节点
+GET http://localhost:8082/api/tree/query/type/test-project/TEST_CASE
+
+# 查询直接子节点
+GET http://localhost:8082/api/tree/query/children/p/test-project/root1/baseline/cases
+
+### Tree Operation Requests
+# 获取项目节点
+GET http://localhost:8082/api/tree/nodes/test-project
+
+# 启动项目采集
+POST http://localhost:8082/api/tree/collect/test-project
+
+### Usage Examples:
+# 完整的采集流程示例:
+# 1. 先获取测试数据
+GET http://localhost:8082/api/test/tree/nodes
+
+### 2. 创建采集任务
+POST http://localhost:8082/api/tree/collect
+Content-Type: application/json
+
+{
+  "url": "http://localhost:8082/api/test/tree/nodes",
+  "method": "GET"
+}
+
+### 3. 查询采集结果
+GET http://localhost:8082/api/tree/result/675622fe1220e3449e70a20d
+
+### 4.手动执行项目采集
+POST http://localhost:8082/api/tree/collect/675623111220e3449e70a20e/execute
+
+### Advanced Queries
+### 1. 获取完整项目树
+GET http://localhost:8082/api/tree/query/project/test-project
+
+### 2. 查看特定节点的子树
+GET http://localhost:8082/api/tree/query/node/p/test-project/root1
+
+### 3. 查找特定类型的节点
+GET http://localhost:8082/api/tree/query/type/test-project/TEST_CASE
+
+### 4. 获取直接子节点
+GET http://localhost:8082/api/tree/query/children/p/test-project/root1/baseline/cases
+
+### Data Storage Info:
+##Database: MongoDB
+##Collection: tree_nodes

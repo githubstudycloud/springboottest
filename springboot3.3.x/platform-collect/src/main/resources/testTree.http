@@ -1,0 +1,40 @@
+# curl http://localhost:8082/api/test/tree/nodes
+GET http://localhost:8082/api/test/tree/nodes
+
+###
+# curl -X POST http://localhost:8082/api/tree/collect
+#-H "Content-Type: application/json"
+#-d '{
+#    "url": "http://localhost:8082/api/test/tree/nodes",
+#    "method": "GET"
+#}'
+POST http://localhost:8082/api/tree/collect
+Content-Type: application/json
+
+{
+  "url": "http://localhost:8082/api/test/tree/nodes",
+  "method": "GET"
+}
+
+###
+# curl http://localhost:8082/api/tree/result/{taskId}
+GET http://localhost:8082/api/tree/result/67561c9620a20e5161c8bc65
+
+
+
+
+
+#    1. 先调用测试API获取树状数据：
+#```bash
+#curl http://localhost:8082/api/test/tree/nodes
+#```
+#
+#2. 创建采集任务：
+#```bash
+#curl -X POST http://localhost:8082/api/tree/collect \
+#-H "Content-Type: application/json" \
+#-d '{
+#    "url": "http://localhost:8082/api/test/tree/nodes",
+#    "method": "GET"
+#}'
+#```

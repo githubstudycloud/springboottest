@@ -1,0 +1,167 @@
+问题在于 Quartz 需要一个指定名称的数据源。让我们修改 SchedulerConfig，为数据源设置一个明确的名称，并在配置中引用它：
+
+
+
+```java
+package com.study.scheduler;
+
+import com.study.scheduler.listener.SchedulerJobListener;
+import org.quartz.Scheduler;
+import org.quartz.SchedulerException;
+import org.quartz.spi.TriggerFiredBundle;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
+import org.springframework.beans.factory.config.PropertiesFactoryBean;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.scheduling.quartz.SchedulerFactoryBean;
+import org.springframework.scheduling.quartz.SpringBeanJobFactory;
+
+import javax.sql.DataSource;
+import java.io.IOException;
+import java.util.Properties;
+
+@Configuration
+public class SchedulerConfig {
+    private static final Logger logger = LoggerFactory.getLogger(SchedulerConfig.class);
+
+    @Autowired
+    private DataSource dataSource;
+
+    private final ApplicationContext applicationContext;
+
+    public SchedulerConfig(ApplicationContext applicationContext) {
+        this.applicationContext = applicationContext;
+    }
+
+    @Bean
+    public Properties quartzProperties() throws IOException {
+        logger.info("Loading Quartz properties...");
+        Properties properties = new Properties();
+
+        // 基本配置
+        properties.put("org.quartz.scheduler.instanceName", "ClusterScheduler");
+        properties.put("org.quartz.scheduler.instanceId", "AUTO");
+
+        // JobStore配置
+        properties.put("org.quartz.jobStore.class", "org.quartz.impl.jdbcjobstore.JobStoreTX");
+        properties.put("org.quartz.jobStore.driverDelegateClass", "org.quartz.impl.jdbcjobstore.StdJDBCDelegate");
+        properties.put("org.quartz.jobStore.tablePrefix", "QRTZ_");
+        properties.put("org.quartz.jobStore.isClustered", "true");
+        properties.put("org.quartz.jobStore.clusterCheckinInterval", "10000");
+        properties.put("org.quartz.jobStore.dataSource", "quartzDataSource");
+
+        // 线程池配置
+        properties.put("org.quartz.threadPool.class", "org.quartz.simpl.SimpleThreadPool");
+        properties.put("org.quartz.threadPool.threadCount", "10");
+        properties.put("org.quartz.threadPool.threadPriority", "5");
+
+        logger.info("Quartz properties loaded successfully");
+        return properties;
+    }
+
+    @Bean
+    public SchedulerFactoryBean schedulerFactoryBean() throws IOException {
+        logger.info("Initializing Quartz SchedulerFactoryBean...");
+
+        SchedulerFactoryBean factory = new SchedulerFactoryBean();
+
+        // 设置数据源并指定名称
+        factory.setDataSource(dataSource);
+        factory.setQuartzDataSource("quartzDataSource");
+
+        // 设置Quartz属性
+        factory.setQuartzProperties(quartzProperties());
+
+        // 设置JobFactory
+        CustomJobFactory jobFactory = new CustomJobFactory();
+        jobFactory.setApplicationContext(applicationContext);
+        factory.setJobFactory(jobFactory);
+
+        // 其他配置
+        factory.setOverwriteExistingJobs(true);
+        factory.setStartupDelay(10);
+        factory.setApplicationContextSchedulerContextKey("applicationContext");
+        factory.setWaitForJobsToCompleteOnShutdown(true);
+
+        logger.info("SchedulerFactoryBean initialized with quartzDataSource");
+        return factory;
+    }
+
+    @Bean
+    public Scheduler scheduler(SchedulerFactoryBean factory, SchedulerJobListener jobListener)
+            throws SchedulerException {
+        logger.info("Creating Quartz Scheduler...");
+        Scheduler scheduler = factory.getScheduler();
+        scheduler.getListenerManager().addJobListener(jobListener);
+        logger.info("Quartz Scheduler created and configured with JobListener");
+        return scheduler;
+    }
+}
+
+class CustomJobFactory extends SpringBeanJobFactory implements ApplicationContextAware {
+    private AutowireCapableBeanFactory beanFactory;
+    private static final Logger logger = LoggerFactory.getLogger(CustomJobFactory.class);
+
+    @Override
+    public void setApplicationContext(ApplicationContext context) throws BeansException {
+        beanFactory = context.getAutowireCapableBeanFactory();
+    }
+
+    @Override
+    protected Object createJobInstance(TriggerFiredBundle bundle) throws Exception {
+        Object job = super.createJobInstance(bundle);
+        beanFactory.autowireBean(job);
+        logger.info("Created job instance: {}", job.getClass().getName());
+        return job;
+    }
+}
+
+```
+
+主要更改：
+
+1. 移除了对外部 quartz.properties 文件的依赖，直接在代码中配置
+2. 明确指定了数据源名称为 "quartzDataSource"
+3. 使用 setQuartzDataSource() 方法设置数据源名称
+4. 确保 JobStore 配置中的数据源名称匹配
+5. 添加了更详细的日志记录
+
+同时，我们还应该更新 application.yml 中的 Quartz 配置：
+
+```yaml
+spring:
+  quartz:
+    job-store-type: jdbc
+    jdbc:
+      initialize-schema: never
+    properties:
+      org.quartz.jobStore.useProperties: false
+      org.quartz.scheduler.instanceName: ClusterScheduler
+      org.quartz.scheduler.instanceId: AUTO
+      org.quartz.jobStore.class: org.quartz.impl.jdbcjobstore.JobStoreTX
+      org.quartz.jobStore.driverDelegateClass: org.quartz.impl.jdbcjobstore.StdJDBCDelegate
+      org.quartz.jobStore.tablePrefix: QRTZ_
+      org.quartz.jobStore.isClustered: true
+      org.quartz.jobStore.clusterCheckinInterval: 10000
+      org.quartz.jobStore.dataSource: quartzDataSource
+```
+
+这些更改应该能解决 "DataSource name not set" 的错误。关键改动是：
+
+1. 明确设置了数据源名称
+2. 确保所有相关配置都使用相同的数据源名称
+3. 将配置移到代码中以避免配置文件加载问题
+4. 添加了更多的日志来帮助诊断问题
+
+如果仍然遇到问题，请检查日志输出，看是否有其他错误信息。也可以尝试在启动时添加 debug 标志：
+```
+java -Ddebug=true -jar your-application.jar
+```
+这将提供更详细的诊断信息。

@@ -1,0 +1,15 @@
+spring:
+  jackson:
+    # 日期格式化
+    date-format: yyyy-MM-dd HH:mm:ss
+    # 设置时区
+    time-zone: GMT+8
+    # 序列化配置
+    serialization:
+      FAIL_ON_EMPTY_BEANS: false
+      WRITE_DATES_AS_TIMESTAMPS: false
+    # 反序列化配置
+    deserialization:
+      FAIL_ON_UNKNOWN_PROPERTIES: false
+    # 属性命名策略
+    property-naming-strategy: SNAKE_CASE
