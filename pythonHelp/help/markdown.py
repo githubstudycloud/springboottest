@@ -69,7 +69,8 @@ LANGUAGE_MAP = {
 
 # 要忽略的文件夹和文件类型
 # IGNORE_FOLDERS = {'.git', '.idea', 'node_modules', '__pycache__', 'venv', 'target', 'build', 'test'}
-IGNORE_FOLDERS = {'.git', '.idea', 'node_modules', '__pycache__', 'venv', 'target', 'build', 'test','platform-collect','platform-dashboard','platform-gateway'}
+# IGNORE_FOLDERS = {'.git', '.idea', 'node_modules', '__pycache__', 'venv', 'target', 'build', 'test','platform-collect','platform-dashboard','platform-gateway'}
+IGNORE_FOLDERS = {'.git', '.idea', 'node_modules', '__pycache__', 'venv', 'target', 'build', 'test','platform-scheduler','platform-dashboard','platform-gateway'}
 IGNORE_EXTENSIONS = {'.pyc', '.class', '.o', '.log', '.jar', '.war', '.ear'}
 
 def get_language(file_path):

@@ -3,6 +3,101 @@
 ```
 springboot3.3.x/
     pom.xml
+    platform-collect/
+        pom.xml
+        src/
+            main/
+                java/
+                    com/
+                        study/
+                            collect/
+                                CollectApplication.java
+                                annotation/
+                                    CollectorFor.java
+                                config/
+                                    CollectConfig.java
+                                    DatabaseConfig.java
+                                    MongoConfig.java
+                                    RabbitConfig.java
+                                    RedisConfig.java
+                                controller/
+                                    CollectController.java
+                                    MonitorController.java
+                                    TaskController.java
+                                    TestController.java
+                                    TreeCollectController.java
+                                    TreeController.java
+                                    TreeQueryController.java
+                                    TreeTestController.java
+                                core/
+                                    collector/
+                                        Collector.java
+                                        DistributedCollector.java
+                                        TreeCollector.java
+                                    executor/
+                                        CollectExecutor.java
+                                    strategy/
+                                        CollectorStrategy.java
+                                entity/
+                                    AlertLog.java
+                                    AlertMessage.java
+                                    AlertRecord.java
+                                    AlertRule.java
+                                    CollectData.java
+                                    CollectResult.java
+                                    CollectTask.java
+                                    MongoTestEntity.java
+                                    SystemMetrics.java
+                                    TaskLog.java
+                                    TaskResult.java
+                                    TaskStatusStatistics.java
+                                    TestEntity.java
+                                    TreeCollectRequest.java
+                                    TreeCollectTask.java
+                                    TreeNode.java
+                                enums/
+                                    AlertLevel.java
+                                    CollectorType.java
+                                    RetryStrategy.java
+                                    TaskStatus.java
+                                handler/
+                                    MessageHandler.java
+                                listener/
+                                    RabbitMessageListener.java
+                                mapper/
+                                    CollectDataMapper.java
+                                    TaskLogMapper.java
+                                    TestMySQLMapper.java
+                                model/
+                                    TestDocument.java
+                                monitor/
+                                    MonitorService.java
+                                repository/
+                                    CollectDataRepository.java
+                                    CollectResultRepository.java
+                                    TaskRepository.java
+                                    TestMongoRepository.java
+                                service/
+                                    CollectService.java
+                                    ConfigurationService.java
+                                    TaskManagementService.java
+                                    TestService.java
+                                    TreeCollectorService.java
+                                    TreeQueryService.java
+                                utils/
+                                    NetworkUtil.java
+                                    RabbitMQUtils.java
+                                    RetryUtil.java
+                                    SystemResourceUtil.java
+                resources/
+                    application.yml
+                    init.sql
+                    test.http
+                    test.sql
+                    testTree.http
+                    tree.http
+                    TreeHttp.http
+                    treequery.http
     platform-common/
         pom.xml
         src/
@@ -42,70 +137,6 @@ springboot3.3.x/
                                     VariableUtil.java
                 resources/
                     application.yml
-    platform-scheduler/
-        pom.xml
-        src/
-            main/
-                java/
-                    com/
-                        study/
-                            scheduler/
-                                SchedulerApplication.java
-                                SchedulerConfig.java
-                                config/
-                                    AppConfig.java
-                                    DatabaseConfig.java
-                                    JobConfig.java
-                                    JobConfiguration.java
-                                    MongoConfig.java
-                                    RedisConfig.java
-                                crontroller/
-                                    CrawlerController.java
-                                    TestCrontroller.java
-                                entity/
-                                    CrawlerRecord.java
-                                    CrawlerTask.java
-                                    JobInfo.java
-                                    JobLog.java
-                                    TreeCollectRequest.java
-                                exception/
-                                    JobException.java
-                                job/
-                                    BaseJob.java
-                                    CollectRetryJob.java
-                                    CollectSyncJob.java
-                                    CollectTaskJob.java
-                                    CustomJob.java
-                                    DemoJob.java
-                                    HttpJob.java
-                                    JobLogCleanTask.java
-                                    ScheduledJob.java
-                                    TreeCollectorJob.java
-                                listener/
-                                    SchedulerJobListener.java
-                                mapper/
-                                    JobInfoMapper.java
-                                    JobLogMapper.java
-                                model/
-                                    job/
-                                        HttpTaskResult.java
-                                        JobDefinition.java
-                                        JobExecution.java
-                                        JobMetrics.java
-                                repository/
-                                    JobDefinitionRepository.java
-                                    JobExecutionRepository.java
-                                service/
-                                    CrawlerService.java
-                                    EnhancedJobService.java
-                                    JobService.java
-                                    YourService.java
-                                utils/
-                                    HttpClientUtil.java
-                                    MongoDBUtils.java
-                resources/
-                    application.properties
-                    SchedulerDatabaseTables.sql
 ```
 
 # File Contents
@@ -396,6 +427,4727 @@ springboot3.3.x/
         </pluginManagement>
     </build>
 </project>
+```
+
+## pom.xml
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xmlns="http://maven.apache.org/POM/4.0.0"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.study</groupId>
+        <artifactId>platform-parent</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>platform-collect</artifactId>
+    <packaging>jar</packaging>
+
+    <dependencies>
+        <!-- 引入公共模块 -->
+        <dependency>
+            <groupId>com.study</groupId>
+            <artifactId>platform-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- Spring Boot Starters -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-aop</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!-- RabbitMQ -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-amqp</artifactId>
+        </dependency>
+
+        <!-- Redis -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-pool2</artifactId>
+        </dependency>
+
+        <!-- MongoDB -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-mongodb</artifactId>
+        </dependency>
+
+        <!-- MariaDB -->
+        <dependency>
+            <groupId>org.mariadb.jdbc</groupId>
+            <artifactId>mariadb-java-client</artifactId>
+        </dependency>
+
+        <!-- MyBatis -->
+        <dependency>
+            <groupId>org.mybatis.spring.boot</groupId>
+            <artifactId>mybatis-spring-boot-starter</artifactId>
+        </dependency>
+
+        <!-- Jackson -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+        </dependency>
+
+        <!-- Connection Pool -->
+        <dependency>
+            <groupId>com.zaxxer</groupId>
+            <artifactId>HikariCP</artifactId>
+        </dependency>
+
+        <!-- Lombok -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- Commons -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>commons-io</groupId>
+            <artifactId>commons-io</artifactId>
+        </dependency>
+
+        <!-- Test -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.amqp</groupId>
+            <artifactId>spring-rabbit-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.amqp</groupId>
+            <artifactId>spring-rabbit</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <mainClass>com.study.collect.CollectApplication</mainClass>
+                    <excludes>
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
+```
+
+## CollectApplication.java
+
+```java
+package com.study.collect;
+
+import org.mybatis.spring.annotation.MapperScan;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.ComponentScan;
+
+@SpringBootApplication
+@ComponentScan(basePackages = {"com.study"})
+@MapperScan("com.study.collect.mapper")
+public class CollectApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(CollectApplication.class, args);
+    }
+}
+```
+
+## CollectorFor.java
+
+```java
+package com.study.collect.annotation;
+
+
+import com.study.collect.enums.CollectorType;
+
+import java.lang.annotation.*;
+
+@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+public @interface CollectorFor {
+    CollectorType value();
+}
+```
+
+## CollectConfig.java
+
+```java
+package com.study.collect.config;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.client.RestTemplate;
+
+import java.time.Duration;
+
+@Configuration
+public class CollectConfig {
+
+    @Bean
+    public RestTemplate restTemplate() {
+        return new RestTemplateBuilder()
+                .setConnectTimeout(Duration.ofSeconds(5))
+                .setReadTimeout(Duration.ofSeconds(10))
+                .build();
+    }
+
+    @Bean
+    public ObjectMapper objectMapper() {
+        return new ObjectMapper()
+                .registerModule(new JavaTimeModule())
+                .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+    }
+}
+```
+
+## DatabaseConfig.java
+
+```java
+package com.study.collect.config;
+
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
+
+import javax.sql.DataSource;
+
+@Configuration
+@EnableTransactionManagement
+public class DatabaseConfig {
+
+    @Value("${spring.datasource.driver-class-name}")
+    private String driverClassName;
+
+    @Value("${spring.datasource.url}")
+    private String url;
+
+    @Value("${spring.datasource.username}")
+    private String username;
+
+    @Value("${spring.datasource.password}")
+    private String password;
+
+    @Value("${spring.datasource.hikari.minimum-idle}")
+    private int minimumIdle;
+
+    @Value("${spring.datasource.hikari.maximum-pool-size}")
+    private int maximumPoolSize;
+
+    @Value("${spring.datasource.hikari.idle-timeout}")
+    private long idleTimeout;
+
+    @Value("${spring.datasource.hikari.pool-name}")
+    private String poolName;
+
+    @Value("${spring.datasource.hikari.max-lifetime}")
+    private long maxLifetime;
+
+    @Value("${spring.datasource.hikari.connection-timeout}")
+    private long connectionTimeout;
+
+    @Bean
+    @Primary
+    public DataSource dataSource() {
+        HikariConfig config = new HikariConfig();
+        config.setDriverClassName(driverClassName);
+        config.setJdbcUrl(url);
+        config.setUsername(username);
+        config.setPassword(password);
+        config.setMinimumIdle(minimumIdle);
+        config.setMaximumPoolSize(maximumPoolSize);
+        config.setIdleTimeout(idleTimeout);
+        config.setPoolName(poolName);
+        config.setMaxLifetime(maxLifetime);
+        config.setConnectionTimeout(connectionTimeout);
+
+        // 设置连接测试查询
+        config.setConnectionTestQuery("SELECT 1");
+        config.setValidationTimeout(5000);
+
+        // 设置其他连接池属性
+        config.addDataSourceProperty("cachePrepStmts", "true");
+        config.addDataSourceProperty("prepStmtCacheSize", "250");
+        config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
+        config.addDataSourceProperty("useServerPrepStmts", "true");
+
+        return new HikariDataSource(config);
+    }
+
+    @Bean
+    public PlatformTransactionManager transactionManager(DataSource dataSource) {
+        return new DataSourceTransactionManager(dataSource);
+    }
+}
+```
+
+## MongoConfig.java
+
+```java
+package com.study.collect.config;
+
+import com.mongodb.ConnectionString;
+import com.mongodb.MongoClientSettings;
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.MongoClients;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.data.mongodb.MongoDatabaseFactory;
+import org.springframework.data.mongodb.config.AbstractMongoClientConfiguration;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.SimpleMongoClientDatabaseFactory;
+import org.springframework.data.mongodb.core.convert.DefaultDbRefResolver;
+import org.springframework.data.mongodb.core.convert.DefaultMongoTypeMapper;
+import org.springframework.data.mongodb.core.convert.MappingMongoConverter;
+import org.springframework.data.mongodb.core.mapping.MongoMappingContext;
+import org.springframework.data.mongodb.repository.config.EnableMongoRepositories;
+
+@Configuration
+@EnableMongoRepositories(basePackages = "com.study.collect.repository")
+public class MongoConfig extends AbstractMongoClientConfiguration {
+
+    @Value("${spring.data.mongodb.database}")
+    private String database;
+
+    @Value("${spring.data.mongodb.uri}")
+    private String uri;
+
+    @Override
+    protected String getDatabaseName() {
+        return database;
+    }
+
+    @Override
+    public MongoClient mongoClient() {
+        MongoClientSettings settings = MongoClientSettings.builder()
+                .applyConnectionString(new ConnectionString(uri))
+                .build();
+        return MongoClients.create(settings);
+    }
+
+    @Bean
+    public MongoTemplate mongoTemplate() throws Exception {
+        MongoDatabaseFactory factory = new SimpleMongoClientDatabaseFactory(mongoClient(), getDatabaseName());
+        MappingMongoConverter converter = new MappingMongoConverter(
+                new DefaultDbRefResolver(factory),
+                new MongoMappingContext()
+        );
+        // 移除_class字段
+        converter.setTypeMapper(new DefaultMongoTypeMapper(null));
+        return new MongoTemplate(factory, converter);
+    }
+}
+```
+
+## RabbitConfig.java
+
+```java
+package com.study.collect.config;
+
+import com.study.collect.listener.RabbitMessageListener;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.core.*;
+import org.springframework.amqp.rabbit.connection.CachingConnectionFactory;
+import org.springframework.amqp.rabbit.connection.ConnectionFactory;
+import org.springframework.amqp.rabbit.core.RabbitAdmin;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.amqp.rabbit.listener.SimpleMessageListenerContainer;
+import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
+import org.springframework.amqp.support.converter.MessageConverter;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Slf4j
+@Configuration
+public class RabbitConfig {
+
+    // 测试用的交换机、队列和路由键名称
+    private static final String TEST_EXCHANGE = "test.exchange";
+    private static final String TEST_QUEUE = "test.queue";
+    private static final String TEST_ROUTING_KEY = "test.message";
+    // 数据采集用的交换机、队列和路由键名称
+    private static final String DATA_EXCHANGE = "data.collect.exchange";
+    private static final String DATA_QUEUE = "data.collect.queue";
+    private static final String DATA_ROUTING_KEY = "data.collect";
+    private static final String DEAD_LETTER_EXCHANGE = "data.collect.dlx";
+    private static final String DEAD_LETTER_QUEUE = "data.collect.dead.queue";
+    private static final String DEAD_LETTER_ROUTING_KEY = "data.collect.dead";
+    @Value("${spring.rabbitmq.host}")
+    private String host;
+    @Value("${spring.rabbitmq.port}")
+    private int port;
+    @Value("${spring.rabbitmq.username}")
+    private String username;
+    @Value("${spring.rabbitmq.password}")
+    private String password;
+    @Value("${spring.rabbitmq.virtual-host}")
+    private String virtualHost;
+
+    @Bean
+    public ConnectionFactory connectionFactory() {
+        CachingConnectionFactory connectionFactory = new CachingConnectionFactory();
+        connectionFactory.setHost(host);
+        connectionFactory.setPort(port);
+        connectionFactory.setUsername(username);
+        connectionFactory.setPassword(password);
+        connectionFactory.setVirtualHost(virtualHost);
+        connectionFactory.setPublisherConfirmType(CachingConnectionFactory.ConfirmType.CORRELATED);
+        connectionFactory.setPublisherReturns(true);
+        return connectionFactory;
+    }
+
+    @Bean
+    public MessageConverter messageConverter() {
+        return new Jackson2JsonMessageConverter();
+    }
+
+    @Bean
+    public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory) {
+        RabbitTemplate template = new RabbitTemplate(connectionFactory);
+        template.setMessageConverter(messageConverter());
+        template.setMandatory(true);
+
+        template.setConfirmCallback((correlationData, ack, cause) -> {
+            if (!ack) {
+                log.error("Message send failed: {}", cause);
+            }
+        });
+
+        template.setReturnsCallback(returned -> {
+            log.error("Message returned: {}, replyText: {}",
+                    returned.getMessage(), returned.getReplyText());
+        });
+
+        return template;
+    }
+
+    @Bean
+    public RabbitAdmin rabbitAdmin(ConnectionFactory connectionFactory) {
+        return new RabbitAdmin(connectionFactory);
+    }
+
+    // 测试相关的Bean定义
+    @Bean
+    public DirectExchange testExchange() {
+        return new DirectExchange(TEST_EXCHANGE);
+    }
+
+    @Bean
+    public Queue testQueue() {
+//        return new Queue(TEST_QUEUE);
+        return new Queue("test.message");
+    }
+
+    @Bean
+    public Binding testBinding() {
+        return BindingBuilder.bind(testQueue())
+                .to(testExchange())
+                .with(TEST_ROUTING_KEY);
+    }
+
+    // 数据采集相关的Bean定义
+    @Bean
+    public Queue dataCollectQueue() {
+        return QueueBuilder.durable(DATA_QUEUE)
+                .withArgument("x-dead-letter-exchange", DEAD_LETTER_EXCHANGE)
+                .withArgument("x-dead-letter-routing-key", DEAD_LETTER_ROUTING_KEY)
+                .build();
+    }
+
+    @Bean
+    public Queue dataCollectDeadQueue() {
+        return QueueBuilder.durable(DEAD_LETTER_QUEUE).build();
+    }
+
+    @Bean
+    public DirectExchange dataCollectExchange() {
+        return new DirectExchange(DATA_EXCHANGE);
+    }
+
+    @Bean
+    public DirectExchange deadLetterExchange() {
+        return new DirectExchange(DEAD_LETTER_EXCHANGE);
+    }
+
+    @Bean
+    public Binding dataCollectBinding() {
+        return BindingBuilder.bind(dataCollectQueue())
+                .to(dataCollectExchange())
+                .with(DATA_ROUTING_KEY);
+    }
+
+    @Bean
+    public Binding deadLetterBinding() {
+        return BindingBuilder.bind(dataCollectDeadQueue())
+                .to(deadLetterExchange())
+                .with(DEAD_LETTER_ROUTING_KEY);
+    }
+
+    @Bean
+    public SimpleMessageListenerContainer messageListenerContainer(ConnectionFactory connectionFactory, RabbitMessageListener rabbitMessageListener) {
+        SimpleMessageListenerContainer container = new SimpleMessageListenerContainer(connectionFactory);
+        container.setQueueNames(DATA_QUEUE, TEST_ROUTING_KEY);
+        container.setMessageListener(rabbitMessageListener); // 设置消息监听器
+        container.setConcurrentConsumers(3);
+        container.setMaxConcurrentConsumers(10);
+        container.setPrefetchCount(1);
+        container.setAcknowledgeMode(AcknowledgeMode.MANUAL);
+        return container;
+    }
+
+}
+
+```
+
+## RedisConfig.java
+
+```java
+package com.study.collect.config;
+
+import org.springframework.cache.annotation.EnableCaching;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
+import org.springframework.data.redis.serializer.StringRedisSerializer;
+
+@Configuration
+@EnableCaching
+public class RedisConfig {
+
+    @Bean
+    public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory connectionFactory) {
+        RedisTemplate<String, Object> template = new RedisTemplate<>();
+        template.setConnectionFactory(connectionFactory);
+
+        // 配置序列化器
+        GenericJackson2JsonRedisSerializer jsonSerializer = new GenericJackson2JsonRedisSerializer();
+        StringRedisSerializer stringSerializer = new StringRedisSerializer();
+
+        template.setKeySerializer(stringSerializer);
+        template.setHashKeySerializer(stringSerializer);
+        template.setValueSerializer(jsonSerializer);
+        template.setHashValueSerializer(jsonSerializer);
+
+        return template;
+    }
+}
+```
+
+## CollectController.java
+
+```java
+package com.study.collect.controller;
+
+import com.study.collect.service.CollectService;
+import com.study.common.util.Result;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Date;
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/collect")
+public class CollectController {
+
+    @Autowired
+    private CollectService collectService;
+
+    @PostMapping("/data")
+    public Result<com.study.collect.entity.CollectData> saveData(@RequestBody com.study.collect.entity.CollectData data) {
+        collectService.saveData(data);
+        return Result.success(data);
+    }
+
+    @GetMapping("/data")
+    public Result<List<com.study.collect.entity.CollectData>> queryData(
+            @RequestParam String deviceId,
+            @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") Date startTime,
+            @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") Date endTime) {
+        List<com.study.collect.entity.CollectData> data = collectService.queryData(deviceId, startTime, endTime);
+        return Result.success(data);
+    }
+
+    @GetMapping("/data/high-temperature")
+    public Result<List<com.study.collect.entity.CollectData>> findHighTemperatureData(
+            @RequestParam(defaultValue = "30.0") Double threshold) {
+        List<com.study.collect.entity.CollectData> data = collectService.findHighTemperatureData(threshold);
+        return Result.success(data);
+    }
+}
+```
+
+## MonitorController.java
+
+```java
+package com.study.collect.controller;
+
+import com.study.collect.entity.AlertMessage;
+import com.study.collect.entity.SystemMetrics;
+import com.study.collect.entity.TaskStatusStatistics;
+import com.study.collect.monitor.MonitorService;
+import com.study.common.util.Result;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/monitor")
+public class MonitorController {
+
+    @Autowired
+    private MonitorService monitorService;
+
+    @GetMapping("/metrics")
+    public Result<SystemMetrics> getSystemMetrics() {
+        try {
+            SystemMetrics metrics = monitorService.collectSystemMetrics();
+            return Result.success(metrics);
+        } catch (Exception e) {
+            return Result.error("Failed to get system metrics: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/tasks/status")
+    public Result<TaskStatusStatistics> getTaskStatusStatistics() {
+        try {
+            TaskStatusStatistics stats = monitorService.getTaskStatusStatistics();
+            return Result.success(stats);
+        } catch (Exception e) {
+            return Result.error("Failed to get task statistics: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/alerts")
+    public Result<List<AlertMessage>> getActiveAlerts() {
+        try {
+            List<AlertMessage> alerts = monitorService.getActiveAlerts();
+            return Result.success(alerts);
+        } catch (Exception e) {
+            return Result.error("Failed to get alerts: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/alerts/{alertId}/acknowledge")
+    public Result<Void> acknowledgeAlert(@PathVariable String alertId) {
+        try {
+            monitorService.acknowledgeAlert(alertId);
+            return Result.success();
+        } catch (Exception e) {
+            return Result.error("Failed to acknowledge alert: " + e.getMessage());
+        }
+    }
+}
+```
+
+## TaskController.java
+
+```java
+package com.study.collect.controller;
+
+import com.study.collect.entity.CollectTask;
+import com.study.collect.entity.TaskResult;
+import com.study.collect.enums.TaskStatus;
+import com.study.collect.service.TaskManagementService;
+import com.study.common.util.Result;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/tasks")
+public class TaskController {
+
+    private final TaskManagementService taskService;
+
+    public TaskController(TaskManagementService taskService) {
+        this.taskService = taskService;
+    }
+
+    @PostMapping
+    public Result<CollectTask> createTask(@RequestBody CollectTask task) {
+        try {
+            CollectTask createdTask = taskService.createTask(task);
+            return Result.success(createdTask);
+        } catch (Exception e) {
+            return Result.error("Failed to create task: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/{taskId}/execute")
+    public Result<TaskResult> executeTask(@PathVariable String taskId) {
+        try {
+            TaskResult result = taskService.executeTask(taskId);
+            return Result.success(result);
+        } catch (Exception e) {
+            return Result.error("Failed to execute task: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/{taskId}/stop")
+    public Result<Void> stopTask(@PathVariable String taskId) {
+        try {
+            taskService.stopTask(taskId);
+            return Result.success();
+        } catch (Exception e) {
+            return Result.error("Failed to stop task: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/{taskId}/retry")
+    public Result<TaskResult> retryTask(@PathVariable String taskId) {
+        try {
+            TaskResult result = taskService.retryTask(taskId);
+            return Result.success(result);
+        } catch (Exception e) {
+            return Result.error("Failed to retry task: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/{taskId}")
+    public Result<CollectTask> getTask(@PathVariable String taskId) {
+        return taskService.getTask(taskId)
+                .map(Result::success)
+                .orElse(Result.error("Task not found"));
+    }
+
+    @GetMapping("/status/{status}")
+    public Result<List<CollectTask>> getTasksByStatus(@PathVariable TaskStatus status) {
+        try {
+            List<CollectTask> tasks = taskService.getTasksByStatus(status);
+            return Result.success(tasks);
+        } catch (Exception e) {
+            return Result.error("Failed to get tasks: " + e.getMessage());
+        }
+    }
+}
+
+
+```
+
+## TestController.java
+
+```java
+package com.study.collect.controller;
+
+import com.study.collect.entity.MongoTestEntity;
+import com.study.collect.entity.TestEntity;
+import com.study.collect.service.TestService;
+import com.study.common.util.Result;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+@Slf4j
+@RestController
+@RequestMapping("/api/test")
+public class TestController {
+
+    @Autowired
+    private TestService testService;
+
+    @PostMapping("/mysql")
+    public Result<TestEntity> testMySQL(@RequestParam("name") String name, @RequestParam("description") String description) {
+        try {
+            TestEntity result = testService.testMySQL(name, description);
+            return Result.success(result);
+        } catch (Exception e) {
+            log.error("MySQL测试失败", e);
+            return Result.error("MySQL测试失败: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/redis")
+    public Result<Void> testRedis(@RequestParam("key") String key, @RequestParam("value") String value) {
+        try {
+            testService.testRedis(key, value);
+            return Result.success();
+        } catch (Exception e) {
+            log.error("Redis测试失败", e);
+            return Result.error("Redis测试失败: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/mongodb")
+    public Result<MongoTestEntity> testMongoDB(@RequestParam("name") String name, @RequestParam("description") String description) {
+        try {
+            MongoTestEntity result = testService.testMongoDB(name, description);
+            return Result.success(result);
+        } catch (Exception e) {
+            log.error("MongoDB测试失败", e);
+            return Result.error("MongoDB测试失败: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/rabbitmq")
+    public Result<Void> testRabbitMQ(@RequestParam("message") String message) {
+        try {
+            testService.testRabbitMQ(message);
+            return Result.success();
+        } catch (Exception e) {
+            log.error("RabbitMQ测试失败", e);
+            return Result.error("RabbitMQ测试失败: " + e.getMessage());
+        }
+    }
+}
+```
+
+## TreeCollectController.java
+
+```java
+package com.study.collect.controller;
+
+import com.study.collect.entity.CollectTask;
+import com.study.collect.entity.TaskResult;
+import com.study.collect.entity.TreeCollectRequest;
+import com.study.collect.enums.CollectorType;
+import com.study.collect.enums.TaskStatus;
+import com.study.collect.service.TaskManagementService;
+import com.study.common.util.Result;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Date;
+import java.util.Optional;
+
+@RestController
+@RequestMapping("/api/tree")
+public class TreeCollectController {
+
+
+    private final TaskManagementService taskService;
+
+    public TreeCollectController(TaskManagementService taskService) {
+        this.taskService = taskService;
+    }
+
+
+    @PostMapping("/collect")
+    public Result<CollectTask> createCollectionTask(@RequestBody TreeCollectRequest request) {
+        try {
+            CollectTask task = CollectTask.builder()
+                    .name("Tree Structure Collection")
+                    .url(request.getUrl())
+                    .method(request.getMethod())
+                    .headers(request.getHeaders())
+                    .requestBody(request.getRequestBody())
+                    .status(TaskStatus.CREATED)
+                    .collectorType(CollectorType.TREE)  // 指定使用树状采集器
+                    .maxRetries(3)
+                    .retryInterval(1000L)
+                    .createTime(new Date())
+                    .updateTime(new Date())
+                    .build();
+
+            // 先创建任务
+            CollectTask createdTask = taskService.createTask(task);
+
+            // 立即执行任务
+            TaskResult result = taskService.executeTask(createdTask.getId());
+
+            return Result.success(createdTask);
+        } catch (Exception e) {
+            return Result.error("Failed to create collection task: " + e.getMessage());
+        }
+    }
+
+
+    @PostMapping("/collect/{taskId}/execute")
+    public Result<TaskResult> executeCollectionTask(@PathVariable String taskId) {
+        try {
+            Optional<CollectTask> taskOpt = taskService.getTask(taskId);
+            if (taskOpt.isEmpty()) {
+                return Result.error("Task not found");
+            }
+
+            CollectTask task = taskOpt.get();
+            // 检查任务是否可执行
+            if (!TaskStatus.CREATED.equals(task.getStatus())) {
+                return Result.error("Task is not in CREATED status");
+            }
+
+            TaskResult result = taskService.executeTask(taskId);
+            return Result.success(result);
+        } catch (Exception e) {
+            return Result.error("Failed to execute task: " + e.getMessage());
+        }
+    }
+
+//    @PostMapping("/collect")
+//    public Result<CollectTask> createTreeCollectionTask(@RequestParam String projectId) {
+//        try {
+//            // 使用通用任务管理创建采集任务
+//            CollectTask task = CollectTask.builder()
+//                    .name("Tree Structure Collection")
+//                    .parameter("projectId", projectId)
+//                    .maxRetries(3)
+//                    .retryInterval(1000L)
+//                    .build();
+//
+//            CollectTask createdTask = taskService.createTask(task);
+//            return Result.success(createdTask);
+//        } catch (Exception e) {
+//            return Result.error("Failed to create tree collection task: " + e.getMessage());
+//        }
+//    }
+
+    @GetMapping("/result/{taskId}")
+    public Result<CollectTask> getCollectionResult(@PathVariable String taskId) {
+        try {
+            Optional<CollectTask> task = taskService.getTask(taskId);
+            return task.map(Result::success)
+                    .orElse(Result.error("Task not found"));
+        } catch (Exception e) {
+            return Result.error("Failed to get task result: " + e.getMessage());
+        }
+    }
+}
+
+```
+
+## TreeController.java
+
+```java
+package com.study.collect.controller;
+
+
+import com.study.collect.entity.TreeCollectTask;
+import com.study.collect.entity.TreeNode;
+import com.study.collect.service.TreeCollectorService;
+import com.study.common.util.Result;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/tree")
+public class TreeController {
+
+    @Autowired
+    private TreeCollectorService treeCollectorService;
+
+    @Autowired
+    private MongoTemplate mongoTemplate;
+
+    @PostMapping("/collect/{projectId}")
+    public Result<TreeCollectTask> startCollection(@PathVariable String projectId) {
+        try {
+            TreeCollectTask task = treeCollectorService.startCollection(projectId);
+            return Result.success(task);
+        } catch (Exception e) {
+            return Result.error("Failed to start collection: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/nodes/{projectId}")
+    public Result<List<TreeNode>> getProjectNodes(@PathVariable String projectId) {
+        try {
+            List<TreeNode> nodes = mongoTemplate.find(
+                    Query.query(Criteria.where("projectId").is(projectId)),
+                    TreeNode.class
+            );
+            return Result.success(nodes);
+        } catch (Exception e) {
+            return Result.error("Failed to get nodes: " + e.getMessage());
+        }
+    }
+}
+
+
+```
+
+## TreeQueryController.java
+
+```java
+package com.study.collect.controller;
+
+import com.study.collect.entity.TreeNode;
+import com.study.collect.service.TreeQueryService;
+import com.study.common.util.Result;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/tree/query")
+public class TreeQueryController {
+
+    @Autowired
+    private TreeQueryService treeQueryService;
+
+    @GetMapping("/project/{projectId}")
+    public Result<List<TreeNode>> getProjectTree(@PathVariable String projectId) {
+        try {
+            List<TreeNode> tree = treeQueryService.getProjectTree(projectId);
+            return Result.success(tree);
+        } catch (Exception e) {
+            return Result.error("Failed to get project tree: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/node/{nodeId}")
+    public Result<List<TreeNode>> getSubTree(@PathVariable String nodeId) {
+        try {
+            List<TreeNode> subTree = treeQueryService.getSubTree(nodeId);
+            return Result.success(subTree);
+        } catch (Exception e) {
+            return Result.error("Failed to get sub tree: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/type/{projectId}/{type}")
+    public Result<List<TreeNode>> getNodesByType(
+            @PathVariable String projectId,
+            @PathVariable TreeNode.NodeType type) {
+        try {
+            List<TreeNode> nodes = treeQueryService.getNodesByType(projectId, type);
+            return Result.success(nodes);
+        } catch (Exception e) {
+            return Result.error("Failed to get nodes by type: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/children/{parentId}")
+    public Result<List<TreeNode>> getDirectChildren(@PathVariable String parentId) {
+        try {
+            List<TreeNode> children = treeQueryService.getDirectChildren(parentId);
+            return Result.success(children);
+        } catch (Exception e) {
+            return Result.error("Failed to get children: " + e.getMessage());
+        }
+    }
+}
+
+```
+
+## TreeTestController.java
+
+```java
+package com.study.collect.controller;
+
+import com.study.common.util.Result;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/test/tree")
+public class TreeTestController {
+
+    @GetMapping("/nodes")
+    public Result<Map<String, Object>> getTestTreeData() {
+        Map<String, Object> treeData = new HashMap<>();
+        treeData.put("projectId", "test-project");
+        treeData.put("nodes", generateTestNodes());
+        return Result.success(treeData);
+    }
+
+    private List<Map<String, Object>> generateTestNodes() {
+        List<Map<String, Object>> nodes = new ArrayList<>();
+
+        // 添加ROOT节点
+        for (int i = 1; i <= 2; i++) {
+            Map<String, Object> root = new HashMap<>();
+            root.put("id", "/p/test-project/root" + i);
+            root.put("name", "Root-" + i);
+            root.put("type", "ROOT");
+            root.put("children", generateVersions(root.get("id").toString()));
+            nodes.add(root);
+        }
+
+        return nodes;
+    }
+
+    private List<Map<String, Object>> generateVersions(String parentId) {
+        List<Map<String, Object>> versions = new ArrayList<>();
+
+        // 基线版本
+        Map<String, Object> baseline = new HashMap<>();
+        baseline.put("id", parentId + "/baseline");
+        baseline.put("name", "Baseline");
+        baseline.put("type", "BASELINE_VERSION");
+        baseline.put("children", generateCaseDirectory(baseline.get("id").toString(), true));
+        versions.add(baseline);
+
+        // 执行版本
+        Map<String, Object> execute = new HashMap<>();
+        execute.put("id", parentId + "/execute");
+        execute.put("name", "Execute");
+        execute.put("type", "EXECUTE_VERSION");
+        execute.put("children", generateCaseDirectory(execute.get("id").toString(), false));
+        versions.add(execute);
+
+        return versions;
+    }
+
+    private List<Map<String, Object>> generateCaseDirectory(String parentId, boolean isBaseline) {
+        List<Map<String, Object>> directories = new ArrayList<>();
+
+        Map<String, Object> caseDir = new HashMap<>();
+        caseDir.put("id", parentId + "/cases");
+        caseDir.put("name", "Cases");
+        caseDir.put("type", "CASE_DIRECTORY");
+
+        if (isBaseline) {
+            // 基线版本下添加普通目录和用例
+            caseDir.put("children", generateNormalDirectories(caseDir.get("id").toString(), 3));
+        } else {
+            // 执行版本下添加场景节点
+            caseDir.put("children", generateScenarios(caseDir.get("id").toString()));
+        }
+
+        directories.add(caseDir);
+        return directories;
+    }
+
+    private List<Map<String, Object>> generateScenarios(String parentId) {
+        List<Map<String, Object>> scenarios = new ArrayList<>();
+
+        for (int i = 1; i <= 2; i++) {
+            Map<String, Object> scenario = new HashMap<>();
+            scenario.put("id", parentId + "/scenario" + i);
+            scenario.put("name", "Scenario-" + i);
+            scenario.put("type", "SCENARIO");
+            scenario.put("children", generateNormalDirectories(scenario.get("id").toString(), 2));
+            scenarios.add(scenario);
+        }
+
+        return scenarios;
+    }
+
+    private List<Map<String, Object>> generateNormalDirectories(String parentId, int depth) {
+        List<Map<String, Object>> items = new ArrayList<>();
+        if (depth <= 0) return items;
+
+        // 添加目录
+        Map<String, Object> dir = new HashMap<>();
+        dir.put("id", parentId + "/dir" + depth);
+        dir.put("name", "Directory-" + depth);
+        dir.put("type", "NORMAL_DIRECTORY");
+        dir.put("children", generateNormalDirectories(dir.get("id").toString(), depth - 1));
+        items.add(dir);
+
+        // 添加测试用例
+        Map<String, Object> testCase = new HashMap<>();
+        testCase.put("id", parentId + "/case" + depth);
+        testCase.put("name", "TestCase-" + depth);
+        testCase.put("type", "TEST_CASE");
+        items.add(testCase);
+
+        return items;
+    }
+}
+
+```
+
+## Collector.java
+
+```java
+package com.study.collect.core.collector;
+
+import com.study.collect.entity.CollectTask;
+import com.study.collect.entity.TaskResult;
+import com.study.collect.enums.TaskStatus;
+
+public interface Collector {
+    TaskResult collect(CollectTask task);
+
+    TaskStatus getTaskStatus(String taskId);
+
+    void stopTask(String taskId);
+}
+```
+
+## DistributedCollector.java
+
+```java
+package com.study.collect.core.collector;
+
+import com.study.collect.annotation.CollectorFor;
+import com.study.collect.core.executor.CollectExecutor;
+import com.study.collect.entity.CollectTask;
+import com.study.collect.entity.TaskResult;
+import com.study.collect.enums.CollectorType;
+import com.study.collect.enums.TaskStatus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.stereotype.Component;
+
+import java.util.concurrent.TimeUnit;
+
+
+// 核心采集实现
+@Component
+@CollectorFor(CollectorType.DEFAULT)
+public class DistributedCollector implements Collector {
+    private static final Logger logger = LoggerFactory.getLogger(DistributedCollector.class);
+    private static final String TASK_LOCK_PREFIX = "collect:task:lock:";
+    private static final long LOCK_TIMEOUT = 10; // 锁超时时间（分钟）
+
+    @Autowired
+    private RedisTemplate<String, Object> redisTemplate;
+
+    @Autowired
+    private CollectExecutor collectExecutor;
+
+    @Override
+    public TaskResult collect(CollectTask task) {
+        String lockKey = TASK_LOCK_PREFIX + task.getId();
+
+        // 尝试获取分布式锁
+        Boolean acquired = redisTemplate.opsForValue()
+                .setIfAbsent(lockKey, "LOCKED", LOCK_TIMEOUT, TimeUnit.MINUTES);
+
+        if (Boolean.TRUE.equals(acquired)) {
+            try {
+                // 执行采集任务
+                return doCollect(task);
+            } finally {
+                // 释放锁
+                redisTemplate.delete(lockKey);
+            }
+        } else {
+            logger.warn("Task {} is already being executed on another instance", task.getId());
+            return TaskResult.builder()
+                    .taskId(task.getId())
+                    .status(TaskStatus.FAILED)
+                    .message("Task is already running")
+                    .build();
+        }
+    }
+
+    private TaskResult doCollect(CollectTask task) {
+        try {
+            logger.info("Starting collection for task: {}", task.getId());
+
+            // 更新任务状态为运行中
+            task.setStatus(TaskStatus.RUNNING);
+            updateTaskStatus(task);
+
+            // 执行采集
+            TaskResult result = collectExecutor.execute(task);
+
+            // 更新任务状态
+            task.setStatus(result.isSuccess() ? TaskStatus.COMPLETED : TaskStatus.FAILED);
+            updateTaskStatus(task);
+
+            return result;
+
+        } catch (Exception e) {
+            logger.error("Error collecting data for task: " + task.getId(), e);
+
+            // 更新任务状态为失败
+            task.setStatus(TaskStatus.FAILED);
+            updateTaskStatus(task);
+
+            return TaskResult.builder()
+                    .taskId(task.getId())
+                    .status(TaskStatus.FAILED)
+                    .message("Collection failed: " + e.getMessage())
+                    .build();
+        }
+    }
+
+    private void updateTaskStatus(CollectTask task) {
+        // 更新状态到Redis
+        String statusKey = "collect:task:status:" + task.getId();
+        redisTemplate.opsForValue().set(statusKey, task.getStatus(), 24, TimeUnit.HOURS);
+
+        logger.info("Updated task {} status to {}", task.getId(), task.getStatus());
+    }
+
+    @Override
+    public TaskStatus getTaskStatus(String taskId) {
+        String statusKey = "collect:task:status:" + taskId;
+        Object status = redisTemplate.opsForValue().get(statusKey);
+        return status != null ? (TaskStatus) status : TaskStatus.UNKNOWN;
+    }
+
+    @Override
+    public void stopTask(String taskId) {
+        String lockKey = TASK_LOCK_PREFIX + taskId;
+        redisTemplate.delete(lockKey);
+
+        // 更新状态为已停止
+        String statusKey = "collect:task:status:" + taskId;
+        redisTemplate.opsForValue().set(statusKey, TaskStatus.STOPPED);
+
+        logger.info("Task {} has been stopped", taskId);
+    }
+}
+
+```
+
+## TreeCollector.java
+
+```java
+package com.study.collect.core.collector;
+
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.study.collect.annotation.CollectorFor;
+import com.study.collect.entity.CollectTask;
+import com.study.collect.entity.TaskResult;
+import com.study.collect.entity.TreeNode;
+import com.study.collect.enums.CollectorType;
+import com.study.collect.enums.TaskStatus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestTemplate;
+
+import java.util.*;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+
+@Component("treeCollector")
+@CollectorFor(CollectorType.TREE)  // 添加CollectorFor注解指定类型
+public class TreeCollector implements Collector {
+
+    private static final Logger logger = LoggerFactory.getLogger(TreeCollector.class);
+    private static final String LOCK_PREFIX = "collect:task:lock:";
+    private static final String STATUS_PREFIX = "collect:task:status:";
+    private static final int LOCK_TIMEOUT = 10;
+
+    @Autowired
+    private RedisTemplate<String, Object> redisTemplate;
+
+    @Autowired
+    private MongoTemplate mongoTemplate;
+
+    @Autowired
+    private RestTemplate restTemplate;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    public TreeCollector() {
+        logger.info("TreeCollector initialized with type: {}", CollectorType.TREE);
+    }
+
+    @Override
+    public TaskResult collect(CollectTask task) {
+        String lockKey = LOCK_PREFIX + task.getId();
+
+        try {
+            Boolean acquired = acquireLock(lockKey);
+            if (!acquired) {
+                return buildTaskResult(task.getId(), TaskStatus.FAILED, "Task is already running");
+            }
+
+            return doCollect(task);
+        } catch (Exception e) {
+            logger.error("Failed to collect tree for task: {}", task.getId(), e);
+            return buildTaskResult(task.getId(), TaskStatus.FAILED, "Collection failed: " + e.getMessage());
+        } finally {
+            releaseLock(lockKey);
+        }
+    }
+
+    private Boolean acquireLock(String lockKey) {
+        return redisTemplate.opsForValue()
+                .setIfAbsent(lockKey, "LOCKED", LOCK_TIMEOUT, TimeUnit.MINUTES);
+    }
+
+    private void releaseLock(String lockKey) {
+        try {
+            redisTemplate.delete(lockKey);
+        } catch (Exception e) {
+            logger.error("Failed to release lock: {}", lockKey, e);
+        }
+    }
+
+    private TaskResult doCollect(CollectTask task) {
+        try {
+            logger.info("Starting tree data collection for task: {}", task.getId());
+
+            ResponseEntity<String> response = fetchTreeData(task);
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                String message = String.format("Failed to fetch tree data: %s", response.getStatusCode());
+                logger.error(message);
+                return buildTaskResult(task.getId(), TaskStatus.FAILED, message);
+            }
+
+            List<TreeNode> nodes = processTreeData(response.getBody(), task.getId());
+
+            return buildTaskResult(task.getId(), TaskStatus.COMPLETED,
+                    String.format("Successfully collected %d nodes", nodes.size()),
+                    response.getStatusCode().value());
+
+        } catch (Exception e) {
+            throw new RuntimeException("Error collecting tree data", e);
+        }
+    }
+
+    private ResponseEntity<String> fetchTreeData(CollectTask task) {
+        HttpHeaders headers = createHeaders(task.getHeaders());
+        HttpEntity<?> requestEntity = new HttpEntity<>(task.getRequestBody(), headers);
+
+        return restTemplate.exchange(
+                task.getUrl(),
+                HttpMethod.valueOf(task.getMethod()),
+                requestEntity,
+                String.class
+        );
+    }
+
+//    private List<TreeNode> processTreeData(String jsonData, String taskId) throws Exception {
+//        Map<String, Object> treeData = objectMapper.readValue(jsonData, new TypeReference<Map<String, Object>>() {});
+//        String projectId = (String) treeData.get("projectId");
+//
+//        @SuppressWarnings("unchecked")
+//        List<Map<String, Object>> nodes = (List<Map<String, Object>>) treeData.get("nodes");
+//
+//        // Clear existing nodes for this task
+//        clearExistingNodes(taskId);
+//
+//        // Process and save new nodes
+//        List<TreeNode> allNodes = new ArrayList<>();
+//        parseNodes(projectId, null, nodes, 0, new ArrayList<>(), allNodes, taskId);
+//
+//        return saveNodes(allNodes);
+//    }
+
+//    private void clearExistingNodes(String taskId) {
+//        Query query = Query.query(Criteria.where("taskId").is(taskId));
+//        mongoTemplate.remove(query, TreeNode.class);
+//        logger.info("Cleared existing nodes for task {}", taskId);
+//    }
+
+    private List<TreeNode> saveNodes(List<TreeNode> nodes) {
+        // 使用批量插入提升性能
+        List<TreeNode> savedNodes = new ArrayList<>(mongoTemplate.insert(nodes, TreeNode.class));
+        logger.info("Saved {} nodes to MongoDB", savedNodes.size());
+        return savedNodes;
+    }
+
+//    private void parseNodes(String projectId, String parentId, List<Map<String, Object>> nodes,
+//                            int level, List<String> parentPath, List<TreeNode> allNodes, String taskId) {
+//        if (nodes == null) return;
+//
+//        for (Map<String, Object> nodeData : nodes) {
+//            try {
+//                TreeNode node = createNode(nodeData, projectId, parentId, level, parentPath, taskId);
+//                allNodes.add(node);
+//
+//                // Process children recursively
+//                @SuppressWarnings("unchecked")
+//                List<Map<String, Object>> children = (List<Map<String, Object>>) nodeData.get("children");
+//                if (children != null) {
+//                    List<String> currentPath = new ArrayList<>(parentPath);
+//                    currentPath.add(node.getId());
+//                    parseNodes(projectId, node.getId(), children, level + 1, currentPath, allNodes, taskId);
+//                }
+//            } catch (Exception e) {
+//                logger.error("Error processing node: {}", nodeData, e);
+//            }
+//        }
+//    }
+
+    private TreeNode createNode(Map<String, Object> nodeData, String projectId, String parentId,
+                                int level, List<String> parentPath, String taskId) {
+        TreeNode node = new TreeNode();
+        node.setId((String) nodeData.get("id"));
+        node.setProjectId(projectId);
+        node.setTaskId(taskId);
+        node.setParentId(parentId);
+        node.setName((String) nodeData.get("name"));
+        node.setType(TreeNode.NodeType.valueOf((String) nodeData.get("type")));
+        node.setLevel(level);
+
+        List<String> currentPath = new ArrayList<>(parentPath);
+        currentPath.add(node.getId());
+        node.setPath(currentPath);
+
+        Date now = new Date();
+        node.setCreateTime(now);
+        node.setUpdateTime(now);
+
+        return node;
+    }
+
+    private HttpHeaders createHeaders(Map<String, String> headers) {
+        HttpHeaders httpHeaders = new HttpHeaders();
+        if (headers != null) {
+            headers.forEach(httpHeaders::add);
+        }
+        return httpHeaders;
+    }
+
+    private TaskResult buildTaskResult(String taskId, TaskStatus status, String message) {
+        return buildTaskResult(taskId, status, message, null);
+    }
+
+    private TaskResult buildTaskResult(String taskId, TaskStatus status, String message, Integer statusCode) {
+        return TaskResult.builder()
+                .taskId(taskId)
+                .status(status)
+                .message(message)
+                .statusCode(statusCode)
+                .build();
+    }
+
+    @Override
+    public TaskStatus getTaskStatus(String taskId) {
+        Object status = redisTemplate.opsForValue().get(STATUS_PREFIX + taskId);
+        return status != null ? (TaskStatus) status : TaskStatus.UNKNOWN;
+    }
+
+    @Override
+    public void stopTask(String taskId) {
+        redisTemplate.delete(LOCK_PREFIX + taskId);
+        redisTemplate.opsForValue().set(STATUS_PREFIX + taskId, TaskStatus.STOPPED);
+        logger.info("Task {} has been stopped", taskId);
+    }
+
+//    private List<TreeNode> processTreeData(String jsonData, String taskId) throws Exception {
+//        try {
+//            // 先记录原始数据便于调试
+//            logger.debug("Processing tree data for task {}: {}", taskId, jsonData);
+//
+//            // 使用TypeReference确保正确的类型转换
+//            Map<String, Object> treeData = objectMapper.readValue(jsonData,
+//                    new TypeReference<Map<String, Object>>() {});
+//
+//            if (treeData == null) {
+//                throw new IllegalArgumentException("Tree data is null");
+//            }
+//
+//            String projectId = (String) treeData.get("projectId");
+//            if (projectId == null) {
+//                throw new IllegalArgumentException("Project ID is missing in tree data");
+//            }
+//
+//            @SuppressWarnings("unchecked")
+//            List<Map<String, Object>> nodes = (List<Map<String, Object>>) treeData.get("nodes");
+//            if (nodes == null || nodes.isEmpty()) {
+//                logger.warn("No nodes found in tree data for task {}", taskId);
+//                return Collections.emptyList();
+//            }
+//
+//            // Clear existing nodes
+//            clearExistingNodes(taskId);
+//
+//            // Process nodes
+//            List<TreeNode> allNodes = new ArrayList<>();
+//            parseNodes(projectId, null, nodes, 0, new ArrayList<>(), allNodes, taskId);
+//
+//            if (allNodes.isEmpty()) {
+//                logger.warn("No nodes were parsed from the tree data for task {}", taskId);
+//                return Collections.emptyList();
+//            }
+//
+//            // Save nodes in batches
+//            List<TreeNode> savedNodes = saveNodesInBatches(allNodes, 100);
+//            logger.info("Successfully saved {} nodes for task {}", savedNodes.size(), taskId);
+//
+//            return savedNodes;
+//
+//        } catch (Exception e) {
+//            logger.error("Error processing tree data for task {}: {}", taskId, e.getMessage());
+//            throw e;
+//        }
+//    }
+
+//    private List<TreeNode> processTreeData(String jsonData, String taskId) throws Exception {
+//        try {
+//            logger.debug("Processing tree data for task {}: {}", taskId, jsonData);
+//
+//            // 先解析外层响应结构
+//            Map<String, Object> response = objectMapper.readValue(jsonData,
+//                    new TypeReference<Map<String, Object>>() {});
+//
+//            if (response == null || !response.containsKey("data")) {
+//                throw new IllegalArgumentException("Invalid response format");
+//            }
+//
+//            // 获取data对象
+//            @SuppressWarnings("unchecked")
+//            Map<String, Object> data = (Map<String, Object>) response.get("data");
+//            if (data == null) {
+//                throw new IllegalArgumentException("Response data is null");
+//            }
+//
+//            // 从data中获取projectId
+//            String projectId = (String) data.get("projectId");
+//            if (projectId == null || projectId.isEmpty()) {
+//                throw new IllegalArgumentException("Project ID is missing in data");
+//            }
+//
+//            // 从data中获取nodes数组
+//            @SuppressWarnings("unchecked")
+//            List<Map<String, Object>> nodes = (List<Map<String, Object>>) data.get("nodes");
+//            if (nodes == null || nodes.isEmpty()) {
+//                logger.warn("No nodes found in tree data for task {}", taskId);
+//                return Collections.emptyList();
+//            }
+//
+//            // 清理旧数据
+//            clearExistingNodes(taskId);
+//
+//            // 解析节点
+//            List<TreeNode> allNodes = new ArrayList<>();
+//            parseNodes(projectId, null, nodes, 0, new ArrayList<>(), allNodes, taskId);
+//
+//            if (allNodes.isEmpty()) {
+//                logger.warn("No nodes were parsed from the tree data for task {}", taskId);
+//                return Collections.emptyList();
+//            }
+//
+//            // 批量保存
+//            List<TreeNode> savedNodes = saveNodesInBatches(allNodes, 100);
+//            logger.info("Successfully saved {} nodes for task {}", savedNodes.size(), taskId);
+//
+//            return savedNodes;
+//
+//        } catch (Exception e) {
+//            logger.error("Error processing tree data for task {}: {}", taskId, e.getMessage());
+//            throw e;
+//        }
+//    }
+
+    private void clearExistingNodes(String taskId) {
+        Query query = Query.query(Criteria.where("taskId").is(taskId));
+        mongoTemplate.remove(query, TreeNode.class);
+        logger.info("Cleared existing nodes for task {}", taskId);
+    }
+//
+//    private List<TreeNode> saveNodesInBatches(List<TreeNode> nodes, int batchSize) {
+//        List<TreeNode> savedNodes = new ArrayList<>();
+//
+//        for (int i = 0; i < nodes.size(); i += batchSize) {
+//            int end = Math.min(nodes.size(), i + batchSize);
+//            List<TreeNode> batch = nodes.subList(i, end);
+//            try {
+//                savedNodes.addAll(mongoTemplate.insert(batch, TreeNode.class));
+//                logger.debug("Saved batch of {} nodes, total saved: {}",
+//                        batch.size(), savedNodes.size());
+//            } catch (Exception e) {
+//                logger.error("Error saving batch of nodes: {}", e.getMessage());
+//                throw e;
+//            }
+//        }
+//        return savedNodes;
+//    }
+
+    private void parseNodes(String projectId, String parentId, List<Map<String, Object>> nodes,
+                            int level, List<String> parentPath, List<TreeNode> allNodes, String taskId) {
+        if (nodes == null) return;
+
+        for (Map<String, Object> nodeData : nodes) {
+            try {
+                // 验证必要的字段
+                String id = (String) nodeData.get("id");
+                String name = (String) nodeData.get("name");
+                String type = (String) nodeData.get("type");
+
+                if (id == null || name == null || type == null) {
+                    logger.error("Missing required fields in node data: {}", nodeData);
+                    continue;
+                }
+
+                // 创建节点
+                TreeNode node = new TreeNode();
+                node.setId(id);
+                node.setProjectId(projectId);
+                node.setTaskId(taskId);
+                node.setParentId(parentId);
+                node.setName(name);
+                try {
+                    node.setType(TreeNode.NodeType.valueOf(type));
+                } catch (IllegalArgumentException e) {
+                    logger.error("Invalid node type: {} for node: {}", type, id);
+                    continue;
+                }
+                node.setLevel(level);
+
+                // 设置路径
+                List<String> currentPath = new ArrayList<>(parentPath);
+                currentPath.add(node.getId());
+                node.setPath(currentPath);
+
+                // 设置时间戳
+                Date now = new Date();
+                node.setCreateTime(now);
+                node.setUpdateTime(now);
+
+                // 添加到结果列表
+                allNodes.add(node);
+                logger.debug("Successfully parsed node: {}, type: {}, level: {}",
+                        id, type, level);
+
+                // 递归处理子节点
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> children = (List<Map<String, Object>>) nodeData.get("children");
+                if (children != null && !children.isEmpty()) {
+                    parseNodes(projectId, node.getId(), children, level + 1, currentPath, allNodes, taskId);
+                }
+
+            } catch (Exception e) {
+                logger.error("Error parsing node data: {}", nodeData, e);
+            }
+        }
+    }
+
+//    private List<TreeNode> saveNodesInBatches(List<TreeNode> nodes, int batchSize) {
+//        List<TreeNode> savedNodes = new ArrayList<>();
+//        for (int i = 0; i < nodes.size(); i += batchSize) {
+//            int end = Math.min(nodes.size(), i + batchSize);
+//            List<TreeNode> batch = nodes.subList(i, end);
+//            try {
+//                savedNodes.addAll(mongoTemplate.insert(batch, TreeNode.class));
+//                logger.debug("Saved batch of {} nodes", batch.size());
+//            } catch (Exception e) {
+//                logger.error("Error saving batch of nodes: {}", e.getMessage());
+//                throw e;
+//            }
+//        }
+//        return savedNodes;
+//    }
+
+    private List<TreeNode> saveNodesInBatches(List<TreeNode> nodes, int batchSize) {
+        List<TreeNode> savedNodes = new ArrayList<>();
+        for (int i = 0; i < nodes.size(); i += batchSize) {
+            int end = Math.min(nodes.size(), i + batchSize);
+            List<TreeNode> batch = nodes.subList(i, end);
+            try {
+                // 对每个节点进行保存或更新
+                batch.forEach(node -> {
+                    try {
+                        Query query = Query.query(Criteria.where("_id").is(node.getId()));
+                        TreeNode existingNode = mongoTemplate.findOne(query, TreeNode.class);
+
+                        if (existingNode != null) {
+                            // 如果节点已存在,执行更新操作
+                            // 创建更新对象,不包含_id字段
+                            Update update = new Update()
+                                    .set("projectId", node.getProjectId())
+                                    .set("parentId", node.getParentId())
+                                    .set("name", node.getName())
+                                    .set("type", node.getType())
+                                    .set("level", node.getLevel())
+                                    .set("path", node.getPath())
+                                    .set("taskId", node.getTaskId())
+                                    .set("updateTime", new Date());
+
+                            mongoTemplate.updateFirst(query, update, TreeNode.class);
+                            savedNodes.add(node);
+                            logger.debug("Updated existing node: {}", node.getId());
+                        } else {
+                            // 如果节点不存在,执行插入操作
+                            TreeNode saved = mongoTemplate.insert(node);
+                            savedNodes.add(saved);
+                            logger.debug("Inserted new node: {}", node.getId());
+                        }
+                    } catch (Exception e) {
+                        logger.error("Error saving/updating node {}: {}", node.getId(), e.getMessage());
+                        throw e;
+                    }
+                });
+                logger.debug("Processed batch of {} nodes", batch.size());
+            } catch (Exception e) {
+                logger.error("Error processing batch of nodes: {}", e.getMessage());
+                throw e;
+            }
+        }
+        return savedNodes;
+    }
+
+    // 清理已存在节点的方法也需要修改,仅删除不再使用的节点
+    private void clearExistingNodes(String taskId, List<String> newNodeIds) {
+        try {
+            // 获取当前任务的所有现有节点ID
+            Query findQuery = Query.query(Criteria.where("taskId").is(taskId));
+            findQuery.fields().include("_id");
+            List<TreeNode> existingNodes = mongoTemplate.find(findQuery, TreeNode.class);
+            List<String> existingIds = existingNodes.stream()
+                    .map(TreeNode::getId)
+                    .collect(Collectors.toList());
+
+            // 找出需要删除的节点(在现有节点中但不在新节点中的)
+            existingIds.removeAll(newNodeIds);
+            if (!existingIds.isEmpty()) {
+                Query deleteQuery = Query.query(Criteria.where("_id").in(existingIds));
+                mongoTemplate.remove(deleteQuery, TreeNode.class);
+                logger.info("Removed {} obsolete nodes for task {}", existingIds.size(), taskId);
+            }
+        } catch (Exception e) {
+            logger.error("Failed to clear existing nodes for task {}: {}", taskId, e.getMessage());
+            throw e;
+        }
+    }
+
+    // processTreeData方法也需要相应修改
+    private List<TreeNode> processTreeData(String jsonData, String taskId) throws Exception {
+        try {
+            logger.debug("Processing tree data for task {}: {}", taskId, jsonData);
+
+            Map<String, Object> response = objectMapper.readValue(jsonData,
+                    new TypeReference<Map<String, Object>>() {
+                    });
+
+            if (response == null || !response.containsKey("data")) {
+                throw new IllegalArgumentException("Invalid response format");
+            }
+
+            @SuppressWarnings("unchecked")
+            Map<String, Object> data = (Map<String, Object>) response.get("data");
+            String projectId = (String) data.get("projectId");
+            if (projectId == null || projectId.isEmpty()) {
+                throw new IllegalArgumentException("Project ID is missing in data");
+            }
+
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> nodes = (List<Map<String, Object>>) data.get("nodes");
+            if (nodes == null || nodes.isEmpty()) {
+                logger.warn("No nodes found in tree data for task {}", taskId);
+                return Collections.emptyList();
+            }
+
+            // 收集所有新节点ID
+            List<TreeNode> allNodes = new ArrayList<>();
+            List<String> newNodeIds = new ArrayList<>();
+            parseNodes(projectId, null, nodes, 0, new ArrayList<>(), allNodes, taskId, newNodeIds);
+
+            // 清理不再使用的节点
+            clearExistingNodes(taskId, newNodeIds);
+
+            // 批量保存/更新节点
+            if (!allNodes.isEmpty()) {
+                List<TreeNode> savedNodes = saveNodesInBatches(allNodes, 100);
+                logger.info("Successfully saved/updated {} nodes for task {}", savedNodes.size(), taskId);
+                return savedNodes;
+            }
+
+            return Collections.emptyList();
+        } catch (Exception e) {
+            logger.error("Error processing tree data for task {}: {}", taskId, e.getMessage());
+            throw e;
+        }
+    }
+
+    // parseNodes方法需要增加收集节点ID的功能
+    private void parseNodes(String projectId, String parentId, List<Map<String, Object>> nodes,
+                            int level, List<String> parentPath, List<TreeNode> allNodes,
+                            String taskId, List<String> nodeIds) {
+        if (nodes == null) return;
+
+        for (Map<String, Object> nodeData : nodes) {
+            try {
+                String id = (String) nodeData.get("id");
+                String name = (String) nodeData.get("name");
+                String type = (String) nodeData.get("type");
+
+                if (id == null || name == null || type == null) {
+                    logger.error("Missing required fields in node data: {}", nodeData);
+                    continue;
+                }
+
+                // 创建节点并添加到列表
+                TreeNode node = createNode(nodeData, projectId, parentId, level, parentPath, taskId);
+                allNodes.add(node);
+                nodeIds.add(node.getId());
+
+                // 处理子节点
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> children = (List<Map<String, Object>>) nodeData.get("children");
+                if (children != null && !children.isEmpty()) {
+                    List<String> currentPath = new ArrayList<>(parentPath);
+                    currentPath.add(node.getId());
+                    parseNodes(projectId, node.getId(), children, level + 1, currentPath,
+                            allNodes, taskId, nodeIds);
+                }
+            } catch (Exception e) {
+                logger.error("Error parsing node data: {}", nodeData, e);
+            }
+        }
+    }
+}
+```
+
+## CollectExecutor.java
+
+```java
+package com.study.collect.core.executor;
+
+import com.study.collect.entity.CollectTask;
+import com.study.collect.entity.TaskResult;
+import com.study.collect.enums.TaskStatus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestTemplate;
+
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+
+// 采集执行器
+@Component
+public class CollectExecutor {
+    private static final Logger logger = LoggerFactory.getLogger(CollectExecutor.class);
+
+    @Autowired
+    private RestTemplate restTemplate;
+
+    public TaskResult execute(CollectTask task) {
+        try {
+            logger.info("Executing collection task: {}", task.getId());
+
+            // 构建请求头
+            HttpHeaders headers = buildHeaders(task.getHeaders());
+            HttpEntity<?> requestEntity = new HttpEntity<>(task.getRequestBody(), headers);
+
+            // 发送请求
+            ResponseEntity<String> response = restTemplate.exchange(
+                    task.getUrl(),
+                    HttpMethod.valueOf(task.getMethod()),
+                    requestEntity,
+                    String.class
+            );
+
+            // 处理响应
+            return handleResponse(task, response);
+
+        } catch (Exception e) {
+            logger.error("Error executing task: " + task.getId(), e);
+            return TaskResult.builder()
+                    .taskId(task.getId())
+                    .status(TaskStatus.FAILED)
+                    .message("Execution failed: " + e.getMessage())
+                    .build();
+        }
+    }
+
+    private HttpHeaders buildHeaders(Map<String, String> headerMap) {
+        HttpHeaders headers = new HttpHeaders();
+        if (headerMap != null) {
+            headerMap.forEach(headers::add);
+        }
+        return headers;
+    }
+
+    private TaskResult handleResponse(CollectTask task, ResponseEntity<String> response) {
+        if (response.getStatusCode().is2xxSuccessful()) {
+            return TaskResult.builder()
+                    .taskId(task.getId())
+                    .status(TaskStatus.COMPLETED)
+                    .statusCode(response.getStatusCode().value())
+                    .responseBody(response.getBody())
+                    .build();
+        } else {
+            return TaskResult.builder()
+                    .taskId(task.getId())
+                    .status(TaskStatus.FAILED)
+                    .statusCode(response.getStatusCode().value())
+                    .message("Request failed with status: " + response.getStatusCode())
+                    .build();
+        }
+    }
+
+    public boolean retry(CollectTask task, int maxRetries, long retryInterval) {
+        int retryCount = 0;
+        while (retryCount < maxRetries) {
+            try {
+                TimeUnit.MILLISECONDS.sleep(retryInterval);
+                TaskResult result = execute(task);
+                if (result.isSuccess()) {
+                    return true;
+                }
+                retryCount++;
+                logger.warn("Retry {} failed for task {}", retryCount, task.getId());
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return false;
+            }
+        }
+        return false;
+    }
+}
+```
+
+## CollectorStrategy.java
+
+```java
+package com.study.collect.core.strategy;
+
+import com.study.collect.annotation.CollectorFor;
+import com.study.collect.core.collector.Collector;
+import com.study.collect.enums.CollectorType;
+import jakarta.annotation.PostConstruct;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+@Component
+public class CollectorStrategy {
+    private static final Logger logger = LoggerFactory.getLogger(CollectorStrategy.class);
+    private final Map<CollectorType, Collector> collectorMap;
+
+    public CollectorStrategy(List<Collector> collectors) {
+        logger.info("Initializing CollectorStrategy with collectors: {}",
+                collectors.stream().map(c -> c.getClass().getSimpleName()).collect(Collectors.toList()));
+
+        collectorMap = collectors.stream()
+                .filter(collector -> collector.getClass().isAnnotationPresent(CollectorFor.class))
+                .collect(Collectors.toMap(
+                        collector -> collector.getClass().getAnnotation(CollectorFor.class).value(),
+                        collector -> collector
+                ));
+
+        logger.info("Initialized collector mappings: {}",
+                collectorMap.entrySet().stream()
+                        .map(e -> e.getKey() + " -> " + e.getValue().getClass().getSimpleName())
+                        .collect(Collectors.toList()));
+    }
+
+    @PostConstruct
+    public void init() {
+        logger.info("=== Collector Strategy Initialization ===");
+        logger.info("Available collector types: {}", CollectorType.values());
+        logger.info("Registered collectors: {}",
+                collectorMap.entrySet().stream()
+                        .map(e -> e.getKey() + " -> " + e.getValue().getClass().getSimpleName())
+                        .collect(Collectors.toList()));
+        logger.info("=======================================");
+    }
+
+    public Collector getCollector(CollectorType type) {
+        Collector collector = collectorMap.get(type);
+        logger.debug("Getting collector for type {}, found: {}",
+                type, collector != null ? collector.getClass().getSimpleName() : "null");
+        return collector;
+    }
+}
+```
+
+## AlertLog.java
+
+```java
+package com.study.collect.entity;
+
+import lombok.Data;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+
+import java.util.Date;
+
+// 添加告警日志实体类
+@Data
+@Document(collection = "alert_logs")
+public class AlertLog {
+    @Id
+    private String id;
+    private String alertId;
+    private String operation;
+    private Date operateTime;
+}
+```
+
+## AlertMessage.java
+
+```java
+package com.study.collect.entity;
+
+import com.study.collect.enums.AlertLevel;
+import lombok.Data;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+
+import java.util.Date;
+
+@Data
+@Document(collection = "alert_messages")
+public class AlertMessage {
+    @Id
+    private String id;
+    private AlertLevel level;
+    private String source;
+    private String message;
+    private boolean acknowledged;
+    private Date createTime;
+    private Date acknowledgeTime;
+}
+```
+
+## AlertRecord.java
+
+```java
+package com.study.collect.entity;
+
+import com.study.collect.enums.AlertLevel;
+import lombok.Data;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+
+import java.util.Date;
+
+@Data
+@Document(collection = "alert_records")
+public class AlertRecord {
+    @Id
+    private String id;
+    private String ruleId;
+    private AlertLevel level;
+    private String message;
+    private boolean acknowledged;
+    private Date createTime;
+    private Date acknowledgeTime;
+}
+```
+
+## AlertRule.java
+
+```java
+package com.study.collect.entity;
+
+import com.study.collect.enums.AlertLevel;
+import lombok.Data;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+
+import java.util.Date;
+
+@Data
+@Document(collection = "alert_rules")
+public class AlertRule {
+    @Id
+    private String id;
+    private String name;
+    private String metric;
+    private String condition;
+    private Double threshold;
+    private AlertLevel level;
+    private boolean enabled;
+    private Date createTime;
+    private Date updateTime;
+}
+```
+
+## CollectData.java
+
+```java
+package com.study.collect.entity;
+
+import lombok.Data;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+
+import java.util.Date;
+
+@Data
+@Document(collection = "collect_data")
+public class CollectData {
+    @Id
+    private String id;
+
+    private Long mysqlId; // MySQL中的ID
+    private String deviceId;
+    private String deviceName;
+    private Double temperature;
+    private Double humidity;
+    private String location;
+    private Date collectTime;
+    private Date createTime;
+}
+```
+
+## CollectResult.java
+
+```java
+package com.study.collect.entity;
+
+import com.study.collect.enums.TaskStatus;
+import lombok.Data;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+
+import java.util.Date;
+
+@Data
+@Document(collection = "collect_results")
+public class CollectResult {
+    @Id
+    private String id;
+    private String taskId;
+    private TaskStatus status;
+    private Integer statusCode;
+    private String responseBody;
+    private String errorMessage;
+    private Date createTime;
+    private Integer retryCount;
+}
+```
+
+## CollectTask.java
+
+```java
+package com.study.collect.entity;
+
+import com.study.collect.enums.CollectorType;
+import com.study.collect.enums.TaskStatus;
+import lombok.Builder;
+import lombok.Data;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+
+import java.util.Date;
+import java.util.Map;
+
+
+@Data
+@Builder
+@Document(collection = "collect_tasks")
+public class CollectTask {
+    @Id
+    private String id;
+    private String name;
+    private String url;
+    private String method;
+    private Map<String, String> headers;
+    private String requestBody;
+    private TaskStatus status;
+    private Integer retryCount;
+    private Integer maxRetries;
+    private Long retryInterval;
+    private Date createTime;
+    private Date updateTime;
+    private CollectorType collectorType = CollectorType.DEFAULT; // 默认类型
+    private String lastError;
+
+}
+
+
+
+```
+
+## MongoTestEntity.java
+
+```java
+package com.study.collect.entity;
+
+import lombok.Data;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+
+import java.util.Date;
+
+@Data
+@Document(collection = "test_mongo")
+public class MongoTestEntity {
+    @Id
+    private String id;
+    private String name;
+    private String description;
+    private Date createTime;
+    private Date updateTime;
+}
+
+```
+
+## SystemMetrics.java
+
+```java
+package com.study.collect.entity;
+
+import lombok.Data;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+
+import java.util.Date;
+
+@Data
+@Document(collection = "system_metrics")
+public class SystemMetrics {
+    @Id
+    private String id;
+    private double cpuUsage;
+    private double memoryUsage;
+    private double diskUsage;
+    private long totalTasks;
+    private long runningTasks;
+    private long failedTasks;
+    private Date createTime;
+}
+
+```
+
+## TaskLog.java
+
+```java
+package com.study.collect.entity;
+
+import com.study.collect.enums.TaskStatus;
+import lombok.Data;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+
+import java.util.Date;
+
+@Data
+@Document(collection = "task_logs")
+public class TaskLog {
+    @Id
+    private String id;
+    private String taskId;
+    private TaskStatus status;
+    private String message;
+    private Integer responseCode;
+    private Long executionTime;
+    private Date createTime;
+    private String serverIp;
+}
+```
+
+## TaskResult.java
+
+```java
+package com.study.collect.entity;
+
+import com.study.collect.enums.TaskStatus;
+import lombok.Builder;
+import lombok.Data;
+
+@Data
+@Builder
+public class TaskResult {
+    private String taskId;
+    private TaskStatus status;
+    private Integer statusCode;
+    private String responseBody;
+    private String message;
+
+    public boolean isSuccess() {
+        return TaskStatus.COMPLETED.equals(status);
+    }
+}
+```
+
+## TaskStatusStatistics.java
+
+```java
+package com.study.collect.entity;
+
+import lombok.Data;
+
+import java.util.Date;
+
+@Data
+public class TaskStatusStatistics {
+    private long totalTasks;
+    private long runningTasks;
+    private long completedTasks;
+    private long failedTasks;
+    private long stoppedTasks;
+    private Date statisticsTime;
+}
+
+```
+
+## TestEntity.java
+
+```java
+package com.study.collect.entity;
+
+import lombok.Data;
+
+import java.io.Serializable;
+import java.util.Date;
+
+@Data
+public class TestEntity implements Serializable {
+    private Long id;
+    private String name;
+    private String description;
+    private Date createTime;
+    private Date updateTime;
+}
+
+
+```
+
+## TreeCollectRequest.java
+
+```java
+package com.study.collect.entity;
+
+import lombok.Data;
+
+import java.util.Map;
+
+@Data
+public class TreeCollectRequest {
+    private String projectId;
+    private String url;         // 树状数据获取URL
+    private String method;      // 请求方法(GET/POST)
+    private Map<String, String> headers; // 请求头
+    private String requestBody; // POST请求体
+}
+
+```
+
+## TreeCollectTask.java
+
+```java
+package com.study.collect.entity;
+
+import com.study.collect.enums.TaskStatus;
+import lombok.Data;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+
+import java.util.Date;
+import java.util.List;
+
+@Data
+@Document(collection = "tree_collect_tasks")
+public class TreeCollectTask {
+    @Id
+    private String id;
+    private String projectId;
+    private TaskStatus status;
+    private int totalCount;
+    private int currentCount;
+    private List<String> errors;
+    private Date startTime;
+    private Date endTime;
+    private Date createTime;
+}
+
+```
+
+## TreeNode.java
+
+```java
+package com.study.collect.entity;
+
+import lombok.Data;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+
+import java.util.Date;
+import java.util.List;
+
+@Data
+@Document(collection = "tree_nodes")
+public class TreeNode {
+    @Id
+    private String id;           // 节点路径作为ID
+    private String projectId;    // 项目ID
+    private String parentId;     // 父节点ID
+    private String name;         // 节点名称
+    private NodeType type;       // 节点类型
+    private Integer level;       // 节点层级
+    private List<String> path;   // 完整路径
+    private Date createTime;
+    private Date updateTime;
+    private List<TreeNode> children;
+    private String taskId;
+
+
+    public enum NodeType {
+        PROJECT,
+        ROOT,
+        BASELINE_VERSION,
+        EXECUTE_VERSION,
+        CASE_DIRECTORY,
+        SCENARIO,
+        NORMAL_DIRECTORY,
+        TEST_CASE
+    }
+}
+
+```
+
+## AlertLevel.java
+
+```java
+package com.study.collect.enums;
+
+
+public enum AlertLevel {
+    INFO,
+    WARNING,
+    ERROR,
+    CRITICAL
+}
+```
+
+## CollectorType.java
+
+```java
+package com.study.collect.enums;
+
+public enum CollectorType {
+    TREE,           // 树状结构采集
+    DISTRIBUTED,    // 分布式采集
+    DEFAULT        // 默认采集器
+}
+```
+
+## RetryStrategy.java
+
+```java
+package com.study.collect.enums;
+
+public enum RetryStrategy {
+    FIXED_INTERVAL,    // 固定时间间隔重试
+    EXPONENTIAL_BACKOFF, // 指数退避重试
+    LINEAR_BACKOFF      // 线性退避重试
+}
+```
+
+## TaskStatus.java
+
+```java
+package com.study.collect.enums;
+
+public enum TaskStatus {
+    CREATED,
+    RUNNING,
+    COMPLETED,
+    FAILED,
+    STOPPED,
+    UNKNOWN
+}
+
+
+
+```
+
+## MessageHandler.java
+
+```java
+package com.study.collect.handler;
+
+import com.rabbitmq.client.Channel;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.core.Message;
+import org.springframework.amqp.rabbit.listener.api.ChannelAwareMessageListener;
+import org.springframework.stereotype.Component;
+
+@Slf4j
+@Component
+public class MessageHandler implements ChannelAwareMessageListener {
+
+    @Override
+    public void onMessage(Message message, Channel channel) throws Exception {
+        try {
+            // 获取消息ID
+            long deliveryTag = message.getMessageProperties().getDeliveryTag();
+
+            // 获取消息内容
+            String msg = new String(message.getBody());
+            log.info("Received message: {}", msg);
+
+            // 处理消息
+            processMessage(msg);
+
+            // 手动确认消息
+            channel.basicAck(deliveryTag, false);
+
+        } catch (Exception e) {
+            log.error("Error processing message", e);
+            // 消息处理失败，拒绝消息并重新入队
+            channel.basicNack(message.getMessageProperties().getDeliveryTag(), false, true);
+        }
+    }
+
+    private void processMessage(String message) {
+        // 实现具体的消息处理逻辑
+    }
+}
+```
+
+## RabbitMessageListener.java
+
+```java
+package com.study.collect.listener;
+
+
+import com.rabbitmq.client.Channel;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.core.Message;
+import org.springframework.amqp.rabbit.listener.api.ChannelAwareMessageListener;
+import org.springframework.stereotype.Component;
+
+@Slf4j
+@Component
+public class RabbitMessageListener implements ChannelAwareMessageListener {
+
+    @Override
+    public void onMessage(Message message, Channel channel) throws Exception {
+        try {
+            long deliveryTag = message.getMessageProperties().getDeliveryTag();
+            String msg = new String(message.getBody());
+            log.info("Received message: {}", msg);
+
+            // TODO: 处理消息的业务逻辑
+
+            channel.basicAck(deliveryTag, false);
+        } catch (Exception e) {
+            log.error("处理消息时发生错误", e);
+            // 消息处理失败时，将消息重新放回队列
+            channel.basicNack(message.getMessageProperties().getDeliveryTag(), false, true);
+        }
+    }
+}
+
+```
+
+## CollectDataMapper.java
+
+```java
+package com.study.collect.mapper;
+
+import com.study.collect.entity.CollectData;
+import org.apache.ibatis.annotations.*;
+
+import java.util.Date;
+import java.util.List;
+
+@Mapper
+public interface CollectDataMapper {
+
+    @Insert("""
+                INSERT INTO collect_data (
+                    device_id, device_name, temperature, humidity,
+                    location, collect_time, create_time
+                ) VALUES (
+                    #{deviceId}, #{deviceName}, #{temperature}, #{humidity},
+                    #{location}, #{collectTime}, #{createTime}
+                )
+            """)
+    @Options(useGeneratedKeys = true, keyProperty = "mysqlId")
+    int insert(CollectData data);
+
+    @Select("""
+                SELECT * FROM collect_data 
+                WHERE device_id = #{deviceId}
+                AND collect_time BETWEEN #{startTime} AND #{endTime}
+            """)
+    List<CollectData> findByDeviceAndTimeRange(
+            @Param("deviceId") String deviceId,
+            @Param("startTime") Date startTime,
+            @Param("endTime") Date endTime
+    );
+}
+```
+
+## TaskLogMapper.java
+
+```java
+package com.study.collect.mapper;
+
+import com.study.collect.entity.TaskLog;
+import org.apache.ibatis.annotations.Insert;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Options;
+import org.apache.ibatis.annotations.Select;
+
+import java.util.Date;
+import java.util.List;
+
+@Mapper
+public interface TaskLogMapper {
+    @Insert("""
+                INSERT INTO task_logs (
+                    task_id, status, message, response_code,
+                    execution_time, create_time
+                ) VALUES (
+                    #{taskId}, #{status}, #{message}, #{responseCode},
+                    #{executionTime}, #{createTime}
+                )
+            """)
+    @Options(useGeneratedKeys = true, keyProperty = "id")
+    int insert(TaskLog log);
+
+    @Select("SELECT * FROM task_logs WHERE task_id = #{taskId} ORDER BY create_time DESC")
+    List<TaskLog> findByTaskId(String taskId);
+
+    @Select("""
+                SELECT * FROM task_logs 
+                WHERE create_time BETWEEN #{startTime} AND #{endTime}
+                ORDER BY create_time DESC
+            """)
+    List<TaskLog> findByTimeRange(Date startTime, Date endTime);
+}
+```
+
+## TestMySQLMapper.java
+
+```java
+package com.study.collect.mapper;
+
+import com.study.collect.entity.TestEntity;
+import org.apache.ibatis.annotations.*;
+
+import java.util.List;
+
+@Mapper
+public interface TestMySQLMapper {
+
+    @Insert("INSERT INTO test_table (name, description, create_time, update_time) " +
+            "VALUES (#{name}, #{description}, #{createTime}, #{updateTime})")
+    @Options(useGeneratedKeys = true, keyProperty = "id")
+    int insert(TestEntity entity);
+
+    @Select("SELECT * FROM test_table WHERE id = #{id}")
+    TestEntity findById(Long id);
+
+    @Select("SELECT * FROM test_table")
+    List<TestEntity> findAll();
+
+    @Update("UPDATE test_table SET name = #{name}, description = #{description}, " +
+            "update_time = #{updateTime} WHERE id = #{id}")
+    int update(TestEntity entity);
+
+    @Delete("DELETE FROM test_table WHERE id = #{id}")
+    int deleteById(Long id);
+}
+```
+
+## TestDocument.java
+
+```java
+package com.study.collect.model;
+
+import lombok.Data;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+
+import java.util.Date;
+
+@Data
+@Document(collection = "test_collection")
+public class TestDocument {
+    @Id
+    private String id;
+    private String name;
+    private String description;
+    private Date createTime;
+    private Date updateTime;
+}
+
+```
+
+## MonitorService.java
+
+```java
+package com.study.collect.monitor;
+
+import com.study.collect.entity.*;
+import com.study.collect.enums.TaskStatus;
+import com.study.collect.repository.TaskRepository;
+import com.study.collect.utils.SystemResourceUtil;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
+import org.springframework.stereotype.Service;
+
+import java.util.Date;
+import java.util.List;
+
+@Service
+public class MonitorService {
+    @Autowired
+    private TaskRepository taskRepository;
+
+    @Autowired
+    private MongoTemplate mongoTemplate;
+
+    public SystemMetrics collectSystemMetrics() {
+        SystemMetrics metrics = new SystemMetrics();
+
+        // 收集系统资源使用情况
+        metrics.setCpuUsage(SystemResourceUtil.getCpuUsage());
+        metrics.setMemoryUsage(SystemResourceUtil.getMemoryUsage());
+        metrics.setDiskUsage(SystemResourceUtil.getDiskUsage());
+
+        // 收集任务统计信息
+        metrics.setTotalTasks(taskRepository.count());
+        metrics.setRunningTasks(taskRepository.countByStatus(TaskStatus.RUNNING));
+        metrics.setFailedTasks(taskRepository.countByStatus(TaskStatus.FAILED));
+
+        metrics.setCreateTime(new Date());
+
+        // 保存指标数据
+        return mongoTemplate.save(metrics);
+    }
+
+    public TaskStatusStatistics getTaskStatusStatistics() {
+        TaskStatusStatistics stats = new TaskStatusStatistics();
+
+        stats.setTotalTasks(taskRepository.count());
+        stats.setRunningTasks(taskRepository.countByStatus(TaskStatus.RUNNING));
+        stats.setCompletedTasks(taskRepository.countByStatus(TaskStatus.COMPLETED));
+        stats.setFailedTasks(taskRepository.countByStatus(TaskStatus.FAILED));
+        stats.setStoppedTasks(taskRepository.countByStatus(TaskStatus.STOPPED));
+        stats.setStatisticsTime(new Date());
+
+        return stats;
+    }
+
+    public List<AlertMessage> getActiveAlerts() {
+        Query query = new Query();
+        query.addCriteria(Criteria.where("acknowledged").is(false));
+        query.with(org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createTime"));
+
+        return mongoTemplate.find(query, AlertMessage.class);
+    }
+
+    // 系统资源监控
+    private double getDiskUsage() {
+        return SystemResourceUtil.getDiskUsage();
+    }
+
+    private double getCpuUsage() {
+        return SystemResourceUtil.getCpuUsage();
+    }
+
+    private double getMemoryUsage() {
+        return SystemResourceUtil.getMemoryUsage();
+    }
+
+    public void acknowledgeAlert(String alertId) {
+        Query query = new Query(Criteria.where("_id").is(alertId));
+        Update update = new Update()
+                .set("acknowledged", true)
+                .set("acknowledgeTime", new Date());
+
+        // 更新告警状态
+        mongoTemplate.updateFirst(query, update, AlertMessage.class);
+
+        // 记录操作日志
+        AlertLog alertLog = new AlertLog();
+        alertLog.setAlertId(alertId);
+        alertLog.setOperation("ACKNOWLEDGE");
+        alertLog.setOperateTime(new Date());
+        mongoTemplate.save(alertLog);
+    }
+
+    // 告警规则评估
+    public class AlertRuleImpl extends AlertRule {
+
+        public boolean evaluate(SystemMetrics metrics) {
+            switch (getMetric()) {
+                case "cpu":
+                    return evaluateThreshold(metrics.getCpuUsage());
+                case "memory":
+                    return evaluateThreshold(metrics.getMemoryUsage());
+                case "disk":
+                    return evaluateThreshold(metrics.getDiskUsage());
+                case "failedTasks":
+                    return evaluateThreshold((double) metrics.getFailedTasks());
+                default:
+                    return false;
+            }
+        }
+
+        private boolean evaluateThreshold(double value) {
+            switch (getCondition()) {
+                case ">":
+                    return value > getThreshold();
+                case ">=":
+                    return value >= getThreshold();
+                case "<":
+                    return value < getThreshold();
+                case "<=":
+                    return value <= getThreshold();
+                case "==":
+                    return value == getThreshold();
+                default:
+                    return false;
+            }
+        }
+
+        public String generateAlertMessage(SystemMetrics metrics) {
+            return String.format("Alert: %s - %s %s %s (current value: %s)",
+                    getName(),
+                    getMetric(),
+                    getCondition(),
+                    getThreshold(),
+                    getMetricValue(metrics));
+        }
+
+        private double getMetricValue(SystemMetrics metrics) {
+            switch (getMetric()) {
+                case "cpu":
+                    return metrics.getCpuUsage();
+                case "memory":
+                    return metrics.getMemoryUsage();
+                case "disk":
+                    return metrics.getDiskUsage();
+                case "failedTasks":
+                    return metrics.getFailedTasks();
+                default:
+                    return 0.0;
+            }
+        }
+    }
+}
+```
+
+## CollectDataRepository.java
+
+```java
+package com.study.collect.repository;
+
+import com.study.collect.entity.CollectData;
+import org.springframework.data.mongodb.repository.MongoRepository;
+import org.springframework.data.mongodb.repository.Query;
+import org.springframework.stereotype.Repository;
+
+import java.util.Date;
+import java.util.List;
+
+@Repository
+public interface CollectDataRepository extends MongoRepository<CollectData, String> {
+
+    List<CollectData> findByDeviceIdAndCollectTimeBetween(
+            String deviceId, Date startTime, Date endTime);
+
+    @Query("{'temperature': {$gte: ?0}}")
+    List<CollectData> findByTemperatureGreaterThan(Double temperature);
+}
+```
+
+## CollectResultRepository.java
+
+```java
+package com.study.collect.repository;
+
+import com.study.collect.entity.CollectResult;
+import com.study.collect.enums.TaskStatus;
+import org.springframework.data.mongodb.repository.MongoRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+
+@Repository
+public interface CollectResultRepository extends MongoRepository<CollectResult, String> {
+    List<CollectResult> findByTaskId(String taskId);
+
+    List<CollectResult> findByTaskIdAndStatus(String taskId, TaskStatus status);
+
+    void deleteByTaskId(String taskId);
+}
+```
+
+## TaskRepository.java
+
+```java
+package com.study.collect.repository;
+
+import com.study.collect.entity.CollectTask;
+import com.study.collect.enums.TaskStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.mongodb.repository.MongoRepository;
+import org.springframework.data.mongodb.repository.Query;
+import org.springframework.stereotype.Repository;
+
+import java.util.Date;
+import java.util.List;
+
+@Repository
+public interface TaskRepository extends MongoRepository<CollectTask, String> {
+    List<CollectTask> findByStatus(TaskStatus status);
+
+    List<CollectTask> findByStatusAndUpdateTimeBefore(TaskStatus status, Date updateTime);
+
+    Page<CollectTask> findByStatusIn(List<TaskStatus> statuses, Pageable pageable);
+
+    // 添加计数方法
+    long countByStatus(TaskStatus status);
+
+    @Query(value = "{ 'status' : ?0 }", count = true)
+    long getTaskCountByStatus(TaskStatus status);
+
+    // 添加时间范围查询方法
+    @Query("{'status' : ?0, 'createTime' : { $gte: ?1, $lte: ?2 }}")
+    List<CollectTask> findByStatusAndTimeRange(TaskStatus status, Date startTime, Date endTime);
+}
+```
+
+## TestMongoRepository.java
+
+```java
+package com.study.collect.repository;
+
+import com.study.collect.entity.MongoTestEntity;
+import org.springframework.data.mongodb.repository.MongoRepository;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public interface TestMongoRepository extends MongoRepository<MongoTestEntity, String> {
+    // 基本的CRUD方法由MongoRepository提供
+}
+```
+
+## CollectService.java
+
+```java
+package com.study.collect.service;
+
+import com.study.collect.entity.CollectData;
+import com.study.collect.mapper.CollectDataMapper;
+import com.study.collect.repository.CollectDataRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Date;
+import java.util.List;
+
+@Service
+public class CollectService {
+    private static final Logger logger = LoggerFactory.getLogger(CollectService.class);
+
+    @Autowired
+    private CollectDataMapper mysqlMapper;
+
+    @Autowired
+    private CollectDataRepository mongoRepository;
+
+    @Transactional
+    public void saveData(CollectData data) {
+        try {
+            // 设置时间
+            Date now = new Date();
+            if (data.getCollectTime() == null) {
+                data.setCollectTime(now);
+            }
+            data.setCreateTime(now);
+
+            // 保存到MySQL
+            mysqlMapper.insert(data);
+            logger.info("Data saved to MySQL with id: {}", data.getMysqlId());
+
+            // 保存到MongoDB
+            mongoRepository.save(data);
+            logger.info("Data saved to MongoDB with id: {}", data.getId());
+
+        } catch (Exception e) {
+            logger.error("Error saving data", e);
+            throw e;
+        }
+    }
+
+    public List<CollectData> queryData(String deviceId, Date startTime, Date endTime) {
+        // 从MySQL查询
+        List<CollectData> mysqlData = mysqlMapper.findByDeviceAndTimeRange(
+                deviceId, startTime, endTime);
+        logger.info("Found {} records in MySQL", mysqlData.size());
+
+        // 从MongoDB查询
+        List<CollectData> mongoData = mongoRepository
+                .findByDeviceIdAndCollectTimeBetween(deviceId, startTime, endTime);
+        logger.info("Found {} records in MongoDB", mongoData.size());
+
+        return mongoData; // 这里返回MongoDB的数据，因为它可能包含更多信息
+    }
+
+    public List<CollectData> findHighTemperatureData(Double threshold) {
+        return mongoRepository.findByTemperatureGreaterThan(threshold);
+    }
+}
+```
+
+## ConfigurationService.java
+
+```java
+package com.study.collect.service;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.Data;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.stereotype.Service;
+
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+
+@Service
+public class ConfigurationService {
+
+    private static final String CONFIG_KEY_PREFIX = "collect:config:";
+    private final Map<String, ConfigChangeListener> listeners = new ConcurrentHashMap<>();
+    @Autowired
+    private RedisTemplate<String, Object> redisTemplate;
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    public void setConfig(String key, Object value) {
+        String redisKey = CONFIG_KEY_PREFIX + key;
+        String oldValue = getConfigValue(key);
+
+        redisTemplate.opsForValue().set(redisKey, objectMapper.valueToTree(value).toString());
+
+        // 通知配置变更
+        notifyConfigChange(key, oldValue, value);
+    }
+
+    public <T> Optional<T> getConfig(String key, Class<T> type) {
+        String value = getConfigValue(key);
+        if (value == null) {
+            return Optional.empty();
+        }
+
+        try {
+            return Optional.of(objectMapper.readValue(value, type));
+        } catch (Exception e) {
+            return Optional.empty();
+        }
+    }
+
+    private String getConfigValue(String key) {
+        String redisKey = CONFIG_KEY_PREFIX + key;
+        Object value = redisTemplate.opsForValue().get(redisKey);
+        return value != null ? value.toString() : null;
+    }
+
+    public void deleteConfig(String key) {
+        String redisKey = CONFIG_KEY_PREFIX + key;
+        String oldValue = getConfigValue(key);
+
+        redisTemplate.delete(redisKey);
+
+        // 通知配置删除
+        notifyConfigChange(key, oldValue, null);
+    }
+
+    public void addListener(String key, ConfigChangeListener listener) {
+        listeners.put(key, listener);
+    }
+
+    public void removeListener(String key) {
+        listeners.remove(key);
+    }
+
+    private void notifyConfigChange(String key, String oldValue, Object newValue) {
+        ConfigChangeListener listener = listeners.get(key);
+        if (listener != null) {
+            ConfigChangeEvent event = new ConfigChangeEvent(key, oldValue, newValue);
+            listener.onConfigChange(event);
+        }
+    }
+
+    public interface ConfigChangeListener {
+        void onConfigChange(ConfigChangeEvent event);
+    }
+
+    @Data
+    public static class ConfigChangeEvent {
+        private final String key;
+        private final String oldValue;
+        private final Object newValue;
+
+        public ConfigChangeEvent(String key, String oldValue, Object newValue) {
+            this.key = key;
+            this.oldValue = oldValue;
+            this.newValue = newValue;
+        }
+    }
+}
+```
+
+## TaskManagementService.java
+
+```java
+package com.study.collect.service;
+
+import com.study.collect.core.collector.Collector;
+import com.study.collect.core.strategy.CollectorStrategy;
+import com.study.collect.entity.CollectTask;
+import com.study.collect.entity.TaskResult;
+import com.study.collect.enums.CollectorType;
+import com.study.collect.enums.TaskStatus;
+import com.study.collect.repository.TaskRepository;
+import jakarta.annotation.PostConstruct;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationContext;
+import org.springframework.stereotype.Service;
+
+import java.util.*;
+
+@Service
+public class TaskManagementService {
+
+    private static final Logger logger = LoggerFactory.getLogger(TaskManagementService.class);
+
+    private final CollectorStrategy collectorStrategy;
+    private final TaskRepository taskRepository;
+    private final ApplicationContext applicationContext;
+    private final Map<String, Collector> collectorMap;
+
+    // 使用构造函数注入替代@Autowired
+    public TaskManagementService(CollectorStrategy collectorStrategy,
+                                 TaskRepository taskRepository,
+                                 ApplicationContext applicationContext,
+                                 Map<String, Collector> collectorMap) {
+        this.collectorStrategy = collectorStrategy;
+        this.taskRepository = taskRepository;
+        this.applicationContext = applicationContext;
+        this.collectorMap = collectorMap;
+    }
+
+    // 添加启动时的测试代码
+    @PostConstruct
+    public void init() {
+        logger.info("=== Testing Collector Registration ===");
+        // 输出所有注册的CollectorType
+        logger.info("Available Collector Types: {}", Arrays.toString(CollectorType.values()));
+
+        // 尝试通过Spring Context获取所有Collector
+        Map<String, Collector> collectors = applicationContext.getBeansOfType(Collector.class);
+        logger.info("Registered Collectors in Spring Context: {}", collectors.keySet());
+
+        // 测试每个类型的collector是否可用
+        for (CollectorType type : CollectorType.values()) {
+            try {
+                Collector collector = getCollectorForType(type);
+                logger.info("Collector for type {}: {}", type, collector);
+            } catch (Exception e) {
+                logger.error("Error getting collector for type {}: {}", type, e.getMessage());
+            }
+        }
+        logger.info("=== Collector Registration Test Complete ===");
+    }
+
+    private Collector getCollectorForType(CollectorType type) {
+        // 首先尝试从Spring容器获取
+        try {
+            String beanName = type.name().toLowerCase() + "Collector";
+            logger.debug("Trying to get collector bean: {}", beanName);
+            if (applicationContext.containsBean(beanName)) {
+                return applicationContext.getBean(beanName, Collector.class);
+            }
+        } catch (Exception e) {
+            logger.debug("Could not get collector from Spring context: {}", e.getMessage());
+        }
+
+        // 然后尝试从CollectorStrategy获取
+        Collector collector = collectorStrategy.getCollector(type);
+        if (collector != null) {
+            return collector;
+        }
+
+        throw new IllegalStateException("No collector found for type: " + type);
+    }
+
+    public TaskResult executeTask(String taskId) {
+        // 1. 获取并验证任务
+        Optional<CollectTask> taskOpt = getTask(taskId);
+        if (taskOpt.isEmpty()) {
+            logger.warn("Task not found with ID: {}", taskId);
+//            return buildFailedResult(taskId, "Task not found");
+            return TaskResult.builder()
+                    .taskId(taskId)
+                    .status(TaskStatus.FAILED)
+                    .message("Task not found")
+                    .build();
+        }
+// 2. 任务状态预检查
+        CollectTask task = taskOpt.get();
+        TaskResult validationResult = validateTaskExecution(task);
+        if (validationResult != null) {
+            return validationResult;
+        }
+
+        try {
+            // 3. 更新任务为执行中状态
+            updateTaskStatus(task, TaskStatus.RUNNING);
+
+            // 4. 根据任务类型获取对应的采集器并执行
+            // 使用新的获取collector方法
+            Collector collector;
+            try {
+                collector = getCollectorForType(task.getCollectorType());
+                logger.info("Found collector {} for type {}", collector.getClass().getSimpleName(),
+                        task.getCollectorType());
+            } catch (Exception e) {
+                logger.error("Failed to get collector: {}", e.getMessage());
+                throw new IllegalStateException("No collector found for type: " + task.getCollectorType());
+            }
+
+            TaskResult result = collector.collect(task);
+
+            // 3. 根据执行结果更新最终状态
+            // 更新状态和处理结果
+            TaskStatus finalStatus = result.isSuccess() ? TaskStatus.COMPLETED : TaskStatus.FAILED;
+            updateTaskStatus(task, finalStatus);
+            handleTaskResult(task, result);
+
+            return result;
+
+        } catch (Exception e) {
+            logger.error("Error executing task {}: {}", taskId, e.getMessage(), e);
+            updateTaskStatus(task, TaskStatus.FAILED);
+            handleTaskError(task, e);
+            return buildFailedResult(taskId, "Task execution failed: " + e.getMessage());
+        }
+    }
+
+
+    private void handleTaskError(CollectTask task, Exception e) {
+        // 更新任务状态和错误信息
+        task.setStatus(TaskStatus.FAILED);
+        task.setUpdateTime(new Date());
+        task.setRetryCount(task.getRetryCount() + 1);
+        task.setLastError(e.getMessage());
+
+        // 检查重试次数
+        if (task.getRetryCount() >= task.getMaxRetries()) {
+            logger.error("Task {} failed with max retries exceeded. Last error: {}",
+                    task.getId(), e.getMessage());
+            task.setStatus(TaskStatus.FAILED);
+        } else {
+            logger.warn("Task {} failed with error: {}. Retry count: {}/{}",
+                    task.getId(), e.getMessage(), task.getRetryCount(), task.getMaxRetries());
+        }
+
+        try {
+            taskRepository.save(task);
+        } catch (Exception saveException) {
+            logger.error("Failed to save task error state for task {}: {}",
+                    task.getId(), saveException.getMessage(), saveException);
+        }
+
+        // 可能需要触发告警或通知
+        notifyTaskError(task, e);
+    }
+
+    private void notifyTaskError(CollectTask task, Exception e) {
+        try {
+            // TODO: 实现错误通知逻辑，比如发送邮件或消息
+            // 这里先用日志记录，后续可以扩展
+            logger.error("Task execution failed - ID: {}, Type: {}, Error: {}",
+                    task.getId(),
+                    task.getCollectorType(),
+                    e.getMessage());
+        } catch (Exception notifyException) {
+            logger.error("Failed to send error notification for task {}: {}",
+                    task.getId(), notifyException.getMessage(), notifyException);
+        }
+    }
+
+    private TaskResult validateTaskExecution(CollectTask task) {
+        // 检查任务状态,使用equals避免NPE
+        if (TaskStatus.RUNNING.equals(task.getStatus())) {
+            logger.warn("Task {} is already running", task.getId());
+            return buildFailedResult(task.getId(), "Task is already running");
+        }
+
+        // 检查重试次数
+        if (task.getRetryCount() >= task.getMaxRetries()) {
+            logger.warn("Task {} has exceeded max retry count", task.getId());
+            return buildFailedResult(task.getId(), "Max retries exceeded");
+        }
+
+        return null;
+    }
+
+    private void handleTaskResult(CollectTask task, TaskResult result) {
+        task.setStatus(result.getStatus());
+        task.setUpdateTime(new Date());
+        if (TaskStatus.FAILED.equals(result.getStatus())) {
+            task.setRetryCount(task.getRetryCount() + 1);
+            task.setLastError(result.getMessage());
+        }
+        taskRepository.save(task);
+
+        logger.info("Task {} completed with status: {}", task.getId(), result.getStatus());
+    }
+
+    public CollectTask createTask(CollectTask task) {
+        task.setStatus(TaskStatus.CREATED);
+        task.setCreateTime(new Date());
+        task.setUpdateTime(new Date());
+        task.setRetryCount(0); // 初始化重试次数
+
+        CollectTask savedTask = taskRepository.save(task);
+        logger.info("Created new task with ID: {}", savedTask.getId());
+
+        return savedTask;
+    }
+
+    public List<CollectTask> getTasksByStatus(TaskStatus status) {
+        return taskRepository.findByStatus(status);
+    }
+
+    public Optional<CollectTask> getTask(String taskId) {
+        return taskRepository.findById(taskId);
+    }
+
+    public void stopTask(String taskId) {
+        Optional<CollectTask> taskOpt = taskRepository.findById(taskId);
+        if (taskOpt.isPresent()) {
+            CollectTask task = taskOpt.get();
+            // 使用对应类型的collector
+            Collector collector = collectorMap.get(task.getCollectorType());
+            if (collector != null) {
+                collector.stopTask(taskId);
+            }
+
+            updateTaskStatus(task, TaskStatus.STOPPED);
+            logger.info("Stopped task: {}", taskId);
+        }
+    }
+
+    private void updateTaskStatus(CollectTask task, TaskStatus status) {
+        task.setStatus(status);
+        task.setUpdateTime(new Date());
+        taskRepository.save(task);
+        logger.info("Updated task {} status to: {}", task.getId(), status);
+    }
+
+    private TaskResult buildFailedResult(String taskId, String message) {
+        return TaskResult.builder()
+                .taskId(taskId)
+                .status(TaskStatus.FAILED)
+                .message(message)
+                .build();
+    }
+
+    public TaskResult retryTask(String taskId) {
+        Optional<CollectTask> taskOpt = taskRepository.findById(taskId);
+        if (taskOpt.isEmpty()) {
+            return TaskResult.builder()
+                    .taskId(taskId)
+                    .status(TaskStatus.FAILED)
+                    .message("Task not found")
+                    .build();
+        }
+
+        CollectTask task = taskOpt.get();
+        if (task.getRetryCount() >= task.getMaxRetries()) {
+            return TaskResult.builder()
+                    .taskId(taskId)
+                    .status(TaskStatus.FAILED)
+                    .message("Max retries exceeded")
+                    .build();
+        }
+
+        task.setRetryCount(task.getRetryCount() + 1);
+        task.setUpdateTime(new Date());
+        taskRepository.save(task);
+
+        return executeTask(taskId);
+    }
+}
+```
+
+## TestService.java
+
+```java
+package com.study.collect.service;
+
+import com.study.collect.entity.MongoTestEntity;
+import com.study.collect.entity.TestEntity;
+import com.study.collect.mapper.TestMySQLMapper;
+import com.study.collect.repository.TestMongoRepository;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Date;
+import java.util.concurrent.TimeUnit;
+
+@Slf4j
+@Service
+public class TestService {
+
+    private static final String REDIS_KEY_PREFIX = "test:entity:";
+    private static final String EXCHANGE_NAME = "test.exchange";
+    private static final String ROUTING_KEY = "test.message";
+    @Autowired
+    private TestMySQLMapper mysqlMapper;
+    @Autowired
+    private TestMongoRepository mongoRepository;
+    @Autowired
+    private RedisTemplate<String, Object> redisTemplate;
+    @Autowired
+    private RabbitTemplate rabbitTemplate;
+
+    // MySQL测试方法
+    @Transactional
+    public TestEntity testMySQL(String name, String description) {
+        TestEntity entity = new TestEntity();
+        entity.setName(name);
+        entity.setDescription(description);
+        entity.setCreateTime(new Date());
+        entity.setUpdateTime(new Date());
+
+        mysqlMapper.insert(entity);
+        log.info("MySQL插入数据成功: {}", entity);
+
+        // 测试查询
+        TestEntity found = mysqlMapper.findById(entity.getId());
+        log.info("MySQL查询数据: {}", found);
+
+        // 测试更新
+        found.setDescription(description + " - updated");
+        found.setUpdateTime(new Date());
+        mysqlMapper.update(found);
+        log.info("MySQL更新数据成功");
+
+        // 测试删除
+        mysqlMapper.deleteById(found.getId());
+        log.info("MySQL删除数据成功");
+
+        return found;
+    }
+
+    // Redis测试方法
+    public void testRedis(String key, String value) {
+        String fullKey = REDIS_KEY_PREFIX + key;
+
+        // 测试写入
+        redisTemplate.opsForValue().set(fullKey, value, 1, TimeUnit.HOURS);
+        log.info("Redis写入数据成功: {} = {}", fullKey, value);
+
+        // 测试读取
+        Object stored = redisTemplate.opsForValue().get(fullKey);
+        log.info("Redis读取数据: {} = {}", fullKey, stored);
+
+        // 测试删除
+        Boolean deleted = redisTemplate.delete(fullKey);
+        log.info("Redis删除数据: {}", deleted);
+    }
+
+    // MongoDB测试方法
+    public MongoTestEntity testMongoDB(String name, String description) {
+        MongoTestEntity entity = new MongoTestEntity();
+        entity.setName(name);
+        entity.setDescription(description);
+        entity.setCreateTime(new Date());
+        entity.setUpdateTime(new Date());
+
+        // 测试插入
+        MongoTestEntity saved = mongoRepository.save(entity);
+        log.info("MongoDB插入数据成功: {}", saved);
+
+        // 测试查询
+        MongoTestEntity found = mongoRepository.findById(saved.getId()).orElse(null);
+        log.info("MongoDB查询数据: {}", found);
+
+        // 测试更新
+        found.setDescription(description + " - updated");
+        found.setUpdateTime(new Date());
+        mongoRepository.save(found);
+        log.info("MongoDB更新数据成功");
+
+        // 测试删除
+        mongoRepository.deleteById(found.getId());
+        log.info("MongoDB删除数据成功");
+
+        return found;
+    }
+
+    // RabbitMQ测试方法
+    public void testRabbitMQ(String message) {
+        // 发送消息
+        rabbitTemplate.convertAndSend(EXCHANGE_NAME, ROUTING_KEY, message);
+        log.info("RabbitMQ发送消息成功: {}", message);
+
+        // 接收消息（这里为了测试，直接接收，实际应该使用监听器）
+//        Object received = rabbitTemplate.receiveAndConvert(ROUTING_KEY);
+        Object received = rabbitTemplate.receiveAndConvert("test.message");
+        log.info("RabbitMQ接收消息: {}", received);
+    }
+}
+```
+
+## TreeCollectorService.java
+
+```java
+package com.study.collect.service;
+
+import com.study.collect.entity.TreeCollectTask;
+import com.study.collect.entity.TreeNode;
+import com.study.collect.enums.TaskStatus;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+
+@Service
+@Slf4j
+public class TreeCollectorService {
+    @Autowired
+    private MongoTemplate mongoTemplate;
+
+    @Autowired
+    private RedisTemplate<String, Object> redisTemplate;
+
+    public TreeCollectTask startCollection(String projectId) {
+        // 创建采集任务
+        TreeCollectTask task = new TreeCollectTask();
+        task.setProjectId(projectId);
+        task.setStatus(TaskStatus.RUNNING);
+        task.setCreateTime(new Date());
+        task.setStartTime(new Date());
+
+        mongoTemplate.save(task);
+
+        try {
+            // 执行采集
+            collectProjectTree(projectId, task);
+
+            // 更新任务状态
+            task.setStatus(TaskStatus.COMPLETED);
+            task.setEndTime(new Date());
+        } catch (Exception e) {
+            log.error("Failed to collect tree for project: " + projectId, e);
+            task.setStatus(TaskStatus.FAILED);
+            task.getErrors().add(e.getMessage());
+        }
+
+        return mongoTemplate.save(task);
+    }
+
+    private void collectProjectTree(String projectId, TreeCollectTask task) {
+        // 采集项目根节点
+        TreeNode projectNode = new TreeNode();
+        projectNode.setId("/p/" + projectId);
+        projectNode.setProjectId(projectId);
+        projectNode.setName("Project-" + projectId);
+        projectNode.setType(TreeNode.NodeType.PROJECT);
+        projectNode.setLevel(0);
+        projectNode.setPath(List.of(projectNode.getId()));
+
+        mongoTemplate.save(projectNode);
+
+        // 采集Root节点
+        collectRootNodes(projectNode, task);
+    }
+
+    private void collectRootNodes(TreeNode parent, TreeCollectTask task) {
+        // 模拟采集3个根节点
+        for (int i = 1; i <= 3; i++) {
+            TreeNode root = new TreeNode();
+            root.setId(parent.getId() + "/root" + i);
+            root.setProjectId(parent.getProjectId());
+            root.setParentId(parent.getId());
+            root.setName("Root-" + i);
+            root.setType(TreeNode.NodeType.ROOT);
+            root.setLevel(parent.getLevel() + 1);
+            root.setPath(new ArrayList<>(parent.getPath()));
+            root.getPath().add(root.getId());
+
+            mongoTemplate.save(root);
+
+            // 为每个Root创建一个基线版本和执行版本
+            collectVersions(root, task);
+        }
+    }
+
+    private void collectVersions(TreeNode root, TreeCollectTask task) {
+        // 创建基线版本
+        TreeNode baseline = new TreeNode();
+        baseline.setId(root.getId() + "/baseline");
+        baseline.setProjectId(root.getProjectId());
+        baseline.setParentId(root.getId());
+        baseline.setName("Baseline");
+        baseline.setType(TreeNode.NodeType.BASELINE_VERSION);
+        baseline.setLevel(root.getLevel() + 1);
+        baseline.setPath(new ArrayList<>(root.getPath()));
+        baseline.getPath().add(baseline.getId());
+
+        mongoTemplate.save(baseline);
+
+        // 创建执行版本
+        TreeNode execute = new TreeNode();
+        execute.setId(root.getId() + "/execute");
+        execute.setProjectId(root.getProjectId());
+        execute.setParentId(root.getId());
+        execute.setName("Execute");
+        execute.setType(TreeNode.NodeType.EXECUTE_VERSION);
+        execute.setLevel(root.getLevel() + 1);
+        execute.setPath(new ArrayList<>(root.getPath()));
+        execute.getPath().add(execute.getId());
+
+        mongoTemplate.save(execute);
+
+        // 为各版本创建Case Directory
+        collectCaseDirectory(baseline, task);
+        collectCaseDirectory(execute, task);
+    }
+
+    private void collectCaseDirectory(TreeNode version, TreeCollectTask task) {
+        TreeNode caseDir = new TreeNode();
+        caseDir.setId(version.getId() + "/cases");
+        caseDir.setProjectId(version.getProjectId());
+        caseDir.setParentId(version.getId());
+        caseDir.setName("Cases");
+        caseDir.setType(TreeNode.NodeType.CASE_DIRECTORY);
+        caseDir.setLevel(version.getLevel() + 1);
+        caseDir.setPath(new ArrayList<>(version.getPath()));
+        caseDir.getPath().add(caseDir.getId());
+
+        mongoTemplate.save(caseDir);
+
+        // 创建一些测试用例和目录
+        collectTestCasesAndDirectories(caseDir, task, 3);
+    }
+
+    private void collectTestCasesAndDirectories(TreeNode parent, TreeCollectTask task, int depth) {
+        if (depth <= 0) return;
+
+        // 创建Normal Directory
+        TreeNode dir = new TreeNode();
+        dir.setId(parent.getId() + "/dir" + depth);
+        dir.setProjectId(parent.getProjectId());
+        dir.setParentId(parent.getId());
+        dir.setName("Directory-" + depth);
+        dir.setType(TreeNode.NodeType.NORMAL_DIRECTORY);
+        dir.setLevel(parent.getLevel() + 1);
+        dir.setPath(new ArrayList<>(parent.getPath()));
+        dir.getPath().add(dir.getId());
+
+        mongoTemplate.save(dir);
+
+        // 创建测试用例
+        TreeNode testCase = new TreeNode();
+        testCase.setId(parent.getId() + "/case" + depth);
+        testCase.setProjectId(parent.getProjectId());
+        testCase.setParentId(parent.getId());
+        testCase.setName("TestCase-" + depth);
+        testCase.setType(TreeNode.NodeType.TEST_CASE);
+        testCase.setLevel(parent.getLevel() + 1);
+        testCase.setPath(new ArrayList<>(parent.getPath()));
+        testCase.getPath().add(testCase.getId());
+
+        mongoTemplate.save(testCase);
+
+        // 递归创建下一层
+        collectTestCasesAndDirectories(dir, task, depth - 1);
+    }
+}
+
+```
+
+## TreeQueryService.java
+
+```java
+package com.study.collect.service;
+
+
+import com.study.collect.entity.TreeNode;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.stereotype.Service;
+
+import java.util.*;
+
+@Service
+public class TreeQueryService {
+
+    @Autowired
+    private MongoTemplate mongoTemplate;
+
+    /**
+     * 获取项目的完整树结构
+     */
+    public List<TreeNode> getProjectTree(String projectId) {
+        // 获取所有节点
+        List<TreeNode> allNodes = mongoTemplate.find(
+                Query.query(Criteria.where("projectId").is(projectId)),
+                TreeNode.class
+        );
+
+        // 构建树结构
+        return buildTree(allNodes);
+    }
+
+    /**
+     * 获取指定节点的子树
+     */
+    public List<TreeNode> getSubTree(String nodeId) {
+        // 先获取目标节点
+        TreeNode node = mongoTemplate.findById(nodeId, TreeNode.class);
+        if (node == null) {
+            return Collections.emptyList();
+        }
+
+        // 获取所有子节点
+        List<TreeNode> children = mongoTemplate.find(
+                Query.query(Criteria.where("path").regex("^" + nodeId)),
+                TreeNode.class
+        );
+
+        children.add(node);
+        return buildTree(children);
+    }
+
+    /**
+     * 获取指定类型的节点
+     */
+    public List<TreeNode> getNodesByType(String projectId, TreeNode.NodeType type) {
+        return mongoTemplate.find(
+                Query.query(Criteria.where("projectId").is(projectId)
+                        .and("type").is(type)),
+                TreeNode.class
+        );
+    }
+
+    /**
+     * 获取指定路径下的直接子节点
+     */
+    public List<TreeNode> getDirectChildren(String parentId) {
+        return mongoTemplate.find(
+                Query.query(Criteria.where("parentId").is(parentId)),
+                TreeNode.class
+        );
+    }
+
+    private List<TreeNode> buildTree(List<TreeNode> nodes) {
+        Map<String, TreeNode> nodeMap = new HashMap<>();
+        List<TreeNode> roots = new ArrayList<>();
+
+        // 创建节点映射
+        nodes.forEach(node -> nodeMap.put(node.getId(), node));
+
+        // 构建树结构
+        nodes.forEach(node -> {
+            if (node.getParentId() == null) {
+                roots.add(node);
+            } else {
+                TreeNode parent = nodeMap.get(node.getParentId());
+                if (parent != null) {
+                    if (parent.getChildren() == null) {
+                        parent.setChildren(new ArrayList<>());
+                    }
+                    parent.getChildren().add(node);
+                }
+            }
+        });
+
+        return roots;
+    }
+}
+
+```
+
+## NetworkUtil.java
+
+```java
+package com.study.collect.utils;
+
+import lombok.extern.slf4j.Slf4j;
+
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.util.Enumeration;
+
+@Slf4j
+public class NetworkUtil {
+    public static String getLocalIp() {
+        try {
+            Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+            while (interfaces.hasMoreElements()) {
+                NetworkInterface iface = interfaces.nextElement();
+                if (iface.isLoopback() || !iface.isUp()) continue;
+
+                Enumeration<InetAddress> addresses = iface.getInetAddresses();
+                while (addresses.hasMoreElements()) {
+                    InetAddress addr = addresses.nextElement();
+                    if (addr.getHostAddress().contains(":")) continue; // Skip IPv6
+                    return addr.getHostAddress();
+                }
+            }
+            return InetAddress.getLocalHost().getHostAddress();
+        } catch (Exception e) {
+            log.error("Failed to get local IP", e);
+            return "unknown";
+        }
+    }
+}
+```
+
+## RabbitMQUtils.java
+
+```java
+package com.study.collect.utils;
+
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.amqp.core.Message;
+import org.springframework.amqp.core.MessageProperties;
+import org.springframework.amqp.rabbit.connection.CorrelationData;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.amqp.support.converter.MessageConverter;
+import org.springframework.stereotype.Component;
+
+import java.util.UUID;
+
+@Component
+public class RabbitMQUtils {
+    private static final Logger logger = LoggerFactory.getLogger(RabbitMQUtils.class);
+
+    private final RabbitTemplate rabbitTemplate;
+    private final MessageConverter messageConverter;
+
+    public RabbitMQUtils(RabbitTemplate rabbitTemplate, MessageConverter messageConverter) {
+        this.rabbitTemplate = rabbitTemplate;
+        this.messageConverter = messageConverter;
+    }
+
+    /**
+     * 发送消息到指定交换机
+     */
+    public void sendMessage(String exchange, String routingKey, Object message) {
+        String correlationId = UUID.randomUUID().toString();
+        CorrelationData correlationData = new CorrelationData(correlationId);
+
+        try {
+            rabbitTemplate.convertAndSend(exchange, routingKey, message, correlationData);
+            logger.info("Message sent successfully - CorrelationId: {}, Exchange: {}, RoutingKey: {}",
+                    correlationId, exchange, routingKey);
+        } catch (Exception e) {
+            logger.error("Failed to send message - CorrelationId: {}, Exchange: {}, RoutingKey: {}",
+                    correlationId, exchange, routingKey, e);
+            throw e;
+        }
+    }
+
+    /**
+     * 发送延迟消息
+     */
+    public void sendDelayedMessage(String exchange, String routingKey, Object message, long delayMillis) {
+        MessageProperties properties = new MessageProperties();
+        properties.setDelay((int) delayMillis);
+
+        Message amqpMessage = messageConverter.toMessage(message, properties);
+        String correlationId = UUID.randomUUID().toString();
+
+        try {
+            rabbitTemplate.convertAndSend(exchange, routingKey, amqpMessage, msg -> {
+                MessageProperties msgProperties = msg.getMessageProperties();
+                msgProperties.setDelay((int) delayMillis);
+                return msg;
+            }, new CorrelationData(correlationId));
+
+            logger.info("Delayed message sent successfully - CorrelationId: {}, Delay: {}ms",
+                    correlationId, delayMillis);
+        } catch (Exception e) {
+            logger.error("Failed to send delayed message - CorrelationId: {}", correlationId, e);
+            throw e;
+        }
+    }
+
+    /**
+     * 发送消息到重试队列
+     */
+    public void sendToRetryQueue(String exchange, String routingKey, Object message, int retryCount) {
+        MessageProperties properties = new MessageProperties();
+        properties.setHeader("x-retry-count", retryCount);
+
+        Message amqpMessage = messageConverter.toMessage(message, properties);
+        String correlationId = UUID.randomUUID().toString();
+
+        try {
+            rabbitTemplate.convertAndSend(exchange, routingKey, amqpMessage, msg -> {
+                MessageProperties msgProperties = msg.getMessageProperties();
+                msgProperties.setHeader("x-retry-count", retryCount);
+                return msg;
+            }, new CorrelationData(correlationId));
+
+            logger.info("Message sent to retry queue - CorrelationId: {}, RetryCount: {}",
+                    correlationId, retryCount);
+        } catch (Exception e) {
+            logger.error("Failed to send message to retry queue - CorrelationId: {}", correlationId, e);
+            throw e;
+        }
+    }
+}
+
+```
+
+## RetryUtil.java
+
+```java
+package com.study.collect.utils;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.concurrent.TimeUnit;
+
+public class RetryUtil {
+    private static final Logger logger = LoggerFactory.getLogger(RetryUtil.class);
+
+    public static <T> T retry(RetryCallback<T> action, RetryConfig config) {
+        int attempts = 0;
+        long delay = config.getInitialInterval();
+        Exception lastException = null;
+
+        while (attempts < config.getMaxAttempts()) {
+            try {
+                return action.doWithRetry();
+            } catch (Exception e) {
+                lastException = e;
+                attempts++;
+                if (attempts >= config.getMaxAttempts()) break;
+
+                try {
+                    TimeUnit.MILLISECONDS.sleep(delay);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException("Retry interrupted", ie);
+                }
+
+                delay = calculateNextDelay(delay, config);
+                logger.warn("Retry attempt {} failed, next delay: {}ms", attempts, delay, e);
+            }
+        }
+
+        throw new RuntimeException("All retry attempts failed", lastException);
+    }
+
+    private static long calculateNextDelay(long currentDelay, RetryConfig config) {
+        long nextDelay = (long) (currentDelay * config.getMultiplier());
+        return Math.min(nextDelay, config.getMaxInterval());
+    }
+
+    @FunctionalInterface
+    public interface RetryCallback<T> {
+        T doWithRetry() throws Exception;
+    }
+
+    public static class RetryConfig {
+        private final int maxAttempts;
+        private final long initialInterval;
+        private final long maxInterval;
+        private final double multiplier;
+
+        private RetryConfig(Builder builder) {
+            this.maxAttempts = builder.maxAttempts;
+            this.initialInterval = builder.initialInterval;
+            this.maxInterval = builder.maxInterval;
+            this.multiplier = builder.multiplier;
+        }
+
+        // Getters
+        public int getMaxAttempts() {
+            return maxAttempts;
+        }
+
+        public long getInitialInterval() {
+            return initialInterval;
+        }
+
+        public long getMaxInterval() {
+            return maxInterval;
+        }
+
+        public double getMultiplier() {
+            return multiplier;
+        }
+
+        public static class Builder {
+            private int maxAttempts = 3;
+            private long initialInterval = 1000;
+            private long maxInterval = 10000;
+            private double multiplier = 2.0;
+
+            public Builder maxAttempts(int maxAttempts) {
+                this.maxAttempts = maxAttempts;
+                return this;
+            }
+
+            public Builder initialInterval(long initialInterval) {
+                this.initialInterval = initialInterval;
+                return this;
+            }
+
+            public Builder maxInterval(long maxInterval) {
+                this.maxInterval = maxInterval;
+                return this;
+            }
+
+            public Builder multiplier(double multiplier) {
+                this.multiplier = multiplier;
+                return this;
+            }
+
+            public RetryConfig build() {
+                return new RetryConfig(this);
+            }
+        }
+    }
+}
+```
+
+## SystemResourceUtil.java
+
+```java
+package com.study.collect.utils;
+
+import com.sun.management.OperatingSystemMXBean;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.File;
+import java.lang.management.ManagementFactory;
+
+public class SystemResourceUtil {
+    private static final Logger logger = LoggerFactory.getLogger(SystemResourceUtil.class);
+    private static final OperatingSystemMXBean osBean =
+            (OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
+
+    public static double getCpuUsage() {
+        try {
+            return osBean.getSystemCpuLoad() * 100;
+        } catch (Exception e) {
+            logger.error("Failed to get CPU usage", e);
+            return -1;
+        }
+    }
+
+    public static double getMemoryUsage() {
+        try {
+            long totalMemory = osBean.getTotalPhysicalMemorySize();
+            long freeMemory = osBean.getFreePhysicalMemorySize();
+            return ((double) (totalMemory - freeMemory) / totalMemory) * 100;
+        } catch (Exception e) {
+            logger.error("Failed to get memory usage", e);
+            return -1;
+        }
+    }
+
+    // 添加磁盘使用率监控
+    public static double getDiskUsage() {
+        try {
+            File root = new File("/");
+            long totalSpace = root.getTotalSpace();
+            long usableSpace = root.getUsableSpace();
+            return ((double) (totalSpace - usableSpace) / totalSpace) * 100;
+        } catch (Exception e) {
+            logger.error("Failed to get disk usage", e);
+            return -1;
+        }
+    }
+}
+```
+
+## application.yml
+
+```yaml
+server:
+  port: 8082
+
+spring:
+  application:
+    name: platform-collect
+
+  # 数据源配置
+  datasource:
+    driver-class-name: org.mariadb.jdbc.Driver
+    url: jdbc:mariadb://192.168.80.137:3306/collect?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
+    username: root
+    password: 123456
+    type: com.zaxxer.hikari.HikariDataSource
+    # Hikari 连接池配置
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 15
+      idle-timeout: 30000
+      pool-name: CollectHikariCP
+      max-lifetime: 1800000
+      connection-timeout: 30000
+      connection-test-query: SELECT 1
+
+  # MongoDB配置
+  data:
+    mongodb:
+      uri: mongodb://root:123456@192.168.80.137:27017/collect?authSource=admin
+      database: collect
+      auto-index-creation: true
+
+    # Redis配置
+    redis:
+      password: 123456
+      timeout: 5000
+
+      # 连接池配置
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+          max-wait: 1000
+
+      # 集群配置
+      cluster:
+        nodes:
+          - 192.168.80.137:6379
+          - 192.168.80.137:6380
+          - 192.168.80.137:6381
+          - 192.168.80.137:6382
+          - 192.168.80.137:6383
+          - 192.168.80.137:6384
+
+  # RabbitMQ配置
+  rabbitmq:
+    host: 192.168.80.137
+    port: 5672
+    username: admin
+    password: 123456
+    virtual-host: /
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    template:
+      mandatory: true
+    listener:
+      simple:
+        acknowledge-mode: manual
+        concurrency: 3
+        max-concurrency: 10
+        prefetch: 1
+        retry:
+          enabled: true
+          initial-interval: 1000
+          max-attempts: 3
+          max-interval: 10000
+          multiplier: 2.0
+
+# MyBatis配置
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
+# 采集任务配置
+collect:
+  task:
+    retry:
+      max-attempts: 3
+      initial-interval: 1000
+      max-interval: 10000
+      multiplier: 2.0
+    connection:
+      connect-timeout: 5000
+      read-timeout: 10000
+      max-connections: 100
+    monitor:
+      metrics-interval: 60000
+      cleanup-interval: 86400000
+# 监控配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+logging:
+  level:
+    com.study: debug
+    org.springframework.data.mongodb: debug
+    org.springframework.amqp: debug
+    org.springframework.data.redis: info
+```
+
+## init.sql
+
+```sql
+CREATE TABLE collect_data
+(
+    id           BIGINT      NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    device_id    VARCHAR(50) NOT NULL COMMENT '设备ID',
+    device_name  VARCHAR(100) COMMENT '设备名称',
+    temperature DOUBLE COMMENT '温度',
+    humidity DOUBLE COMMENT '湿度',
+    location     VARCHAR(200) COMMENT '位置信息',
+    collect_time DATETIME    NOT NULL COMMENT '采集时间',
+    create_time  DATETIME    NOT NULL COMMENT '创建时间',
+    PRIMARY KEY (id),
+    KEY          idx_device_time (device_id, collect_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='数据采集表';
+```
+
+## test.http
+
+```
+# curl -X POST "http://localhost:8082/api/test/rabbitmq?message=test_message"curl -X POST "http://localhost:8082/api/test/rabbitmq?message=test_message"
+POST http://localhost:8082/api/test/rabbitmq?message=test_message
+
+###
+
+# curl -X POST "http://localhost:8082/api/test/mongodb?name=test&description=test_description"curl -X POST "http://localhost:8082/api/test/mongodb?name=test&description=test_description"
+POST http://localhost:8082/api/test/mongodb?name=test&description=test_description
+
+###
+
+# curl -X POST "http://localhost:8082/api/test/redis?key=test_key&value=test_value"curl -X POST "http://localhost:8082/api/test/redis?key=test_key&value=test_value"
+POST http://localhost:8082/api/test/redis?key=test_key&value=test_value
+
+###
+
+# curl -X POST "http://localhost:8082/api/test/mysql?name=test&description=test_description"curl -X POST "http://localhost:8082/api/test/mysql?name=test&description=test_description"
+POST http://localhost:8082/api/test/mysql?name=test&description=test_description
+
+###
+
+
+```
+
+## test.sql
+
+```sql
+CREATE TABLE test_table
+(
+    id          BIGINT AUTO_INCREMENT PRIMARY KEY,
+    name        VARCHAR(100) NOT NULL,
+    description TEXT,
+    create_time DATETIME     NOT NULL,
+    update_time DATETIME     NOT NULL,
+    INDEX       idx_create_time (create_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='测试表';
+```
+
+## testTree.http
+
+```
+# curl http://localhost:8082/api/test/tree/nodes
+GET http://localhost:8082/api/test/tree/nodes
+
+###
+# curl -X POST http://localhost:8082/api/tree/collect
+#-H "Content-Type: application/json"
+#-d '{
+#    "url": "http://localhost:8082/api/test/tree/nodes",
+#    "method": "GET"
+#}'
+POST http://localhost:8082/api/tree/collect
+Content-Type: application/json
+
+{
+  "url": "http://localhost:8082/api/test/tree/nodes",
+  "method": "GET"
+}
+
+###
+# curl http://localhost:8082/api/tree/result/{taskId}
+GET http://localhost:8082/api/tree/result/67561c9620a20e5161c8bc65
+
+
+
+
+
+#    1. 先调用测试API获取树状数据：
+#```bash
+#curl http://localhost:8082/api/test/tree/nodes
+#```
+#
+#2. 创建采集任务：
+#```bash
+#curl -X POST http://localhost:8082/api/tree/collect \
+#-H "Content-Type: application/json" \
+#-d '{
+#    "url": "http://localhost:8082/api/test/tree/nodes",
+#    "method": "GET"
+#}'
+#```
+```
+
+## tree.http
+
+```
+# curl -X POST http://localhost:8082/api/tree/collect
+#-H "Content-Type: application/json"
+#-d '{
+#    "url": "http://example.com/api/tree-data",
+#    "method": "GET",
+#    "headers": {
+#        "Authorization": "Bearer token123"
+#    }
+#}'
+POST http://localhost:8082/api/tree/collect
+Content-Type: application/json
+
+{
+  "url": "http://example.com/api/tree-data",
+  "method": "GET",
+  "headers": {
+    "Authorization": "Bearer token123"
+  }
+}
+
+###
+
+
+
+# curl http://localhost:8082/api/tree/result/{taskId}
+GET http://localhost:8082/api/tree/result/{taskId}
+
+# curl -X POST "http://localhost:8082/api/tree/collect?projectId=project001"
+POST http://localhost:8082/api/tree/collect?projectId=project001
+
+
+
+
+
+
+
+
+
+## 创建采集任务
+#curl -X POST http://localhost:8082/api/tree/collect \
+#-H "Content-Type: application/json" \
+#-d '{
+#    "url": "http://example.com/api/tree-data",
+#    "method": "GET",
+#    "headers": {
+#        "Authorization": "Bearer token123"
+#    }
+#}'
+
+###
+#
+#1. 通过API手动触发：
+#```bash
+## 创建采集任务
+####
+#
+## curl -X POST "http://localhost:8082/api/tree/collect?projectId=project001
+#POST http://localhost:8082/api/tree/collect?projectId=project001
+#
+####
+#
+#"
+#
+## 查看任务结果
+#curl http://localhost:8082/api/tree/result/{taskId}
+#
+#```
+#
+#2. 通过调度器自动执行：
+#```java
+#// 创建调度任务
+#JobDetail job = JobBuilder.newJob(TreeCollectJob.class)
+#    .withIdentity("treeCollect", "defaultGroup")
+#    .usingJobData("projectId", "project001")
+#    .build();
+#
+#Trigger trigger = TriggerBuilder.newTrigger()
+#    .withSchedule(CronScheduleBuilder.cronSchedule("0 0 1 * * ?"))
+#    .build();
+#
+#scheduler.scheduleJob(job, trigger);
+#```
+#
+#
+#
+
+
+# curl http://localhost:8082/api/tree/nodes/project001curl http://localhost:8082/api/tree/nodes/project001
+GET http://localhost:8082/api/tree/nodes/project001
+
+###
+
+# curl -X POST http://localhost:8082/api/tree/collect/project001curl -X POST http://localhost:8082/api/tree/collect/project001
+POST http://localhost:8082/api/tree/collect/project001
+
+###
+
+#1. 启动应用后，调用接口创建一个采集任务：
+#```bash
+#curl -X POST http://localhost:8082/api/tree/collect/project001
+#```
+#
+#2. 查看采集的树状结构：
+#```bash
+#curl http://localhost:8082/api/tree/nodes/project001
+#```
+
+
+
+
+```
+
+## TreeHttp.http
+
+```
+### Test Tree Data Requests
+# 获取测试树数据
+GET http://localhost:8082/api/test/tree/nodes
+
+### Tree Collection Requests
+### 创建树结构采集任务
+POST http://localhost:8082/api/tree/collect
+Content-Type: application/json
+
+{
+  "url": "http://localhost:8082/api/test/tree/nodes",
+  "method": "GET",
+  "headers": {
+    "Authorization": "Bearer your-token"
+  }
+}
+
+### 查看采集任务结果
+GET http://localhost:8082/api/tree/result/{{taskId}}
+
+### Tree Node Query Requests
+# 获取项目树结构
+GET http://localhost:8082/api/tree/query/project/test-project
+
+# 获取指定节点的子树
+GET http://localhost:8082/api/tree/query/node/p/test-project/root1
+
+# 按类型查询节点
+GET http://localhost:8082/api/tree/query/type/test-project/TEST_CASE
+
+# 查询直接子节点
+GET http://localhost:8082/api/tree/query/children/p/test-project/root1/baseline/cases
+
+### Tree Operation Requests
+# 获取项目节点
+GET http://localhost:8082/api/tree/nodes/test-project
+
+# 启动项目采集
+POST http://localhost:8082/api/tree/collect/test-project
+
+### Usage Examples:
+# 完整的采集流程示例:
+# 1. 先获取测试数据
+GET http://localhost:8082/api/test/tree/nodes
+
+### 2. 创建采集任务
+POST http://localhost:8082/api/tree/collect
+Content-Type: application/json
+
+{
+  "url": "http://localhost:8082/api/test/tree/nodes",
+  "method": "GET"
+}
+
+### 3. 查询采集结果
+GET http://localhost:8082/api/tree/result/675622fe1220e3449e70a20d
+
+### 4.手动执行项目采集
+POST http://localhost:8082/api/tree/collect/675623111220e3449e70a20e/execute
+
+### Advanced Queries
+### 1. 获取完整项目树
+GET http://localhost:8082/api/tree/query/project/test-project
+
+### 2. 查看特定节点的子树
+GET http://localhost:8082/api/tree/query/node/p/test-project/root1
+
+### 3. 查找特定类型的节点
+GET http://localhost:8082/api/tree/query/type/test-project/TEST_CASE
+
+### 4. 获取直接子节点
+GET http://localhost:8082/api/tree/query/children/p/test-project/root1/baseline/cases
+
+### Data Storage Info:
+##Database: MongoDB
+##Collection: tree_nodes
+```
+
+## treequery.http
+
+```
+# curl http://localhost:8082/api/tree/query/project/test-project
+GET http://localhost:8082/api/tree/query/project/test-project
+
+###
+
+# curl http://localhost:8082/api/tree/query/node/p/test-project/root1
+GET http://localhost:8082/api/tree/query/node/p/test-project/root1
+
+###
+
+# curl http://localhost:8082/api/tree/query/type/test-project/TEST_CASE
+GET http://localhost:8082/api/tree/query/type/test-project/TEST_CASE
+
+###
+# curl http://localhost:8082/api/tree/query/children/p/test-project/root1/baseline/cases
+GET http://localhost:8082/api/tree/query/children/p/test-project/root1/baseline/cases
+
+###
+
+
+#
+#
+#
+#    使用方式：
+#
+#1. 查询完整项目树：
+#```bash
+#curl http://localhost:8082/api/tree/query/project/test-project
+#```
+#
+#2. 查询特定节点子树：
+#```bash
+#curl http://localhost:8082/api/tree/query/node/p/test-project/root1
+#```
+#
+#3. 查询特定类型节点：
+#```bash
+#curl http://localhost:8082/api/tree/query/type/test-project/TEST_CASE
+#```
+#
+#4. 查询直接子节点：
+#```bash
+#curl http://localhost:8082/api/tree/query/children/p/test-project/root1/baseline/cases
+#```
+#
+#存储位置：
+#- 数据库：MongoDB
+#- 集合名：tree_nodes
+#- 连接配置：在 application.yml 中配置
+#
+#可以使用MongoDB命令行工具直接查看：
+#```javascript
+#// 连接到MongoDB
+#mongo mongodb://root:123456@192.168.80.137:27017/collect
+#
+#// 查看所有节点
+#db.tree_nodes.find()
+#
+#// 查看特定项目的节点
+#db.tree_nodes.find({"projectId": "test-project"})
+#
+#// 查看特定类型的节点
+#db.tree_nodes.find({"type": "TEST_CASE"})
+#
+#// 按路径查询
+#db.tree_nodes.find({"path": /^\/p\/test-project\/root1/})
+#```
+#
+#这样就可以通过API或直接操作MongoDB来查询树结构数据了。需要更详细的解释吗？
 ```
 
 ## pom.xml
@@ -1980,3272 +6732,5 @@ spring:
       FAIL_ON_UNKNOWN_PROPERTIES: false
     # 属性命名策略
     property-naming-strategy: SNAKE_CASE
-```
-
-## pom.xml
-
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xmlns="http://maven.apache.org/POM/4.0.0"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <modelVersion>4.0.0</modelVersion>
-
-    <parent>
-        <groupId>com.study</groupId>
-        <artifactId>platform-parent</artifactId>
-        <version>1.0.0-SNAPSHOT</version>
-    </parent>
-
-    <artifactId>platform-scheduler</artifactId>
-    <packaging>jar</packaging>
-
-    <dependencies>
-        <!-- 引入公共模块 -->
-        <dependency>
-            <groupId>com.study</groupId>
-            <artifactId>platform-common</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
-        <!-- 添加 MariaDB JDBC 驱动依赖 -->
-        <dependency>
-            <groupId>org.mariadb.jdbc</groupId>
-            <artifactId>mariadb-java-client</artifactId>
-            <version>${mariadb.version}</version>
-        </dependency>
-
-        <!-- 定时任务相关 -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-quartz</artifactId>
-        </dependency>
-
-        <!-- 分布式锁 -->
-        <dependency>
-            <groupId>org.redisson</groupId>
-            <artifactId>redisson-spring-boot-starter</artifactId>
-            <version>3.23.0</version>
-        </dependency>
-
-        <!-- 监控 -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-actuator</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.micrometer</groupId>
-            <artifactId>micrometer-registry-prometheus</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.projectlombok</groupId>
-            <artifactId>lombok</artifactId>
-            <version>1.18.30</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>jakarta.annotation</groupId>
-            <artifactId>jakarta.annotation-api</artifactId>
-            <version>2.1.1</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.httpcomponents</groupId>
-            <artifactId>httpclient</artifactId>
-            <version>4.5.13</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.httpcomponents</groupId>
-            <artifactId>httpcore</artifactId>
-            <version>4.4.13</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.httpcomponents</groupId>
-            <artifactId>httpmime</artifactId>
-            <version>4.5.14</version>
-        </dependency>
-        <!-- 测试相关依赖 -->
-        <!--        <dependency>-->
-        <!--            <groupId>org.springframework.boot</groupId>-->
-        <!--            <artifactId>spring-boot-starter-test</artifactId>-->
-        <!--            <scope>test</scope>-->
-        <!--        </dependency>-->
-        <!--        <dependency>-->
-        <!--            <groupId>org.wiremock</groupId>-->
-        <!--            <artifactId>wiremock-standalone</artifactId>-->
-        <!--            <version>3.4.2</version>-->
-        <!--            <scope>test</scope>-->
-        <!--        </dependency>-->
-        <!--        <dependency>-->
-        <!--            <groupId>org.junit.jupiter</groupId>-->
-        <!--            <artifactId>junit-jupiter</artifactId>-->
-        <!--            <version>5.10.2</version>-->
-        <!--            <scope>test</scope>-->
-        <!--        </dependency>-->
-
-        <!-- Spring Boot MongoDB Starter -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-mongodb</artifactId>
-        </dependency>
-
-        <!-- 可选：添加MongoDB Reactive支持 -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-mongodb-reactive</artifactId>
-            <optional>true</optional>
-        </dependency>
-
-        <!-- 添加Validation支持 -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-validation</artifactId>
-        </dependency>
-
-        <!-- 添加测试支持 -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-test</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <!-- 可选：添加嵌入式MongoDB用于测试 -->
-        <dependency>
-            <groupId>de.flapdoodle.embed</groupId>
-            <artifactId>de.flapdoodle.embed.mongo</artifactId>
-            <version>4.12.0</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-jpa</artifactId>
-        </dependency>
-    </dependencies>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-                <configuration>
-                    <mainClass>com.study.scheduler.SchedulerApplication</mainClass>
-                    <excludes>
-                        <exclude>
-                            <groupId>org.projectlombok</groupId>
-                            <artifactId>lombok</artifactId>
-                        </exclude>
-                    </excludes>
-                </configuration>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>repackage</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-        </plugins>
-    </build>
-</project>
-```
-
-## SchedulerApplication.java
-
-```java
-package com.study.scheduler;
-
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.context.annotation.ComponentScan;
-
-@SpringBootApplication
-@ComponentScan(basePackages = {
-        "com.study",
-        "com.study.scheduler.config"  // 确保扫描到配置包
-})
-public class SchedulerApplication {
-    public static void main(String[] args) {
-
-        // 开启SSL调试（可选）
-        System.setProperty("javax.net.debug", "ssl,handshake");
-        SpringApplication.run(SchedulerApplication.class, args);
-    }
-}
-```
-
-## SchedulerConfig.java
-
-```java
-package com.study.scheduler;
-
-import com.study.scheduler.listener.SchedulerJobListener;
-import org.quartz.Scheduler;
-import org.quartz.SchedulerException;
-import org.quartz.spi.TriggerFiredBundle;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.BeansException;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
-import org.springframework.context.ApplicationContext;
-import org.springframework.context.ApplicationContextAware;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.scheduling.quartz.SchedulerFactoryBean;
-import org.springframework.scheduling.quartz.SpringBeanJobFactory;
-
-import javax.sql.DataSource;
-import java.util.Properties;
-
-@Configuration
-public class SchedulerConfig {
-    private static final Logger logger = LoggerFactory.getLogger(SchedulerConfig.class);
-    private final ApplicationContext applicationContext;
-    @Autowired
-    private DataSource dataSource;
-
-    public SchedulerConfig(ApplicationContext applicationContext) {
-        this.applicationContext = applicationContext;
-    }
-
-    @Bean
-    public Properties quartzProperties() {
-        logger.info("Configuring Quartz properties...");
-        Properties properties = new Properties();
-
-        // 调度器属性
-        properties.put("org.quartz.scheduler.instanceName", "QuartzScheduler");
-        properties.put("org.quartz.scheduler.instanceId", "AUTO");
-        properties.put("org.quartz.scheduler.makeSchedulerThreadDaemon", "true");
-
-        // 线程池属性
-        properties.put("org.quartz.threadPool.class", "org.quartz.simpl.SimpleThreadPool");
-        properties.put("org.quartz.threadPool.threadCount", "10");
-        properties.put("org.quartz.threadPool.threadPriority", "5");
-        properties.put("org.quartz.threadPool.makeThreadsDaemons", "true");
-
-        // JobStore属性
-//        properties.put("org.quartz.jobStore.class", "org.quartz.impl.jdbcjobstore.JobStoreTX");
-        properties.put("org.quartz.jobStore.class", "org.springframework.scheduling.quartz.LocalDataSourceJobStore");
-        properties.put("org.quartz.jobStore.driverDelegateClass", "org.quartz.impl.jdbcjobstore.StdJDBCDelegate");
-        properties.put("org.quartz.jobStore.tablePrefix", "QRTZ_");
-        properties.put("org.quartz.jobStore.isClustered", "true");
-        properties.put("org.quartz.jobStore.clusterCheckinInterval", "20000");
-        properties.put("org.quartz.jobStore.misfireThreshold", "60000");
-        properties.put("org.quartz.jobStore.useProperties", "false");
-
-        // 集群配置
-        properties.put("org.quartz.scheduler.rmi.export", "false");
-        properties.put("org.quartz.scheduler.rmi.proxy", "false");
-
-        logger.info("Quartz properties configured successfully");
-        return properties;
-    }
-
-    @Bean
-    public SchedulerFactoryBean schedulerFactoryBean() {
-        logger.info("Initializing Quartz SchedulerFactoryBean...");
-
-        SchedulerFactoryBean factory = new SchedulerFactoryBean();
-
-        try {
-            // 设置数据源
-            factory.setDataSource(dataSource);
-            logger.info("DataSource set successfully");
-
-            // 设置Quartz属性
-            factory.setQuartzProperties(quartzProperties());
-            logger.info("Quartz properties set successfully");
-
-            // 设置JobFactory
-            CustomJobFactory jobFactory = new CustomJobFactory();
-            jobFactory.setApplicationContext(applicationContext);
-            factory.setJobFactory(jobFactory);
-            logger.info("JobFactory set successfully");
-
-            // 其他配置
-            factory.setOverwriteExistingJobs(true);
-            factory.setStartupDelay(10);
-            factory.setAutoStartup(true);
-            factory.setWaitForJobsToCompleteOnShutdown(true);
-
-            // 事务配置
-            factory.setTransactionManager(null); // 使用默认的事务管理
-
-            logger.info("SchedulerFactoryBean initialized successfully");
-
-        } catch (Exception e) {
-            logger.error("Error initializing SchedulerFactoryBean", e);
-            throw new RuntimeException("Failed to initialize SchedulerFactoryBean", e);
-        }
-
-        return factory;
-    }
-
-    @Bean
-    public Scheduler scheduler(SchedulerFactoryBean factory, SchedulerJobListener jobListener)
-            throws SchedulerException {
-        logger.info("Creating Quartz Scheduler...");
-        Scheduler scheduler = factory.getScheduler();
-        scheduler.getListenerManager().addJobListener(jobListener);
-        logger.info("Scheduler created and configured with JobListener");
-        return scheduler;
-    }
-}
-
-class CustomJobFactory extends SpringBeanJobFactory implements ApplicationContextAware {
-    private static final Logger logger = LoggerFactory.getLogger(CustomJobFactory.class);
-    private AutowireCapableBeanFactory beanFactory;
-
-    @Override
-    public void setApplicationContext(ApplicationContext context) throws BeansException {
-        beanFactory = context.getAutowireCapableBeanFactory();
-    }
-
-    @Override
-    protected Object createJobInstance(TriggerFiredBundle bundle) throws Exception {
-        Object job = super.createJobInstance(bundle);
-        beanFactory.autowireBean(job);
-        logger.info("Created job instance: {}", job.getClass().getName());
-        return job;
-    }
-}
-```
-
-## AppConfig.java
-
-```java
-package com.study.scheduler.config;
-
-import com.study.scheduler.utils.HttpClientUtil;
-import jakarta.annotation.PreDestroy;
-import org.springframework.context.annotation.Configuration;
-
-@Configuration
-public class AppConfig {
-    @PreDestroy
-    public void onShutdown() {
-        HttpClientUtil.close();
-    }
-}
-```
-
-## DatabaseConfig.java
-
-```java
-package com.study.scheduler.config;
-
-import com.zaxxer.hikari.HikariConfig;
-import com.zaxxer.hikari.HikariDataSource;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Primary;
-import org.springframework.jdbc.datasource.DataSourceTransactionManager;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.annotation.EnableTransactionManagement;
-
-import javax.sql.DataSource;
-
-@Configuration
-@EnableTransactionManagement
-public class DatabaseConfig {
-
-    @Value("${spring.datasource.driver-class-name}")
-    private String driverClassName;
-
-    @Value("${spring.datasource.url}")
-    private String url;
-
-    @Value("${spring.datasource.username}")
-    private String username;
-
-    @Value("${spring.datasource.password}")
-    private String password;
-
-    @Value("${spring.datasource.hikari.minimum-idle}")
-    private int minimumIdle;
-
-    @Value("${spring.datasource.hikari.maximum-pool-size}")
-    private int maximumPoolSize;
-
-    @Value("${spring.datasource.hikari.idle-timeout}")
-    private long idleTimeout;
-
-    @Value("${spring.datasource.hikari.pool-name}")
-    private String poolName;
-
-    @Value("${spring.datasource.hikari.max-lifetime}")
-    private long maxLifetime;
-
-    @Value("${spring.datasource.hikari.connection-timeout}")
-    private long connectionTimeout;
-
-    @Bean
-    @Primary
-    public DataSource dataSource() {
-        HikariConfig config = new HikariConfig();
-        config.setDriverClassName(driverClassName);
-        config.setJdbcUrl(url);
-        config.setUsername(username);
-        config.setPassword(password);
-        config.setMinimumIdle(minimumIdle);
-        config.setMaximumPoolSize(maximumPoolSize);
-        config.setIdleTimeout(idleTimeout);
-        config.setPoolName(poolName);
-        config.setMaxLifetime(maxLifetime);
-        config.setConnectionTimeout(connectionTimeout);
-
-        // 设置连接测试查询
-        config.setConnectionTestQuery("SELECT 1");
-        config.setValidationTimeout(5000);
-
-        // 设置其他连接池属性
-        config.addDataSourceProperty("cachePrepStmts", "true");
-        config.addDataSourceProperty("prepStmtCacheSize", "250");
-        config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
-        config.addDataSourceProperty("useServerPrepStmts", "true");
-
-        return new HikariDataSource(config);
-    }
-
-    @Bean
-    public PlatformTransactionManager transactionManager(DataSource dataSource) {
-        return new DataSourceTransactionManager(dataSource);
-    }
-}
-```
-
-## JobConfig.java
-
-```java
-package com.study.scheduler.config;
-
-import com.study.common.util.DistributedLockUtil;
-import org.redisson.api.RedissonClient;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-
-import java.net.http.HttpClient;
-import java.time.Duration;
-
-@Configuration
-public class JobConfig {
-
-    @Bean
-    public DistributedLockUtil distributedLockUtil(RedissonClient redissonClient) {
-        return new DistributedLockUtil(redissonClient);
-    }
-
-    @Bean
-    public HttpClient httpClient() {
-        return HttpClient.newBuilder()
-                .version(HttpClient.Version.HTTP_2)
-                .connectTimeout(Duration.ofSeconds(10))
-                .build();
-    }
-}
-```
-
-## JobConfiguration.java
-
-```java
-package com.study.scheduler.config;
-
-import com.study.common.model.task.TaskDefinition;
-import lombok.Data;
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.context.annotation.Configuration;
-
-import jakarta.annotation.PostConstruct;
-import java.util.List;
-import java.util.Map;
-
-@Data
-@Configuration
-@ConfigurationProperties(prefix = "scheduler.job")
-public class JobConfiguration {
-
-    private List<TaskDefinition> tasks;
-    private Map<String, String> defaultVariables;
-    private RetryProperties retry;
-    private MonitorProperties monitor;
-
-    @Data
-    public static class RetryProperties {
-        private int maxAttempts = 3;
-        private long initialInterval = 1000;
-        private double multiplier = 2.0;
-        private long maxInterval = 10000;
-    }
-
-    @Data
-    public static class MonitorProperties {
-        private boolean enabled = true;
-        private long checkInterval = 60000;
-        private List<String> metrics;
-        private AlertProperties alert;
-    }
-
-    @Data
-    public static class AlertProperties {
-        private boolean enabled = true;
-        private String channel;
-        private List<String> receivers;
-    }
-
-    @PostConstruct
-    public void init() {
-        // 初始化预定义任务
-        if (tasks != null) {
-            tasks.forEach(this::initializeTask);
-        }
-    }
-
-    private void initializeTask(TaskDefinition task) {
-        // 应用默认配置
-        if (task.getRetryPolicy() == null) {
-            task.setRetryPolicy(createDefaultRetryPolicy());
-        }
-
-        // 合并默认变量
-        if (defaultVariables != null) {
-            task.getVariables().addAll(defaultVariables.keySet());
-        }
-    }
-}
-```
-
-## MongoConfig.java
-
-```java
-package com.study.scheduler.config;
-
-import com.mongodb.ConnectionString;
-import com.mongodb.MongoClientSettings;
-import com.mongodb.client.MongoClient;
-import com.mongodb.client.MongoClients;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.data.mongodb.config.AbstractMongoClientConfiguration;
-import org.springframework.data.mongodb.core.MongoTemplate;
-import org.springframework.data.mongodb.core.convert.DefaultMongoTypeMapper;
-import org.springframework.data.mongodb.core.convert.MappingMongoConverter;
-
-@Configuration
-public class MongoConfig extends AbstractMongoClientConfiguration {
-
-    @Value("${spring.data.mongodb.uri}")
-    private String mongoUri;
-
-    @Value("${spring.data.mongodb.database}")
-    private String database;
-
-    @Override
-    protected String getDatabaseName() {
-        return database;
-    }
-
-    @Override
-    public MongoClient mongoClient() {
-        ConnectionString connectionString = new ConnectionString(mongoUri);
-        MongoClientSettings mongoClientSettings = MongoClientSettings.builder()
-                .applyConnectionString(connectionString)
-                .build();
-        return MongoClients.create(mongoClientSettings);
-    }
-
-    @Bean
-    public MongoTemplate mongoTemplate() throws Exception {
-        MongoTemplate mongoTemplate = new MongoTemplate(mongoClient(), getDatabaseName());
-
-        // 移除_class字段
-        ((MappingMongoConverter) mongoTemplate.getConverter()).setTypeMapper(new DefaultMongoTypeMapper(null));
-
-        return mongoTemplate;
-    }
-}
-
-```
-
-## RedisConfig.java
-
-```java
-package com.study.scheduler.config;
-
-import com.fasterxml.jackson.annotation.JsonAutoDetect;
-import com.fasterxml.jackson.annotation.PropertyAccessor;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.jsontype.impl.LaissezFaireSubTypeValidator;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import jakarta.annotation.PostConstruct;
-import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
-import org.redisson.Redisson;
-import org.redisson.api.RedissonClient;
-import org.redisson.config.ClusterServersConfig;
-import org.redisson.config.Config;
-import org.redisson.config.SingleServerConfig;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.AutoConfigureBefore;
-import org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Primary;
-import org.springframework.data.redis.connection.RedisClusterConfiguration;
-import org.springframework.data.redis.connection.RedisConnectionFactory;
-import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
-import org.springframework.data.redis.connection.lettuce.LettuceClientConfiguration;
-import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
-import org.springframework.data.redis.connection.lettuce.LettucePoolingClientConfiguration;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
-import org.springframework.data.redis.serializer.StringRedisSerializer;
-
-import java.time.Duration;
-import java.util.List;
-
-@Configuration
-@AutoConfigureBefore(RedisAutoConfiguration.class)
-public class RedisConfig {
-
-    private static final Logger logger = LoggerFactory.getLogger(RedisConfig.class);
-
-    @Value("${spring.data.redis.host:localhost}")
-    private String host;
-
-    @Value("${spring.data.redis.port:6379}")
-    private int port;
-
-    @Value("${spring.data.redis.password:}")
-    private String password;
-
-    @Value("${spring.data.redis.cluster.nodes:}")
-    private List<String> clusterNodes;
-
-    @Value("${spring.data.redis.timeout:2000}")
-    private long timeout;
-
-    @Value("${spring.data.redis.lettuce.pool.max-active:8}")
-    private int maxActive;
-
-    @Value("${spring.data.redis.lettuce.pool.max-idle:8}")
-    private int maxIdle;
-
-    @Value("${spring.data.redis.lettuce.pool.min-idle:0}")
-    private int minIdle;
-
-    @Value("${spring.data.redis.lettuce.pool.max-wait:-1}")
-    private long maxWait;
-
-    @PostConstruct
-    public void init() {
-        logger.info("=============== Redis Configuration Initializing ===============");
-        logger.info("Redis Mode: {}", (clusterNodes == null || clusterNodes.isEmpty()) ? "Standalone" : "Cluster");
-        logger.info("Redis Host: {}", host);
-        logger.info("Redis Port: {}", port);
-        logger.info("Redis Password: {}", password.isEmpty() ? "Not Set" : "Set");
-        if (clusterNodes != null && !clusterNodes.isEmpty()) {
-            logger.info("Redis Cluster Nodes: {}", clusterNodes);
-        }
-        logger.info("Redis Pool Config:");
-        logger.info("  Max Active: {}", maxActive);
-        logger.info("  Max Idle: {}", maxIdle);
-        logger.info("  Min Idle: {}", minIdle);
-        logger.info("  Max Wait: {}", maxWait);
-        logger.info("=============================================================");
-    }
-
-    @Bean
-    @Primary
-    public RedisConnectionFactory redisConnectionFactory() {
-        logger.info("Creating RedisConnectionFactory...");
-        LettuceClientConfiguration clientConfig = getLettuceClientConfiguration();
-
-        if (clusterNodes != null && !clusterNodes.isEmpty()) {
-            return createClusterConnectionFactory(clientConfig);
-        } else {
-            return createStandaloneConnectionFactory(clientConfig);
-        }
-    }
-
-    @Bean
-    public RedissonClient redissonClient() {
-        logger.info("Creating RedissonClient...");
-        Config config = new Config();
-
-        if (clusterNodes != null && !clusterNodes.isEmpty()) {
-            // 集群模式
-            ClusterServersConfig clusterConfig = config.useClusterServers();
-            for (String node : clusterNodes) {
-                clusterConfig.addNodeAddress("redis://" + node);
-            }
-            if (!password.isEmpty()) {
-                clusterConfig.setPassword(password);
-            }
-            clusterConfig.setTimeout((int) timeout)
-                    .setMasterConnectionPoolSize(maxActive)
-                    .setMasterConnectionMinimumIdleSize(minIdle)
-                    .setSlaveConnectionPoolSize(maxActive)
-                    .setSlaveConnectionMinimumIdleSize(minIdle);
-            logger.info("Configured Redisson for cluster mode");
-        } else {
-            // 单机模式
-            SingleServerConfig serverConfig = config.useSingleServer()
-                    .setAddress("redis://" + host + ":" + port)
-                    .setTimeout((int) timeout)
-                    .setConnectionPoolSize(maxActive)
-                    .setConnectionMinimumIdleSize(minIdle);
-            if (!password.isEmpty()) {
-                serverConfig.setPassword(password);
-            }
-            logger.info("Configured Redisson for standalone mode");
-        }
-
-        return Redisson.create(config);
-    }
-
-    private LettuceClientConfiguration getLettuceClientConfiguration() {
-        GenericObjectPoolConfig<?> poolConfig = new GenericObjectPoolConfig<>();
-        poolConfig.setMaxTotal(maxActive);
-        poolConfig.setMaxIdle(maxIdle);
-        poolConfig.setMinIdle(minIdle);
-        poolConfig.setMaxWait(Duration.ofMillis(maxWait));
-
-        return LettucePoolingClientConfiguration.builder()
-                .commandTimeout(Duration.ofMillis(timeout))
-                .poolConfig(poolConfig)
-                .build();
-    }
-
-    private RedisConnectionFactory createClusterConnectionFactory(LettuceClientConfiguration clientConfig) {
-        logger.info("Creating Redis Cluster connection factory");
-        RedisClusterConfiguration clusterConfig = new RedisClusterConfiguration(clusterNodes);
-        if (!password.isEmpty()) {
-            clusterConfig.setPassword(password);
-        }
-        return new LettuceConnectionFactory(clusterConfig, clientConfig);
-    }
-
-    private RedisConnectionFactory createStandaloneConnectionFactory(LettuceClientConfiguration clientConfig) {
-        logger.info("Creating Redis Standalone connection factory for {}:{}", host, port);
-        RedisStandaloneConfiguration standaloneConfig = new RedisStandaloneConfiguration(host, port);
-        if (!password.isEmpty()) {
-            standaloneConfig.setPassword(password);
-        }
-        return new LettuceConnectionFactory(standaloneConfig, clientConfig);
-    }
-
-    @Bean
-    @Primary
-    public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory connectionFactory) {
-        logger.info("Initializing RedisTemplate...");
-        RedisTemplate<String, Object> template = new RedisTemplate<>();
-        template.setConnectionFactory(connectionFactory);
-
-        ObjectMapper mapper = new ObjectMapper();
-        mapper.setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.ANY);
-        mapper.activateDefaultTyping(LaissezFaireSubTypeValidator.instance,
-                ObjectMapper.DefaultTyping.NON_FINAL);
-        mapper.registerModule(new JavaTimeModule());
-
-        GenericJackson2JsonRedisSerializer jsonSerializer =
-                new GenericJackson2JsonRedisSerializer(mapper);
-
-        template.setKeySerializer(new StringRedisSerializer());
-        template.setHashKeySerializer(new StringRedisSerializer());
-        template.setValueSerializer(jsonSerializer);
-        template.setHashValueSerializer(jsonSerializer);
-
-        template.afterPropertiesSet();
-        logger.info("RedisTemplate initialized successfully");
-        return template;
-    }
-}
-```
-
-## CrawlerController.java
-
-```java
-package com.study.scheduler.crontroller;
-
-import com.study.scheduler.entity.CrawlerRecord;
-import com.study.scheduler.entity.CrawlerTask;
-import com.study.scheduler.service.CrawlerService;
-import com.study.scheduler.utils.MongoDBUtils;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
-
-@RestController
-@RequestMapping("/api/crawler")
-public class CrawlerController {
-    private final CrawlerService crawlerService;
-    private final MongoDBUtils mongoDBUtils;
-
-    public CrawlerController(CrawlerService crawlerService, MongoDBUtils mongoDBUtils) {
-        this.crawlerService = crawlerService;
-        this.mongoDBUtils = mongoDBUtils;
-    }
-
-    @PostMapping("/tasks")
-    public CrawlerTask createTask(@RequestBody CrawlerTask task) {
-        return crawlerService.createTask(task);
-    }
-
-    @PostMapping("/tasks/{taskId}/execute")
-    public CrawlerRecord executeCrawling(@PathVariable String taskId) {
-        CrawlerTask task = mongoDBUtils.findById(taskId, CrawlerTask.class);
-        return crawlerService.crawl(task);
-    }
-
-    @GetMapping("/records/failed")
-    public List<CrawlerRecord> getFailedRecords() {
-        return crawlerService.getFailedRecords();
-    }
-
-    @PostMapping("/records/{recordId}/retry")
-    public void retryFailedRecord(@PathVariable String recordId) {
-        crawlerService.retryCrawling(recordId);
-    }
-}
-
-```
-
-## TestCrontroller.java
-
-```java
-package com.study.scheduler.crontroller;
-
-import com.study.scheduler.utils.HttpClientUtil;
-
-public class TestCrontroller {
-    public static void main(String[] args) {
-        try {
-            String response = HttpClientUtil.doGet("https://your-nginx-server/api");
-            System.out.println(response);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-}
-
-```
-
-## CrawlerRecord.java
-
-```java
-package com.study.scheduler.entity;
-
-import lombok.Data;
-import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.index.Indexed;
-import org.springframework.data.mongodb.core.mapping.Document;
-
-import java.util.Date;
-
-@Data
-@Document(collection = "crawler_records")
-public class CrawlerRecord {
-    @Id
-    private String id;
-
-    @Indexed
-    private String taskId;
-    private String url;
-    private int statusCode;
-    private String responseBody;
-    private String errorMessage;
-    private boolean success;
-    private int retryCount;
-    private Date createTime;
-    private Date updateTime;
-}
-```
-
-## CrawlerTask.java
-
-```java
-package com.study.scheduler.entity;
-
-import lombok.Data;
-import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.index.Indexed;
-import org.springframework.data.mongodb.core.mapping.Document;
-
-import java.util.Date;
-import java.util.Map;
-
-@Data
-@Document(collection = "crawler_tasks")
-public class CrawlerTask {
-    @Id
-    private String id;
-
-    @Indexed
-    private String name;
-    private String url;
-    private String method;
-    private Map<String, String> headers;
-    private String requestBody;
-    private int retryCount;
-    private int maxRetries;
-    private long retryInterval;
-    private boolean enabled;
-    private Date createTime;
-    private Date updateTime;
-}
-
-```
-
-## JobInfo.java
-
-```java
-package com.study.scheduler.entity;
-
-import lombok.Data;
-
-import java.util.Date;
-
-@Data
-public class JobInfo {
-    private Long id;
-    private String jobName;        // 任务名称
-    private String jobGroup;       // 任务分组
-    private String jobClass;       // 任务类
-    private String cronExpression; // cron表达式
-    private String parameter;      // 任务参数（JSON格式）
-    private String description;    // 任务描述
-    private Integer concurrent;    // 是否允许并发执行
-    private Integer status;        // 任务状态
-    private Date nextFireTime;     // 下次执行时间
-    private Date prevFireTime;     // 上次执行时间
-    private Date createTime;       // 创建时间
-    private Date updateTime;       // 更新时间
-}
-```
-
-## JobLog.java
-
-```java
-package com.study.scheduler.entity;
-
-import lombok.Data;
-
-import java.util.Date;
-
-@Data
-public class JobLog {
-    private Long id;
-    private Long jobId;           // 任务ID
-    private String jobName;       // 任务名称
-    private String jobGroup;      // 任务分组
-    private String jobClass;      // 任务类
-    private String parameter;     // 执行参数
-    private String message;       // 日志信息
-    private Integer status;       // 执行状态
-    private String exceptionInfo; // 异常信息
-    private Date startTime;       // 开始时间
-    private Date endTime;         // 结束时间
-    private Long duration;        // 执行时长(毫秒)
-    private String serverIp;      // 执行服务器IP
-}
-
-```
-
-## TreeCollectRequest.java
-
-```java
-package com.study.scheduler.entity;
-
-import lombok.Data;
-
-import java.util.Map;
-
-@Data
-public class TreeCollectRequest {
-    private String projectId;
-    private String url;         // 树状数据获取URL
-    private String method;      // 请求方法(GET/POST)
-    private Map<String, String> headers; // 请求头
-    private String requestBody; // POST请求体
-}
-
-```
-
-## JobException.java
-
-```java
-package com.study.scheduler.exception;
-
-public class JobException extends RuntimeException {
-    public JobException(String message) {
-        super(message);
-    }
-
-    public JobException(String message, Throwable cause) {
-        super(message, cause);
-    }
-}
-```
-
-## BaseJob.java
-
-```java
-package com.study.scheduler.job;
-
-
-import com.study.scheduler.entity.JobLog;
-import com.study.scheduler.mapper.JobLogMapper;
-import org.quartz.Job;
-import org.quartz.JobExecutionContext;
-import org.quartz.JobExecutionException;
-import org.redisson.api.RLock;
-import org.redisson.api.RedissonClient;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-
-import java.net.InetAddress;
-import java.util.Date;
-import java.util.concurrent.TimeUnit;
-
-public abstract class BaseJob implements Job {
-    protected final Logger logger = LoggerFactory.getLogger(getClass());
-
-    @Autowired
-    protected RedissonClient redissonClient;
-
-    @Autowired
-    protected JobLogMapper jobLogMapper;
-
-    @Override
-    public void execute(JobExecutionContext context) throws JobExecutionException {
-        String jobName = context.getJobDetail().getKey().getName();
-        String lockKey = "scheduler:lock:" + jobName;
-        RLock lock = redissonClient.getLock(lockKey);
-
-        JobLog jobLog = new JobLog();
-        jobLog.setJobName(jobName);
-        jobLog.setStartTime(new Date());
-        jobLog.setServerIp(getServerIp());
-
-        try {
-            // 尝试获取分布式锁，最多等待3秒，10分钟后自动释放
-            boolean locked = lock.tryLock(3, 600, TimeUnit.SECONDS);
-            if (!locked) {
-                jobLog.setStatus(0);
-                jobLog.setMessage("获取任务锁失败，任务已在其他节点执行");
-                return;
-            }
-
-            // 执行具体任务
-            doExecute(context);
-
-            jobLog.setStatus(1);
-            jobLog.setMessage("执行成功");
-
-        } catch (Exception e) {
-            logger.error("任务执行异常", e);
-            jobLog.setStatus(2);
-            jobLog.setExceptionInfo(e.getMessage());
-            throw new JobExecutionException(e);
-
-        } finally {
-            jobLog.setEndTime(new Date());
-            jobLog.setDuration(jobLog.getEndTime().getTime() - jobLog.getStartTime().getTime());
-            jobLogMapper.insert(jobLog);
-
-            if (lock.isHeldByCurrentThread()) {
-                lock.unlock();
-            }
-        }
-    }
-
-    protected abstract void doExecute(JobExecutionContext context) throws Exception;
-
-    private String getServerIp() {
-        try {
-            return InetAddress.getLocalHost().getHostAddress();
-        } catch (Exception e) {
-            return "unknown";
-        }
-    }
-
-}
-
-```
-
-## CollectRetryJob.java
-
-```java
-package com.study.scheduler.job;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.study.scheduler.utils.HttpClientUtil;
-import lombok.Data;
-import org.quartz.JobExecutionContext;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
-
-import java.util.List;
-
-@Component
-public class CollectRetryJob extends BaseJob {
-    private static final Logger logger = LoggerFactory.getLogger(CollectRetryJob.class);
-    private final ObjectMapper objectMapper = new ObjectMapper();
-    @Value("${collect.service.url}")
-    private String collectServiceUrl;
-
-    @Override
-    protected void doExecute(JobExecutionContext context) throws Exception {
-        logger.info("Starting failed task retry job");
-
-        try {
-            // 1. 获取失败的任务
-            String failedTasksJson = HttpClientUtil.doGet(collectServiceUrl + "/api/tasks/status/FAILED");
-            TaskResponse<List<CollectTask>> response = objectMapper.readValue(
-                    failedTasksJson,
-                    objectMapper.getTypeFactory().constructParametricType(
-                            TaskResponse.class,
-                            objectMapper.getTypeFactory().constructCollectionType(List.class, CollectTask.class)
-                    )
-            );
-
-            if (response.getCode() == 200 && response.getData() != null) {
-                // 2. 重试失败的任务
-                for (CollectTask task : response.getData()) {
-                    if (task.getRetryCount() < task.getMaxRetries()) {
-                        try {
-                            HttpClientUtil.doPost(
-                                    collectServiceUrl + "/api/tasks/" + task.getId() + "/retry",
-                                    null
-                            );
-                            logger.info("Retried task: {}", task.getId());
-                        } catch (Exception e) {
-                            logger.error("Failed to retry task: " + task.getId(), e);
-                        }
-                    }
-                }
-            }
-        } catch (Exception e) {
-            logger.error("Error in retry job execution", e);
-            throw e;
-        }
-    }
-
-    private boolean error(Integer code) {
-        return code == null || code != 200;
-    }
-
-    @Data
-    public static class TaskResponse<T> {
-        private Integer code;
-        private String message;
-        private T data;
-    }
-
-    @Data
-    public static class CollectTask {
-        private String id;
-        private String name;
-        private String url;
-        private String status;
-        private Integer retryCount = 0;
-        private Integer maxRetries = 3;
-    }
-}
-```
-
-## CollectSyncJob.java
-
-```java
-package com.study.scheduler.job;
-
-import com.study.scheduler.utils.HttpClientUtil;
-import org.quartz.JobExecutionContext;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
-
-import java.util.Set;
-
-@Component
-public class CollectSyncJob extends BaseJob {
-    private static final Logger logger = LoggerFactory.getLogger(CollectSyncJob.class);
-
-    @Value("${collect.service.urls}")
-    private Set<String> collectServiceUrls;
-
-    @Override
-    protected void doExecute(JobExecutionContext context) throws Exception {
-        logger.info("Starting collect service health check and sync");
-
-        for (String serviceUrl : collectServiceUrls) {
-            try {
-                // 1. 健康检查
-                String healthResult = HttpClientUtil.doGet(serviceUrl + "/actuator/health");
-                if (!healthResult.contains("UP")) {
-                    logger.warn("Collect service unhealthy: {}", serviceUrl);
-                    continue;
-                }
-
-                // 2. 同步配置
-                String configResult = HttpClientUtil.doGet(serviceUrl + "/api/config/sync");
-                logger.info("Config sync result for {}: {}", serviceUrl, configResult);
-
-                // 3. 同步任务状态
-                String taskResult = HttpClientUtil.doGet(serviceUrl + "/api/tasks/sync");
-                logger.info("Task sync result for {}: {}", serviceUrl, taskResult);
-
-            } catch (Exception e) {
-                logger.error("Failed to sync with collect service: " + serviceUrl, e);
-            }
-        }
-    }
-}
-
-```
-
-## CollectTaskJob.java
-
-```java
-package com.study.scheduler.job;
-
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.study.scheduler.utils.HttpClientUtil;
-import lombok.Data;
-import org.quartz.JobExecutionContext;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
-
-import java.util.List;
-
-@Component
-public class CollectTaskJob extends BaseJob {
-    private static final Logger logger = LoggerFactory.getLogger(CollectTaskJob.class);
-    private final ObjectMapper objectMapper = new ObjectMapper();
-    @Value("${collect.service.url}")
-    private String collectServiceUrl;
-
-    @Override
-    protected void doExecute(JobExecutionContext context) throws Exception {
-        logger.info("Starting collect task distribution job");
-
-        // 1. 获取所有等待执行的采集任务
-        String tasksJson = HttpClientUtil.doGet(collectServiceUrl + "/api/tasks/status/CREATED");
-        TaskResponse<List<CollectTask>> response = objectMapper.readValue(
-                tasksJson,
-                new TypeReference<TaskResponse<List<CollectTask>>>() {
-                }
-        );
-
-        if (response.getCode() == 200 && response.getData() != null) {
-            // 2. 分发任务到各个节点执行
-            for (CollectTask task : response.getData()) {
-                try {
-                    // 发送执行请求
-                    HttpClientUtil.doPost(
-                            collectServiceUrl + "/api/tasks/" + task.getId() + "/execute",
-                            null
-                    );
-                    logger.info("Distributed task: {}", task.getId());
-                } catch (Exception e) {
-                    logger.error("Failed to distribute task: " + task.getId(), e);
-                }
-            }
-        }
-    }
-
-    @Data
-    static class TaskResponse<T> {
-        private Integer code;
-        private String message;
-        private T data;
-    }
-
-    @Data
-    static class CollectTask {
-        private String id;
-        private String name;
-        private String url;
-        private String status;
-    }
-}
-```
-
-## CustomJob.java
-
-```java
-package com.study.scheduler.job;
-
-import com.study.scheduler.service.EnhancedJobService;
-import org.quartz.Job;
-import org.quartz.JobExecutionContext;
-import org.quartz.JobExecutionException;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
-
-@Component
-public class CustomJob implements Job {
-    @Autowired
-    private EnhancedJobService jobService;
-
-    @Override
-    public void execute(JobExecutionContext context) throws JobExecutionException {
-        String taskId = context.getJobDetail().getKey().getName();
-        try {
-            jobService.executeJob(taskId);
-        } catch (Exception e) {
-            throw new JobExecutionException(e);
-        }
-    }
-}
-```
-
-## DemoJob.java
-
-```java
-package com.study.scheduler.job;
-
-import com.study.scheduler.entity.JobInfo;
-import com.study.scheduler.entity.JobLog;
-import com.study.scheduler.mapper.JobLogMapper;
-import com.study.scheduler.service.JobService;
-import org.quartz.JobExecutionContext;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
-
-import java.util.List;
-
-@Component
-public class DemoJob extends BaseJob {
-    // 执行查询日志
-    @Autowired
-    private JobLogMapper jobLogMapper;
-    // 创建新任务
-    @Autowired
-    private JobService jobService;
-
-    @Override
-    protected void doExecute(JobExecutionContext context) throws Exception {
-        // 获取任务参数
-        String parameter = context.getJobDetail().getJobDataMap().getString("parameter");
-        logger.info("执行示例任务，参数：{}", parameter);
-
-        // 模拟任务执行
-        Thread.sleep(1000);
-
-        // 任务逻辑...
-    }
-
-    public List<JobLog> getJobLogs(String jobName, String jobGroup) {
-        return jobLogMapper.findRecentLogs(jobName, jobGroup, 10);
-    }
-
-    public void createJob() throws Exception {
-        JobInfo jobInfo = new JobInfo();
-        jobInfo.setJobName("demoJob");
-        jobInfo.setJobGroup("demo");
-        jobInfo.setJobClass("com.example.scheduler.job.DemoJob");
-        jobInfo.setCronExpression("0 0/5 * * * ?");
-        jobInfo.setDescription("示例任务");
-        jobInfo.setParameter("{\"key\":\"value\"}");
-        jobService.addJob(jobInfo);
-    }
-}
-```
-
-## HttpJob.java
-
-```java
-package com.study.scheduler.job;
-
-import com.study.scheduler.service.EnhancedJobService;
-import org.quartz.Job;
-import org.quartz.JobDataMap;
-import org.quartz.JobExecutionContext;
-import org.quartz.JobExecutionException;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
-
-@Component
-public class HttpJob implements Job {
-    @Autowired
-    private EnhancedJobService jobService;
-
-    @Override
-    public void execute(JobExecutionContext context) throws JobExecutionException {
-        JobDataMap data = context.getJobDetail().getJobDataMap();
-        String taskId = context.getJobDetail().getKey().getName();
-        try {
-            jobService.executeJob(taskId);
-        } catch (Exception e) {
-            throw new JobExecutionException(e);
-        }
-    }
-}
-
-```
-
-## JobLogCleanTask.java
-
-```java
-package com.study.scheduler.job;
-
-
-import org.quartz.JobExecutionContext;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
-
-import java.util.Calendar;
-import java.util.Date;
-
-@Component
-public class JobLogCleanTask extends BaseJob {
-
-    @Value("${scheduler.log.retain-days:30}")
-    private int logRetainDays;
-
-    @Override
-    protected void doExecute(JobExecutionContext context) throws Exception {
-        // 计算需要清理的日期
-        Calendar calendar = Calendar.getInstance();
-        calendar.add(Calendar.DAY_OF_MONTH, -logRetainDays);
-        Date cleanupDate = calendar.getTime();
-
-        // 执行清理
-        int count = jobLogMapper.cleanupOldLogs(cleanupDate);
-        logger.info("清理任务日志完成，清理{}天前的日志，共清理{}条", logRetainDays, count);
-    }
-}
-```
-
-## ScheduledJob.java
-
-```java
-package com.study.scheduler.job;
-
-import com.study.scheduler.service.EnhancedJobService;
-import org.quartz.Job;
-import org.quartz.JobExecutionContext;
-import org.quartz.JobExecutionException;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
-
-@Component
-public class ScheduledJob implements Job {
-    @Autowired
-    private EnhancedJobService jobService;
-
-    @Override
-    public void execute(JobExecutionContext context) throws JobExecutionException {
-        String taskId = context.getJobDetail().getKey().getName();
-        try {
-            jobService.executeJob(taskId);
-        } catch (Exception e) {
-            throw new JobExecutionException(e);
-        }
-    }
-}
-```
-
-## TreeCollectorJob.java
-
-```java
-package com.study.scheduler.job;
-
-import com.study.common.util.JsonUtils;
-import com.study.scheduler.entity.TreeCollectRequest;
-import com.study.scheduler.utils.HttpClientUtil;
-import org.quartz.JobDataMap;
-import org.quartz.JobExecutionContext;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
-
-
-@Component
-public class TreeCollectorJob extends BaseJob {
-
-    @Value("${collect.service.url}")
-    private String collectServiceUrl;
-
-    @Override
-    protected void doExecute(JobExecutionContext context) throws Exception {
-        JobDataMap dataMap = context.getJobDetail().getJobDataMap();
-        String url = dataMap.getString("url");
-        String method = dataMap.getString("method");
-
-        // 构建采集请求
-        TreeCollectRequest request = new TreeCollectRequest();
-        request.setUrl(url);
-        request.setMethod(method);
-
-        // 创建采集任务
-        String response = HttpClientUtil.doPost(
-                collectServiceUrl + "/api/tree/collect",
-                JsonUtils.toJson(request)
-        );
-
-        logger.info("Tree collection task created: {}", response);
-    }
-}
-```
-
-## SchedulerJobListener.java
-
-```java
-package com.study.scheduler.listener;
-
-
-import org.quartz.JobExecutionContext;
-import org.quartz.JobExecutionException;
-import org.quartz.JobListener;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
-
-@Component
-public class SchedulerJobListener implements JobListener {
-    private static final Logger logger = LoggerFactory.getLogger(SchedulerJobListener.class);
-
-    @Override
-    public String getName() {
-        return "GlobalJobListener";
-    }
-
-    @Override
-    public void jobToBeExecuted(JobExecutionContext context) {
-        String jobName = context.getJobDetail().getKey().toString();
-        logger.info("任务准备执行: {}", jobName);
-    }
-
-    @Override
-    public void jobExecutionVetoed(JobExecutionContext context) {
-        String jobName = context.getJobDetail().getKey().toString();
-        logger.warn("任务被否决: {}", jobName);
-    }
-
-    @Override
-    public void jobWasExecuted(JobExecutionContext context, JobExecutionException jobException) {
-        String jobName = context.getJobDetail().getKey().toString();
-        if (jobException == null) {
-            logger.info("任务执行完成: {}", jobName);
-        } else {
-            logger.error("任务执行失败: {}", jobName, jobException);
-        }
-    }
-}
-```
-
-## JobInfoMapper.java
-
-```java
-package com.study.scheduler.mapper;
-
-import com.study.scheduler.entity.JobInfo;
-import org.apache.ibatis.annotations.*;
-
-import java.util.List;
-
-@Mapper
-public interface JobInfoMapper {
-    @Insert("""
-                INSERT INTO schedule_job_info(
-                    job_name, job_group, job_class, cron_expression,
-                    parameter, description, concurrent, status,
-                    next_fire_time, prev_fire_time, create_time, update_time
-                ) VALUES (
-                    #{jobName}, #{jobGroup}, #{jobClass}, #{cronExpression},
-                    #{parameter}, #{description}, #{concurrent}, #{status},
-                    #{nextFireTime}, #{prevFireTime}, #{createTime}, #{updateTime}
-                )
-            """)
-    @Options(useGeneratedKeys = true, keyProperty = "id")
-    int insert(JobInfo jobInfo);
-
-    @Update("""
-                UPDATE schedule_job_info
-                SET cron_expression = #{cronExpression},
-                    parameter = #{parameter},
-                    description = #{description},
-                    concurrent = #{concurrent},
-                    status = #{status},
-                    next_fire_time = #{nextFireTime},
-                    prev_fire_time = #{prevFireTime},
-                    update_time = #{updateTime}
-                WHERE job_name = #{jobName} AND job_group = #{jobGroup}
-            """)
-    int updateByJobKey(@Param("jobName") String jobName,
-                       @Param("jobGroup") String jobGroup,
-                       @Param("jobInfo") JobInfo jobInfo);
-
-    @Delete("DELETE FROM schedule_job_info WHERE job_name = #{jobName} AND job_group = #{jobGroup}")
-    int deleteByJobKey(@Param("jobName") String jobName,
-                       @Param("jobGroup") String jobGroup);
-
-    @Select("SELECT * FROM schedule_job_info WHERE job_name = #{jobName} AND job_group = #{jobGroup}")
-    JobInfo findByJobKey(@Param("jobName") String jobName,
-                         @Param("jobGroup") String jobGroup);
-
-    @Select("SELECT * FROM schedule_job_info WHERE id = #{id}")
-    JobInfo findById(@Param("id") Long id);
-
-    @Select("SELECT * FROM schedule_job_info ORDER BY create_time DESC")
-    List<JobInfo> findAll();
-
-    @Select("SELECT * FROM schedule_job_info WHERE status = #{status}")
-    List<JobInfo> findByStatus(@Param("status") Integer status);
-}
-
-
-```
-
-## JobLogMapper.java
-
-```java
-package com.study.scheduler.mapper;
-
-
-import com.study.scheduler.entity.JobLog;
-import org.apache.ibatis.annotations.*;
-
-import java.util.Date;
-import java.util.List;
-
-@Mapper
-public interface JobLogMapper {
-    @Insert("""
-                INSERT INTO schedule_job_log(
-                    job_id, job_name, job_group, job_class, parameter,
-                    message, status, exception_info, start_time,
-                    end_time, duration, server_ip
-                ) VALUES (
-                    #{jobId}, #{jobName}, #{jobGroup}, #{jobClass}, #{parameter},
-                    #{message}, #{status}, #{exceptionInfo}, #{startTime},
-                    #{endTime}, #{duration}, #{serverIp}
-                )
-            """)
-    @Options(useGeneratedKeys = true, keyProperty = "id")
-    int insert(JobLog jobLog);
-
-    @Select("""
-                SELECT * FROM schedule_job_log
-                WHERE job_name = #{jobName} AND job_group = #{jobGroup}
-                ORDER BY start_time DESC
-                LIMIT #{limit}
-            """)
-    List<JobLog> findRecentLogs(@Param("jobName") String jobName,
-                                @Param("jobGroup") String jobGroup,
-                                @Param("limit") int limit);
-
-    @Select("""
-                SELECT * FROM schedule_job_log
-                WHERE job_name = #{jobName}
-                  AND job_group = #{jobGroup}
-                  AND start_time BETWEEN #{startTime} AND #{endTime}
-                ORDER BY start_time DESC
-            """)
-    List<JobLog> findLogsByTimeRange(@Param("jobName") String jobName,
-                                     @Param("jobGroup") String jobGroup,
-                                     @Param("startTime") Date startTime,
-                                     @Param("endTime") Date endTime);
-
-    @Select("SELECT * FROM schedule_job_log WHERE id = #{id}")
-    JobLog findById(@Param("id") Long id);
-
-    @Delete("DELETE FROM schedule_job_log WHERE id = #{id}")
-    int deleteById(@Param("id") Long id);
-
-    @Delete("""
-                DELETE FROM schedule_job_log
-                WHERE start_time < #{beforeTime}
-            """)
-    int cleanupOldLogs(@Param("beforeTime") Date beforeTime);
-}
-
-
-```
-
-## HttpTaskResult.java
-
-```java
-package com.study.scheduler.model.job;
-
-import lombok.Builder;
-import lombok.Data;
-
-import java.util.List;
-import java.util.Map;
-
-@Data
-@Builder
-public class HttpTaskResult {
-    private int statusCode;
-    private String body;
-    private Map<String, List<String>> headers;
-
-    public HttpTaskResult() {
-    }
-
-    public HttpTaskResult(int statusCode, String body, Map<String, List<String>> headers) {
-        this.statusCode = statusCode;
-        this.body = body;
-        this.headers = headers;
-
-    }
-}
-```
-
-## JobDefinition.java
-
-```java
-package com.study.scheduler.model.job;
-
-import jakarta.persistence.Entity;
-import lombok.Data;
-import org.springframework.data.annotation.Id;
-
-import java.util.Date;
-
-@Entity
-@Data
-public class JobDefinition {
-    @jakarta.persistence.Id
-    @Id
-    private String id;
-    private String name;
-    private String description;
-    private String jobClass;
-    private String cronExpression;
-    private String jobData;
-    private Integer status;
-    private Date createTime;
-    private Date updateTime;
-}
-```
-
-## JobExecution.java
-
-```java
-package com.study.scheduler.model.job;
-
-import jakarta.persistence.Entity;
-import lombok.Data;
-import org.springframework.data.annotation.Id;
-
-import java.util.Date;
-
-@Entity
-@Data
-public class JobExecution {
-    @Id
-    private String id;
-    private String jobDefId;
-    private Date startTime;
-    private Date endTime;
-    private String status;
-    private String result;
-    private String error;
-    private Integer retryCount;
-}
-
-```
-
-## JobMetrics.java
-
-```java
-package com.study.scheduler.model.job;
-
-import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import org.springframework.stereotype.Component;
-
-/**
- * 任务执行指标统计类
- */
-@Component
-public class JobMetrics {
-
-    private Counter jobCreationCounter = null;
-    private Counter jobSuccessCounter = null;
-    private Counter jobFailureCounter = null;
-
-    public JobMetrics(MeterRegistry registry) {
-        // 初始化计数器
-        this.jobCreationCounter = Counter.builder("job.creation")
-                .description("Number of jobs created")
-                .register(registry);
-
-        this.jobSuccessCounter = Counter.builder("job.execution.success")
-                .description("Number of successful job executions")
-                .register(registry);
-
-        this.jobFailureCounter = Counter.builder("job.execution.failure")
-                .description("Number of failed job executions")
-                .register(registry);
-    }
-
-    // 默认构造函数
-    public JobMetrics() {
-        // 使用NoopCounter或空实现进行初始化
-        this.jobCreationCounter = Counter.builder("noop").register(new SimpleMeterRegistry());
-        this.jobSuccessCounter = Counter.builder("noop").register(new SimpleMeterRegistry());
-        this.jobFailureCounter = Counter.builder("noop").register(new SimpleMeterRegistry());
-    }
-
-    public void incrementJobCreationCount() {
-        if(jobCreationCounter != null) {
-            jobCreationCounter.increment();
-        }
-    }
-
-    public void incrementJobSuccessCount() {
-        if(jobSuccessCounter != null) {
-            jobSuccessCounter.increment();
-        }
-    }
-
-    public void incrementJobFailureCount() {
-        if(jobFailureCounter != null) {
-            jobFailureCounter.increment();
-        }
-    }
-}
-```
-
-## JobDefinitionRepository.java
-
-```java
-package com.study.scheduler.repository;
-
-import com.study.scheduler.model.job.JobDefinition;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
-
-@Repository
-public interface JobDefinitionRepository extends JpaRepository<JobDefinition, String> {
-    // 可以添加自定义查询方法
-}
-
-```
-
-## JobExecutionRepository.java
-
-```java
-package com.study.scheduler.repository;
-
-import com.study.common.model.task.TaskExecution;
-import com.study.scheduler.model.job.JobExecution;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
-
-import java.util.List;
-
-@Repository
-public interface JobExecutionRepository extends JpaRepository<TaskExecution, String> {
-    List<TaskExecution> findByJobDefId(String jobDefId);
-}
-```
-
-## CrawlerService.java
-
-```java
-package com.study.scheduler.service;
-
-import com.study.scheduler.entity.CrawlerRecord;
-import com.study.scheduler.entity.CrawlerTask;
-import com.study.scheduler.utils.HttpClientUtil;
-import com.study.scheduler.utils.MongoDBUtils;
-import org.springframework.data.mongodb.core.query.Criteria;
-import org.springframework.data.mongodb.core.query.Query;
-import org.springframework.data.mongodb.core.query.Update;
-import org.springframework.stereotype.Service;
-
-import java.util.Date;
-import java.util.List;
-
-@Service
-public class CrawlerService {
-    private final MongoDBUtils mongoDBUtils;
-
-    public CrawlerService(MongoDBUtils mongoDBUtils) {
-        this.mongoDBUtils = mongoDBUtils;
-    }
-
-    public CrawlerTask createTask(CrawlerTask task) {
-        task.setCreateTime(new Date());
-        task.setUpdateTime(new Date());
-        return mongoDBUtils.save(task);
-    }
-
-    public CrawlerRecord crawl(CrawlerTask task) {
-        CrawlerRecord record = new CrawlerRecord();
-        record.setTaskId(task.getId());
-        record.setUrl(task.getUrl());
-        record.setCreateTime(new Date());
-        record.setUpdateTime(new Date());
-
-        try {
-            String response;
-            if ("POST".equalsIgnoreCase(task.getMethod())) {
-                response = HttpClientUtil.doPost(task.getUrl(), task.getRequestBody());
-            } else {
-                response = HttpClientUtil.doGet(task.getUrl());
-            }
-
-            record.setResponseBody(response);
-            record.setSuccess(true);
-            record.setStatusCode(200);
-        } catch (Exception e) {
-            record.setSuccess(false);
-            record.setErrorMessage(e.getMessage());
-            record.setStatusCode(500);
-
-            if (task.getRetryCount() < task.getMaxRetries()) {
-                scheduleRetry(task);
-            }
-        }
-
-        return mongoDBUtils.save(record);
-    }
-
-    private void scheduleRetry(CrawlerTask task) {
-        Query query = new Query(Criteria.where("id").is(task.getId()));
-        Update update = new Update()
-                .inc("retryCount", 1)
-                .set("updateTime", new Date());
-        mongoDBUtils.update(query, update, CrawlerTask.class);
-    }
-
-    public List<CrawlerRecord> getFailedRecords() {
-        Query query = new Query(Criteria.where("success").is(false));
-        return mongoDBUtils.find(query, CrawlerRecord.class);
-    }
-
-    public void retryCrawling(String recordId) {
-        CrawlerRecord record = mongoDBUtils.findById(recordId, CrawlerRecord.class);
-        if (record != null) {
-            CrawlerTask task = mongoDBUtils.findById(record.getTaskId(), CrawlerTask.class);
-            if (task != null) {
-                crawl(task);
-            }
-        }
-    }
-}
-```
-
-## EnhancedJobService.java
-
-```java
-package com.study.scheduler.service;
-
-import com.study.common.model.task.*;
-import com.study.common.util.DistributedLockUtil;
-import com.study.common.util.JsonUtils;
-import com.study.common.util.TaskTraceUtil;
-import com.study.common.util.VariableUtil;
-import com.study.scheduler.exception.JobException;
-import com.study.scheduler.job.CustomJob;
-import com.study.scheduler.job.HttpJob;
-import com.study.scheduler.job.ScheduledJob;
-import com.study.scheduler.model.job.HttpTaskResult;
-import com.study.scheduler.model.job.JobDefinition;
-import com.study.scheduler.model.job.JobMetrics;
-import com.study.scheduler.repository.JobDefinitionRepository;
-import com.study.scheduler.repository.JobExecutionRepository;
-import io.micrometer.core.instrument.MeterRegistry;
-import lombok.extern.slf4j.Slf4j;
-import org.quartz.*;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.time.Duration;
-import java.util.Date;
-import java.util.Map;
-import java.util.UUID;
-
-/**
- * 增强的任务服务类
- * 提供任务的创建、执行、状态管理等核心功能
- * 支持HTTP任务、定时任务和自定义任务的处理
- */
-@Slf4j
-@Service
-public class EnhancedJobService {
-
-    private static final int HTTP_TIMEOUT_SECONDS = 10;
-    private static final String LOCK_PREFIX_JOB = "job:def:";
-    private static final String LOCK_PREFIX_STATUS = "job:status:";
-
-    @Autowired
-    private Scheduler scheduler;
-
-    @Autowired
-    private DistributedLockUtil lockUtil;
-
-    @Autowired
-    private JobDefinitionRepository jobDefinitionRepository;
-
-    @Autowired
-    private JobExecutionRepository jobExecutionRepository;
-
-    @Autowired
-    private HttpClient httpClient;
-
-    @Autowired
-    private MeterRegistry meterRegistry;
-
-    private final JobMetrics jobMetrics = new JobMetrics();
-
-    /**
-     * 创建或更新任务
-     *
-     * @param taskDef 任务定义
-     * @return 任务执行结果
-     */
-    @Transactional
-    public Object saveJob(TaskDefinition taskDef) {
-        String lockKey = LOCK_PREFIX_JOB + taskDef.getId();
-        return lockUtil.executeWithLock(lockKey, () -> {
-            try {
-                validateTask(taskDef);
-
-                // 保存任务定义
-                JobDefinition jobDef = convertToJobDefinition(taskDef);
-                jobDefinitionRepository.save(jobDef);
-
-                // 创建Quartz任务
-                JobDetail jobDetail = createJobDetail(taskDef);
-                Trigger trigger = createTrigger(taskDef);
-
-                // 调度任务
-                scheduler.scheduleJob(jobDetail, trigger);
-
-                jobMetrics.incrementJobCreationCount();
-                log.info("Successfully saved and scheduled job: {}", taskDef.getId());
-
-                return TaskResult.builder()
-                        .success(true)
-                        .message("Job saved successfully")
-                        .build();
-
-            } catch (SchedulerException e) {
-                log.error("Failed to schedule job: {}", taskDef.getId(), e);
-                jobMetrics.incrementJobFailureCount();
-                return TaskResult.builder()
-                        .success(false)
-                        .message("Failed to schedule job: " + e.getMessage())
-                        .build();
-            }
-        });
-    }
-
-    /**
-     * 执行任务
-     *
-     * @param jobId 任务ID
-     * @return 任务执行结果
-     */
-    public TaskResult executeJob(String jobId) {
-        return TaskTraceUtil.executeWithTrace(() -> {
-            long startTime = System.currentTimeMillis();
-            try {
-                // 获取任务定义
-                TaskDefinition taskDef = getTaskDefinition(jobId);
-                if (taskDef == null) {
-                    log.warn("Task not found: {}", jobId);
-                    return TaskResult.builder()
-                            .success(false)
-                            .message("Task not found")
-                            .build();
-                }
-
-                // 创建执行记录
-                TaskExecution execution = createExecution(taskDef);
-                log.info("Created execution record for task: {}", jobId);
-
-                // 解析变量
-                resolveVariables(taskDef);
-
-                // 执行任务
-                Object result = executeTask(taskDef);
-                log.info("Task executed successfully: {}", jobId);
-
-                // 更新执行记录
-                updateExecutionSuccess(execution, result);
-
-                // 记录执行时间
-                long duration = System.currentTimeMillis() - startTime;
-                meterRegistry.timer("job.execution.time").record(Duration.ofMillis(duration));
-
-                return TaskResult.builder()
-                        .success(true)
-                        .data(result)
-                        .build();
-
-            } catch (Exception e) {
-                log.error("Job execution failed: {}", jobId, e);
-                jobMetrics.incrementJobFailureCount();
-
-                long duration = System.currentTimeMillis() - startTime;
-                meterRegistry.timer("job.execution.failure.time").record(Duration.ofMillis(duration));
-
-                return TaskResult.builder()
-                        .success(false)
-                        .message("Execution failed: " + e.getMessage())
-                        .build();
-            }
-        });
-    }
-
-    /**
-     * 处理HTTP类型任务
-     *
-     * @param taskDef 任务定义
-     * @return 执行结果
-     * @throws Exception 执行异常
-     */
-    private Object executeHttpTask(TaskDefinition taskDef) throws Exception {
-        HttpConfig config = taskDef.getHttpConfig();
-        HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
-                .uri(new URI(config.getUrl()))
-                .timeout(Duration.ofSeconds(HTTP_TIMEOUT_SECONDS));
-
-        // 设置请求头
-        if (config.getHeaders() != null) {
-            config.getHeaders().forEach(requestBuilder::header);
-        }
-
-        // 设置请求方法和body
-        configureHttpMethod(requestBuilder, config);
-
-        log.info("Executing HTTP request: {} {}", config.getMethod(), config.getUrl());
-
-        // 执行请求
-        HttpResponse<String> response = httpClient.send(
-                requestBuilder.build(),
-                HttpResponse.BodyHandlers.ofString()
-        );
-
-        // 记录指标
-        recordHttpMetrics(response);
-
-        return new HttpTaskResult(
-                response.statusCode(),
-                response.body(),
-                response.headers().map()
-        );
-    }
-
-    /**
-     * 配置HTTP请求方法
-     *
-     * @param requestBuilder HTTP请求构建器
-     * @param config HTTP配置
-     */
-    private void configureHttpMethod(HttpRequest.Builder requestBuilder, HttpConfig config) {
-        switch (config.getMethod().toUpperCase()) {
-            case "GET":
-                requestBuilder.GET();
-                break;
-            case "POST":
-                requestBuilder.POST(HttpRequest.BodyPublishers.ofString(
-                        config.getBody() != null ? config.getBody() : ""));
-                break;
-            case "PUT":
-                requestBuilder.PUT(HttpRequest.BodyPublishers.ofString(
-                        config.getBody() != null ? config.getBody() : ""));
-                break;
-            case "DELETE":
-                requestBuilder.DELETE();
-                break;
-            default:
-                throw new JobException("Unsupported HTTP method: " + config.getMethod());
-        }
-    }
-
-    /**
-     * 记录HTTP请求指标
-     *
-     * @param response HTTP响应
-     */
-    private void recordHttpMetrics(HttpResponse<String> response) {
-        meterRegistry.counter("http.request.count").increment();
-        meterRegistry.gauge("http.response.status", response.statusCode());
-    }
-
-    /**
-     * 更新任务状态
-     *
-     * @param jobId 任务ID
-     * @param newStatus 新状态
-     * @return 更新结果
-     */
-    @Transactional
-    public Object updateTaskStatus(String jobId, TaskStatus newStatus) {
-        String lockKey = LOCK_PREFIX_STATUS + jobId;
-        return lockUtil.executeWithLock(lockKey, () -> {
-            try {
-                TaskDefinition taskDef = getTaskDefinition(jobId);
-                if (taskDef == null) {
-                    throw new JobException("Task not found: " + jobId);
-                }
-
-                // 更新状态
-                taskDef.setStatus(newStatus);
-                jobDefinitionRepository.save(convertToJobDefinition(taskDef));
-                log.info("Updated task status: {} -> {}", jobId, newStatus);
-
-                // 处理Quartz任务状态
-                handleQuartzJobStatus(jobId, newStatus);
-
-                // 记录状态变更
-                meterRegistry.counter("job.status." + newStatus.name().toLowerCase()).increment();
-
-                return TaskResult.builder()
-                        .success(true)
-                        .message("Status updated successfully")
-                        .build();
-
-            } catch (SchedulerException e) {
-                log.error("Failed to update job status: {}", jobId, e);
-                return TaskResult.builder()
-                        .success(false)
-                        .message("Failed to update status: " + e.getMessage())
-                        .build();
-            }
-        });
-    }
-
-    /**
-     * 处理Quartz任务状态
-     *
-     * @param jobId 任务ID
-     * @param status 新状态
-     * @throws SchedulerException 调度器异常
-     */
-    private void handleQuartzJobStatus(String jobId, TaskStatus status) throws SchedulerException {
-        switch (status) {
-            case STOPPED:
-                scheduler.pauseJob(JobKey.jobKey(jobId));
-                log.info("Paused job: {}", jobId);
-                break;
-            case WAITING:
-                scheduler.resumeJob(JobKey.jobKey(jobId));
-                log.info("Resumed job: {}", jobId);
-                break;
-            default:
-                handleOtherStatus(jobId, status);
-        }
-    }
-
-    /**
-     * 获取任务定义
-     *
-     * @param jobId 任务ID
-     * @return 任务定义
-     */
-    private TaskDefinition getTaskDefinition(String jobId) {
-        JobDefinition jobDef = jobDefinitionRepository.findById(jobId)
-                .orElseThrow(() -> new JobException("Task not found: " + jobId));
-        return JsonUtils.fromJson(jobDef.getJobData(), TaskDefinition.class);
-    }
-
-    /**
-     * 创建执行记录
-     *
-     * @param taskDef 任务定义
-     * @return 执行记录
-     */
-    private TaskExecution createExecution(TaskDefinition taskDef) {
-        TaskExecution execution = new TaskExecution();
-        execution.setId(UUID.randomUUID().toString());
-        execution.setTaskDefId(taskDef.getId());
-        execution.setStartTime(new Date());
-        execution.setStatus(TaskStatus.RUNNING);
-        return jobExecutionRepository.save(execution);
-    }
-
-    /**
-     * 解析任务变量
-     *
-     * @param taskDef 任务定义
-     */
-    private void resolveVariables(TaskDefinition taskDef) {
-        if (taskDef.getHttpConfig() != null) {
-            HttpConfig httpConfig = taskDef.getHttpConfig();
-            httpConfig.setUrl(VariableUtil.resolveVariable(httpConfig.getUrl()));
-
-            if (httpConfig.getHeaders() != null) {
-                Map<String, String> resolvedHeaders = VariableUtil.resolveVariables(httpConfig.getHeaders());
-                httpConfig.setHeaders(resolvedHeaders);
-            }
-
-            if (httpConfig.getParameters() != null) {
-                Map<String, String> resolvedParams = VariableUtil.resolveVariables(httpConfig.getParameters());
-                httpConfig.setParameters(resolvedParams);
-            }
-        }
-    }
-
-    /**
-     * 执行任务
-     *
-     * @param taskDef 任务定义
-     * @return 执行结果
-     * @throws Exception 执行异常
-     */
-    private Object executeTask(TaskDefinition taskDef) throws Exception {
-        switch (taskDef.getType()) {
-            case HTTP:
-                return executeHttpTask(taskDef);
-            case SCHEDULED:
-                return executeScheduledTask(taskDef);
-            default:
-                return executeCustomTask(taskDef);
-        }
-    }
-
-    /**
-     * 执行定时任务
-     *
-     * @param taskDef 任务定义
-     * @return 执行结果
-     */
-    private Object executeScheduledTask(TaskDefinition taskDef) {
-        log.info("Executing scheduled task: {}", taskDef.getId());
-        // 实现定时任务的具体逻辑
-        return null;
-    }
-
-    /**
-     * 执行自定义任务
-     *
-     * @param taskDef 任务定义
-     * @return 执行结果
-     */
-    private Object executeCustomTask(TaskDefinition taskDef) {
-        log.info("Executing custom task: {}", taskDef.getId());
-        // 实现自定义任务的具体逻辑
-        return null;
-    }
-
-    /**
-     * 更新执行成功记录
-     *
-     * @param execution 执行记录
-     * @param result 执行结果
-     */
-    private void updateExecutionSuccess(TaskExecution execution, Object result) {
-        execution.setEndTime(new Date());
-        execution.setStatus(TaskStatus.COMPLETED);
-        execution.setResult(JsonUtils.toJson(result));
-        jobExecutionRepository.save(execution);
-        log.info("Updated execution success: {}", execution.getId());
-    }
-
-    /**
-     * 验证任务
-     *
-     * @param taskDef 任务定义
-     */
-    private void validateTask(TaskDefinition taskDef) {
-        if (taskDef == null || taskDef.getId() == null) {
-            throw new JobException("Invalid task definition");
-        }
-
-        if (taskDef.getType() == null) {
-            throw new JobException("Task type is required");
-        }
-
-        if (TaskType.HTTP.equals(taskDef.getType())) {
-            validateHttpConfig(taskDef.getHttpConfig());
-        }
-    }
-
-    /**
-     * 验证HTTP配置
-     *
-     * @param httpConfig HTTP配置
-     */
-    private void validateHttpConfig(HttpConfig httpConfig) {
-        if (httpConfig == null) {
-            throw new JobException("HTTP config is required for HTTP task");
-        }
-
-        if (httpConfig.getUrl() == null || httpConfig.getUrl().trim().isEmpty()) {
-
-            if (httpConfig.getUrl() == null || httpConfig.getUrl().trim().isEmpty()) {
-                throw new JobException("URL is required for HTTP task");
-            }
-
-            if (httpConfig.getMethod() == null || httpConfig.getMethod().trim().isEmpty()) {
-                throw new JobException("HTTP method is required for HTTP task");
-            }
-        }
-    }
-
-        /**
-         * 转换为任务定义
-         *
-         * @param taskDef 原始任务定义
-         * @return 转换后的任务定义
-         */
-        private JobDefinition convertToJobDefinition(TaskDefinition taskDef) {
-            JobDefinition jobDef = new JobDefinition();
-            jobDef.setId(taskDef.getId());
-            jobDef.setName(taskDef.getName());
-            jobDef.setDescription(taskDef.getDescription());
-            jobDef.setCronExpression(taskDef.getCronExpression());
-            jobDef.setJobData(JsonUtils.toJson(taskDef));
-            jobDef.setStatus(taskDef.getStatus().ordinal());
-            jobDef.setCreateTime(new Date());
-            jobDef.setUpdateTime(new Date());
-            return jobDef;
-        }
-
-        /**
-         * 创建任务详情
-         *
-         * @param taskDef 任务定义
-         * @return 任务详情
-         */
-        private JobDetail createJobDetail(TaskDefinition taskDef) {
-            return JobBuilder.newJob(getJobClass(taskDef.getType()))
-                    .withIdentity(taskDef.getId())
-                    .withDescription(taskDef.getDescription())
-                    .usingJobData(createJobDataMap(taskDef))
-                    .build();
-        }
-
-        /**
-         * 创建任务数据Map
-         *
-         * @param taskDef 任务定义
-         * @return 任务数据Map
-         */
-        private JobDataMap createJobDataMap(TaskDefinition taskDef) {
-            JobDataMap dataMap = new JobDataMap();
-            dataMap.put("taskId", taskDef.getId());
-            dataMap.put("taskType", taskDef.getType().name());
-            return dataMap;
-        }
-
-        /**
-         * 创建触发器
-         *
-         * @param taskDef 任务定义
-         * @return 触发器
-         */
-        private Trigger createTrigger(TaskDefinition taskDef) {
-            return TriggerBuilder.newTrigger()
-                    .withIdentity(taskDef.getId() + "_trigger")
-                    .withSchedule(CronScheduleBuilder.cronSchedule(taskDef.getCronExpression()))
-                    .withDescription("Trigger for task: " + taskDef.getName())
-                    .build();
-        }
-
-        /**
-         * 获取任务类
-         *
-         * @param type 任务类型
-         * @return 任务类
-         */
-//        private Class<? extends Job> getJobClass(TaskType type) {
-//            switch (type) {
-//                case HTTP:
-//                    return HttpJob.class;
-//                case SCHEDULED:
-//                    return ScheduledJob.class;
-//                default:
-//                    return CustomJob.class;
-//            }
-//        }
-    private Class<? extends Job> getJobClass(TaskType type) {
-        return switch (type) {
-            case HTTP -> HttpJob.class;
-            case SCHEDULED -> ScheduledJob.class;
-            case CUSTOM -> CustomJob.class;
-            // 添加默认情况处理
-            default -> throw new IllegalArgumentException("Unsupported task type: " + type);
-        };
-    }
-
-        /**
-         * 创建默认重试策略
-         *
-         * @return 重试策略
-         */
-        private RetryPolicy createDefaultRetryPolicy() {
-            return RetryPolicy.builder()
-                    .maxRetries(3)
-                    .retryInterval(1000L)
-                    .exponentialBackoff(true)
-                    .build();
-        }
-
-        /**
-         * 处理其他状态
-         *
-         * @param jobId 任务ID
-         * @param status 状态
-         */
-        private void handleOtherStatus(String jobId, TaskStatus status) {
-            log.info("Handling status {} for job {}", status, jobId);
-            switch (status) {
-                case RUNNING:
-                    handleRunningStatus(jobId);
-                    break;
-                case COMPLETED:
-                    handleCompletedStatus(jobId);
-                    break;
-                case FAILED:
-                    handleFailedStatus(jobId);
-                    break;
-                case SKIPPED:
-                    handleSkippedStatus(jobId);
-                    break;
-                default:
-                    log.warn("Unhandled status {} for job {}", status, jobId);
-            }
-        }
-
-        /**
-         * 处理运行中状态
-         *
-         * @param jobId 任务ID
-         */
-        private void handleRunningStatus(String jobId) {
-            log.info("Task {} is now running", jobId);
-            meterRegistry.counter("job.running.count").increment();
-        }
-
-        /**
-         * 处理完成状态
-         *
-         * @param jobId 任务ID
-         */
-        private void handleCompletedStatus(String jobId) {
-            log.info("Task {} has completed", jobId);
-            meterRegistry.counter("job.completed.count").increment();
-            jobMetrics.incrementJobSuccessCount();
-        }
-
-        /**
-         * 处理失败状态
-         *
-         * @param jobId 任务ID
-         */
-        private void handleFailedStatus(String jobId) {
-            log.error("Task {} has failed", jobId);
-            meterRegistry.counter("job.failed.count").increment();
-            jobMetrics.incrementJobFailureCount();
-        }
-
-        /**
-         * 处理跳过状态
-         *
-         * @param jobId 任务ID
-         */
-        private void handleSkippedStatus(String jobId) {
-            log.info("Task {} has been skipped", jobId);
-            meterRegistry.counter("job.skipped.count").increment();
-        }
-    }
-```
-
-## JobService.java
-
-```java
-package com.study.scheduler.service;
-
-
-import com.study.scheduler.config.RedisConfig;
-import com.study.scheduler.entity.JobInfo;
-import com.study.scheduler.mapper.JobInfoMapper;
-import org.quartz.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.stereotype.Service;
-
-import java.time.Duration;
-
-@Service
-public class JobService {
-    private static final Logger logger = LoggerFactory.getLogger(RedisConfig.class);
-    private static final String JOB_LOCK_KEY_PREFIX = "scheduler:job:lock:";
-    @Autowired
-    private Scheduler scheduler;
-    @Autowired
-    private JobInfoMapper jobInfoMapper;
-    @Autowired
-    private RedisTemplate<String, Object> redisTemplate;
-
-    /**
-     * 添加任务
-     */
-    public void addJob(JobInfo jobInfo) throws Exception {
-        // 创建JobDetail
-        JobDetail jobDetail = JobBuilder.newJob(getJobClass(jobInfo.getJobClass()))
-                .withIdentity(jobInfo.getJobName(), jobInfo.getJobGroup())
-                .withDescription(jobInfo.getDescription())
-                .build();
-
-        // 创建Trigger
-        CronTrigger trigger = TriggerBuilder.newTrigger()
-                .withIdentity(jobInfo.getJobName() + "_trigger", jobInfo.getJobGroup())
-                .withSchedule(CronScheduleBuilder.cronSchedule(jobInfo.getCronExpression()))
-                .build();
-
-        // 调度任务
-        scheduler.scheduleJob(jobDetail, trigger);
-
-        // 保存任务信息
-        jobInfoMapper.insert(jobInfo);
-    }
-
-    /**
-     * 暂停任务
-     */
-    public void pauseJob(String jobName, String jobGroup) throws SchedulerException {
-        scheduler.pauseJob(JobKey.jobKey(jobName, jobGroup));
-        JobInfo jobInfo = new JobInfo();
-        jobInfo.setStatus(0); // 暂停状态
-        jobInfoMapper.updateByJobKey(jobName, jobGroup, jobInfo);
-    }
-
-    /**
-     * 恢复任务
-     */
-    public void resumeJob(String jobName, String jobGroup) throws SchedulerException {
-        scheduler.resumeJob(JobKey.jobKey(jobName, jobGroup));
-        JobInfo jobInfo = new JobInfo();
-        jobInfo.setStatus(1); // 运行状态
-        jobInfoMapper.updateByJobKey(jobName, jobGroup, jobInfo);
-    }
-
-    /**
-     * 删除任务
-     */
-    public void deleteJob(String jobName, String jobGroup) throws SchedulerException {
-        scheduler.deleteJob(JobKey.jobKey(jobName, jobGroup));
-        jobInfoMapper.deleteByJobKey(jobName, jobGroup);
-    }
-
-    /**
-     * 修改任务cron表达式
-     */
-    public void updateJobCron(JobInfo jobInfo) throws SchedulerException {
-        TriggerKey triggerKey = TriggerKey.triggerKey(jobInfo.getJobName() + "_trigger", jobInfo.getJobGroup());
-        CronTrigger trigger = (CronTrigger) scheduler.getTrigger(triggerKey);
-
-        // 创建新的trigger
-        CronTrigger newTrigger = trigger.getTriggerBuilder()
-                .withIdentity(triggerKey)
-                .withSchedule(CronScheduleBuilder.cronSchedule(jobInfo.getCronExpression()))
-                .build();
-
-        scheduler.rescheduleJob(triggerKey, newTrigger);
-        jobInfoMapper.updateByJobKey(jobInfo.getJobName(), jobInfo.getJobGroup(), jobInfo);
-    }
-
-    private Class<? extends Job> getJobClass(String jobClass) throws Exception {
-        return (Class<? extends Job>) Class.forName(jobClass);
-    }
-
-    /**
-     * 使用Redis分布式锁执行任务
-     */
-    public void executeJob(String jobName, Runnable task) {
-        String lockKey = JOB_LOCK_KEY_PREFIX + jobName;
-        Boolean acquired = redisTemplate.opsForValue()
-                .setIfAbsent(lockKey, "LOCKED", Duration.ofMinutes(10));
-
-        if (Boolean.TRUE.equals(acquired)) {
-            try {
-                task.run();
-            } finally {
-                redisTemplate.delete(lockKey);
-            }
-        } else {
-            logger.warn("Job {} is already running on another instance", jobName);
-        }
-    }
-}
-
-```
-
-## YourService.java
-
-```java
-package com.study.scheduler.service;
-
-import com.study.common.model.task.HttpConfig;
-import com.study.common.model.task.TaskDefinition;
-import com.study.common.model.task.TaskResult;
-import com.study.common.model.task.TaskType;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
-import java.util.Map;
-
-@Slf4j
-@Service
-public class YourService {
-
-    @Autowired
-    private EnhancedJobService jobService;
-
-    public void createDailyJob() {
-        // 创建每天执行的定时任务
-        TaskDefinition taskDef = TaskDefinition.builder()
-                .id("daily-report-job")
-                .name("Daily Report Generation")
-                .type(TaskType.SCHEDULED)
-                .cronExpression("0 0 1 * * ?") // 每天凌晨1点执行
-                .build();
-
-        jobService.saveJob(taskDef);
-    }
-
-    public void createHttpCallJob() {
-        // 创建HTTP调用任务
-        TaskDefinition taskDef = TaskDefinition.builder()
-                .id("api-sync-job")
-                .name("API Synchronization")
-                .type(TaskType.HTTP)
-                .cronExpression("0 */30 * * * ?") // 每30分钟执行
-                .httpConfig(HttpConfig.builder()
-                        .url("http://api.example.com/sync")
-                        .method("POST")
-                        .headers(Map.of("Authorization", "${api.token}"))
-                        .build())
-                .build();
-
-        jobService.saveJob(taskDef);
-    }
-
-    public void monitorJob(String jobId) {
-        // 检查任务执行状态
-        TaskResult result = jobService.executeJob(jobId);
-        if (!result.isSuccess()) {
-            // 处理失败情况
-            handleJobFailure(jobId, result.getMessage());
-        }
-    }
-
-    private void handleJobFailure(String jobId, String message) {
-        log.error("Job {} failed: {}", jobId, message);
-        // 发送告警等操作
-    }
-}
-
-```
-
-## HttpClientUtil.java
-
-```java
-package com.study.scheduler.utils;
-
-import org.apache.http.HeaderElement;
-import org.apache.http.HeaderElementIterator;
-import org.apache.http.client.config.RequestConfig;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.client.methods.HttpRequestBase;
-import org.apache.http.config.Registry;
-import org.apache.http.config.RegistryBuilder;
-import org.apache.http.conn.ConnectionKeepAliveStrategy;
-import org.apache.http.conn.socket.ConnectionSocketFactory;
-import org.apache.http.conn.socket.PlainConnectionSocketFactory;
-import org.apache.http.conn.ssl.NoopHostnameVerifier;
-import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
-import org.apache.http.message.BasicHeaderElementIterator;
-import org.apache.http.protocol.HTTP;
-import org.apache.http.ssl.SSLContextBuilder;
-import org.apache.http.util.EntityUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import javax.net.ssl.SSLContext;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.security.KeyManagementException;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
-import java.security.cert.X509Certificate;
-import java.util.List;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-
-public class HttpClientUtil {
-    private static final Logger logger = LoggerFactory.getLogger(HttpClientUtil.class);
-
-    // HTTP客户端相关配置
-    private static final int MAX_TOTAL_CONNECTIONS = 500;
-    private static final int DEFAULT_MAX_PER_ROUTE = 100;
-    private static final int REQUEST_TIMEOUT = 10000;
-    private static final int CONNECT_TIMEOUT = 10000;
-    private static final int SOCKET_TIMEOUT = 10000;
-    private static final int DEFAULT_KEEP_ALIVE_TIME_MILLIS = 20 * 1000;
-    private static final int CLOSE_IDLE_CONNECTION_WAIT_TIME_SECS = 30;
-
-    // 线程池配置
-    private static final int CORE_POOL_SIZE = 1;
-    private static final int MAX_POOL_SIZE = 1;
-    private static final int QUEUE_CAPACITY = 100;
-    private static final int MONITOR_PERIOD_SECONDS = 10;
-    private static final int SHUTDOWN_TIMEOUT_SECONDS = 5;
-    private static final String MONITOR_THREAD_PREFIX = "http-connection-monitor-";
-    private static final AtomicBoolean isMonitorRunning = new AtomicBoolean(false);
-    // 实例变量
-    private static CloseableHttpClient httpClient;
-    private static PoolingHttpClientConnectionManager connectionManager;
-    private static RequestConfig requestConfig;
-    private static ScheduledThreadPoolExecutor connectionMonitorExecutor;
-
-    static {
-        Thread.setDefaultUncaughtExceptionHandler((thread, throwable) ->
-                logger.error("Uncaught exception in thread {}", thread.getName(), throwable));
-
-        try {
-            init();
-        } catch (KeyManagementException | NoSuchAlgorithmException | KeyStoreException e) {
-            logger.error("Failed to initialize HttpClientUtil", e);
-            throw new IllegalStateException("Failed to initialize HttpClientUtil", e);
-        }
-    }
-
-    private HttpClientUtil() {
-        // 工具类禁止实例化
-    }
-
-    private static void init() throws KeyManagementException, NoSuchAlgorithmException, KeyStoreException {
-        initSslContext();
-        initConnectionManager();
-        initHttpClient();
-        startIdleConnectionMonitor();
-        logger.info("HttpClientUtil initialized successfully");
-    }
-
-    private static void initSslContext() throws KeyManagementException, NoSuchAlgorithmException, KeyStoreException {
-        SSLContext sslContext = SSLContextBuilder.create()
-                .loadTrustMaterial(null, (X509Certificate[] chain, String authType) -> true)
-                .build();
-
-        SSLConnectionSocketFactory sslFactory = new SSLConnectionSocketFactory(
-                sslContext,
-                new String[]{"TLSv1", "TLSv1.1", "TLSv1.2", "TLSv1.3"},
-                null,
-                NoopHostnameVerifier.INSTANCE);
-
-        Registry<ConnectionSocketFactory> registry = RegistryBuilder.<ConnectionSocketFactory>create()
-                .register("http", PlainConnectionSocketFactory.getSocketFactory())
-                .register("https", sslFactory)
-                .build();
-
-        connectionManager = new PoolingHttpClientConnectionManager(registry);
-        connectionManager.setMaxTotal(MAX_TOTAL_CONNECTIONS);
-        connectionManager.setDefaultMaxPerRoute(DEFAULT_MAX_PER_ROUTE);
-    }
-
-    private static void initConnectionManager() {
-        requestConfig = RequestConfig.custom()
-                .setConnectTimeout(CONNECT_TIMEOUT)
-                .setSocketTimeout(SOCKET_TIMEOUT)
-                .setConnectionRequestTimeout(REQUEST_TIMEOUT)
-                .build();
-    }
-
-    private static void initHttpClient() {
-        ConnectionKeepAliveStrategy keepAliveStrategy = (response, context) -> {
-            HeaderElementIterator it = new BasicHeaderElementIterator(
-                    response.headerIterator(HTTP.CONN_KEEP_ALIVE));
-            while (it.hasNext()) {
-                HeaderElement he = it.nextElement();
-                String param = he.getName();
-                String value = he.getValue();
-                if (value != null && param.equalsIgnoreCase("timeout")) {
-                    return Long.parseLong(value) * 1000;
-                }
-            }
-            return DEFAULT_KEEP_ALIVE_TIME_MILLIS;
-        };
-
-        httpClient = HttpClients.custom()
-                .setConnectionManager(connectionManager)
-                .setKeepAliveStrategy(keepAliveStrategy)
-                .setDefaultRequestConfig(requestConfig)
-                .build();
-    }
-
-    private static void startIdleConnectionMonitor() {
-        if (!isMonitorRunning.compareAndSet(false, true)) {
-            logger.warn("Connection monitor is already running");
-            return;
-        }
-        createAndScheduleMonitor();
-    }
-
-    private static void createAndScheduleMonitor() {
-        ThreadFactory threadFactory = new ThreadFactory() {
-            private final AtomicInteger threadNumber = new AtomicInteger(1);
-
-            @Override
-            public Thread newThread(Runnable r) {
-                Thread thread = new Thread(r);
-                thread.setName(MONITOR_THREAD_PREFIX + threadNumber.getAndIncrement());
-                thread.setDaemon(true);
-                return thread;
-            }
-        };
-
-        RejectedExecutionHandler rejectedHandler = (r, executor) ->
-                logger.error("Task rejected from connection monitor executor");
-
-        connectionMonitorExecutor = new ScheduledThreadPoolExecutor(
-                CORE_POOL_SIZE,
-                threadFactory,
-                rejectedHandler
-        );
-        connectionMonitorExecutor.setMaximumPoolSize(MAX_POOL_SIZE);
-        connectionMonitorExecutor.setKeepAliveTime(60, TimeUnit.SECONDS);
-
-        try {
-            connectionMonitorExecutor.scheduleAtFixedRate(
-                    new ConnectionMonitorTask(),
-                    0,
-                    MONITOR_PERIOD_SECONDS,
-                    TimeUnit.SECONDS
-            );
-            logger.info("Connection monitor scheduled successfully");
-        } catch (RejectedExecutionException e) {
-            logger.error("Failed to schedule connection monitor", e);
-            shutdownMonitor();
-        }
-    }
-
-    public static String doGet(String url) throws IOException {
-        HttpGet httpGet = new HttpGet(url);
-        httpGet.setConfig(requestConfig);
-        httpGet.setHeader("User-Agent", "Mozilla/5.0");
-        httpGet.setHeader("Accept", "*/*");
-
-        return executeRequest(httpGet);
-    }
-
-    public static String doPost(String url, String jsonBody) throws IOException {
-        HttpPost httpPost = new HttpPost(url);
-        httpPost.setConfig(requestConfig);
-        httpPost.setHeader("Content-Type", "application/json");
-        httpPost.setHeader("User-Agent", "Mozilla/5.0");
-        httpPost.setHeader("Accept", "*/*");
-
-        if (jsonBody != null) {
-            httpPost.setEntity(new StringEntity(jsonBody, StandardCharsets.UTF_8));
-        }
-
-        return executeRequest(httpPost);
-    }
-
-    private static String executeRequest(HttpRequestBase request) throws IOException {
-        logger.debug("Executing request to: {}", request.getURI());
-
-        try (CloseableHttpResponse response = httpClient.execute(request)) {
-            int statusCode = response.getStatusLine().getStatusCode();
-            String responseBody = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
-
-            logger.debug("Response status code: {}", statusCode);
-            logger.debug("Response body: {}", responseBody);
-
-            if (statusCode >= 200 && statusCode < 300) {
-                return responseBody;
-            }
-            throw new IOException("Unexpected response status: " + statusCode + ", body: " + responseBody);
-        }
-    }
-
-    private static void shutdownMonitor() {
-        if (!isMonitorRunning.get()) {
-            return;
-        }
-
-        try {
-            if (connectionMonitorExecutor != null) {
-                connectionMonitorExecutor.shutdown();
-                boolean terminated = connectionMonitorExecutor.awaitTermination(
-                        SHUTDOWN_TIMEOUT_SECONDS,
-                        TimeUnit.SECONDS
-                );
-                if (!terminated) {
-                    List<Runnable> pendingTasks = connectionMonitorExecutor.shutdownNow();
-                    logger.warn("Force shutdown connection monitor, {} tasks not completed",
-                            pendingTasks.size());
-                    connectionMonitorExecutor.awaitTermination(1, TimeUnit.SECONDS);
-                }
-            }
-        } catch (InterruptedException e) {
-            logger.error("Error while shutting down connection monitor", e);
-            if (connectionMonitorExecutor != null) {
-                List<Runnable> pendingTasks = connectionMonitorExecutor.shutdownNow();
-                logger.warn("{} tasks not completed", pendingTasks.size());
-            }
-        } finally {
-            isMonitorRunning.set(false);
-        }
-    }
-
-    public static void close() {
-        try {
-            logger.info("Shutting down HttpClientUtil...");
-            shutdownMonitor();
-            if (httpClient != null) {
-                httpClient.close();
-            }
-            if (connectionManager != null) {
-                connectionManager.close();
-            }
-            logger.info("HttpClientUtil shut down successfully");
-        } catch (IOException e) {
-            logger.error("Error while shutting down HttpClientUtil", e);
-        }
-    }
-
-    private static class ConnectionMonitorTask implements Runnable {
-        @Override
-        public void run() {
-            try {
-                synchronized (connectionManager) {
-                    connectionManager.closeExpiredConnections();
-                    connectionManager.closeIdleConnections(
-                            CLOSE_IDLE_CONNECTION_WAIT_TIME_SECS,
-                            TimeUnit.SECONDS
-                    );
-                }
-                logger.debug("Connection maintenance completed");
-            } catch (RuntimeException e) {
-                logger.error("Error during connection maintenance", e);
-            }
-        }
-    }
-}
-```
-
-## MongoDBUtils.java
-
-```java
-package com.study.scheduler.utils;
-
-import com.mongodb.client.result.DeleteResult;
-import com.mongodb.client.result.UpdateResult;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.mongodb.core.MongoTemplate;
-import org.springframework.data.mongodb.core.query.Query;
-import org.springframework.data.mongodb.core.query.Update;
-import org.springframework.stereotype.Component;
-
-import java.util.List;
-
-@Component
-public class MongoDBUtils {
-    private final MongoTemplate mongoTemplate;
-
-    public MongoDBUtils(MongoTemplate mongoTemplate) {
-        this.mongoTemplate = mongoTemplate;
-    }
-
-    public <T> T save(T entity) {
-        return mongoTemplate.save(entity);
-    }
-
-    public <T> List<T> findAll(Class<T> entityClass) {
-        return mongoTemplate.findAll(entityClass);
-    }
-
-    public <T> T findById(String id, Class<T> entityClass) {
-        return mongoTemplate.findById(id, entityClass);
-    }
-
-    public <T> List<T> find(Query query, Class<T> entityClass) {
-        return mongoTemplate.find(query, entityClass);
-    }
-
-    public <T> T findOne(Query query, Class<T> entityClass) {
-        return mongoTemplate.findOne(query, entityClass);
-    }
-
-    public <T> UpdateResult update(Query query, Update update, Class<T> entityClass) {
-        return mongoTemplate.updateMulti(query, update, entityClass);
-    }
-
-    public <T> DeleteResult delete(Query query, Class<T> entityClass) {
-        return mongoTemplate.remove(query, entityClass);
-    }
-
-    public <T> long count(Query query, Class<T> entityClass) {
-        return mongoTemplate.count(query, entityClass);
-    }
-
-    public <T> List<T> findByPage(Query query, Class<T> entityClass, int page, int size) {
-        query.skip((long) (page - 1) * size).limit(size);
-        return mongoTemplate.find(query, entityClass);
-    }
-
-    public <T> List<T> findBySort(Query query, Class<T> entityClass, Sort sort) {
-        query.with(sort);
-        return mongoTemplate.find(query, entityClass);
-    }
-}
-```
-
-## application.properties
-
-```properties
-#spring.data.redis.password=123456
-#spring.data.redis.timeout=5000
-#spring.data.redis.cluster.nodes=192.168.80.137:6379,192.168.80.137:6380,192.168.80.137:6381,192.168.80.137:6382,192.168.80.137:6383,192.168.80.137:6384
-
-# Server
-server.port=8081
-spring.application.name=platform-scheduler
-
-# DataSource
-spring.datasource.driver-class-name=org.mariadb.jdbc.Driver
-spring.datasource.url=jdbc:mariadb://192.168.80.137:3306/test?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
-spring.datasource.username=root
-spring.datasource.password=123456
-spring.datasource.type=com.zaxxer.hikari.HikariDataSource
-
-# Hikari Pool
-spring.datasource.hikari.minimum-idle=5
-spring.datasource.hikari.maximum-pool-size=15
-spring.datasource.hikari.idle-timeout=30000
-spring.datasource.hikari.pool-name=SchedulerHikariCP
-spring.datasource.hikari.max-lifetime=1800000
-spring.datasource.hikari.connection-timeout=30000
-spring.datasource.hikari.connection-test-query=SELECT 1
-
-# Quartz
-spring.quartz.job-store-type=jdbc
-spring.quartz.jdbc.initialize-schema=always
-spring.quartz.properties.org.quartz.jobStore.useProperties=false
-spring.quartz.properties.org.quartz.scheduler.instanceName=ClusterScheduler
-spring.quartz.properties.org.quartz.scheduler.instanceId=AUTO
-spring.quartz.properties.org.quartz.jobStore.class=org.springframework.scheduling.quartz.LocalDataSourceJobStore
-spring.quartz.properties.org.quartz.jobStore.driverDelegateClass=org.quartz.impl.jdbcjobstore.StdJDBCDelegate
-spring.quartz.properties.org.quartz.jobStore.tablePrefix=QRTZ_
-spring.quartz.properties.org.quartz.jobStore.isClustered=true
-spring.quartz.properties.org.quartz.jobStore.clusterCheckinInterval=10000
-spring.quartz.properties.org.quartz.jobStore.dataSource=quartzDataSource
-
-# Redis
-spring.data.redis.password=123456
-spring.data.redis.timeout=5000
-spring.data.redis.cluster.nodes=192.168.80.137:6379,192.168.80.137:6380,192.168.80.137:6381,192.168.80.137:6382,192.168.80.137:6383,192.168.80.137:6384
-spring.data.redis.lettuce.pool.max-active=8
-spring.data.redis.lettuce.pool.max-idle=8
-spring.data.redis.lettuce.pool.min-idle=0
-spring.data.redis.lettuce.pool.max-wait=1000
-
-# MongoDB
-spring.data.mongodb.uri=mongodb://root:123456@192.168.80.137:27017
-spring.data.mongodb.database=crawler
-spring.data.mongodb.auto-index-creation=true
-
-# MyBatis
-mybatis.mapper-locations=classpath:mapper/*.xml
-mybatis.configuration.map-underscore-to-camel-case=true
-mybatis.configuration.log-impl=org.apache.ibatis.logging.slf4j.Slf4jImpl
-
-# Logging
-logging.level.com.study=debug
-logging.level.org.springframework.jdbc.core=debug
-logging.level.org.apache.http=DEBUG
-logging.level.javax.net=DEBUG
-
-# Scheduler
-scheduler.log.retain-days=30
-collect.service.url=http://localhost:8082
-collect.service.urls[0]=http://localhost:8082
-collect.service.urls[1]=http://localhost:8083
-collect.service.urls[2]=http://localhost:8084
-collect.scheduler.tasks.collect-distribution.cron=0/30 * * * * ?
-collect.scheduler.tasks.health-sync.cron=0 0/5 * * * ?
-collect.scheduler.tasks.failed-retry.cron=0 0/10 * * * ?
-collect.scheduler.jobs.tree-collection.cron=0 0 1 * * ?
-collect.scheduler.jobs.tree-collection.data.url=http://example.com/api/tree-data
-collect.scheduler.jobs.tree-collection.data.method=GET
-```
-
-## SchedulerDatabaseTables.sql
-
-```sql
--- 任务信息表
-CREATE TABLE schedule_job_info
-(
-    id              BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
-    job_name        VARCHAR(100) NOT NULL COMMENT '任务名称',
-    job_group       VARCHAR(100) NOT NULL COMMENT '任务分组',
-    job_class       VARCHAR(255) NOT NULL COMMENT '任务类',
-    cron_expression VARCHAR(100) NOT NULL COMMENT 'cron表达式',
-    parameter       TEXT COMMENT '任务参数（JSON格式）',
-    description     VARCHAR(500) COMMENT '任务描述',
-    concurrent      TINYINT      NOT NULL DEFAULT 0 COMMENT '是否允许并发执行：0-否，1-是',
-    status          TINYINT      NOT NULL DEFAULT 0 COMMENT '任务状态：0-暂停，1-运行',
-    next_fire_time  DATETIME COMMENT '下次执行时间',
-    prev_fire_time  DATETIME COMMENT '上次执行时间',
-    create_time     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    update_time     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_job_key (job_name, job_group),
-    KEY             idx_status (status),
-    KEY             idx_next_fire_time (next_fire_time)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='定时任务信息表';
-
--- 任务执行日志表
-CREATE TABLE schedule_job_log
-(
-    id             BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
-    job_id         BIGINT COMMENT '任务ID',
-    job_name       VARCHAR(100) NOT NULL COMMENT '任务名称',
-    job_group      VARCHAR(100) NOT NULL COMMENT '任务分组',
-    job_class      VARCHAR(255) NOT NULL COMMENT '任务类',
-    parameter      TEXT COMMENT '执行参数',
-    message        VARCHAR(500) COMMENT '日志信息',
-    status         TINYINT      NOT NULL COMMENT '执行状态：0-失败，1-成功',
-    exception_info TEXT COMMENT '异常信息',
-    start_time     DATETIME     NOT NULL COMMENT '开始时间',
-    end_time       DATETIME COMMENT '结束时间',
-    duration       BIGINT COMMENT '执行时长(毫秒)',
-    server_ip      VARCHAR(50) COMMENT '执行服务器IP',
-    PRIMARY KEY (id),
-    KEY            idx_job_name (job_name),
-    KEY            idx_job_group (job_group),
-    KEY            idx_start_time (start_time),
-    KEY            idx_status (status)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='定时任务执行日志表';
 ```
 
