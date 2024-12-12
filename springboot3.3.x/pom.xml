@@ -256,6 +256,7 @@
         <module>platform-scheduler</module>
         <module>platform-gateway</module>
         <module>platform-collect</module>
+        <module>platform-dashboard</module>
     </modules>
 
     <build>

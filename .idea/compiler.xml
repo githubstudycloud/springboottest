@@ -9,6 +9,7 @@
         <outputRelativeToContentRoot value="true" />
         <module name="platform-gateway" />
         <module name="platform-common" />
+        <module name="platform-dashboard" />
         <module name="platform-scheduler" />
         <module name="springboottest" />
         <module name="platform-collect" />
@@ -24,6 +25,7 @@
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">
       <module name="platform-collect" options="-parameters" />
       <module name="platform-common" options="-parameters" />
+      <module name="platform-dashboard" options="-parameters" />
       <module name="platform-gateway" options="-parameters" />
       <module name="platform-scheduler" options="-parameters" />
     </option>
