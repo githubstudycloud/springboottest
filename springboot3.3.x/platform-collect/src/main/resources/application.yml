@@ -1,18 +1,55 @@
+# application.yml
 server:
-  port: 8082
+  port: 8080
+  servlet:
+    context-path: /collect
+  tomcat:
+    max-threads: 200
+    min-spare-threads: 10
 
 spring:
   application:
     name: platform-collect
 
   # 数据源配置
+  data:
+    mongodb:
+      uri: mongodb://localhost:27017/collect
+      database: collect
+      auto-index-creation: true
+    redis:
+      host: localhost
+      port: 6379
+      password:
+      database: 0
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+          max-wait: -1ms
+
+  # RabbitMQ配置
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+    virtual-host: /
+    listener:
+      simple:
+        concurrency: 5
+        max-concurrency: 20
+        prefetch: 1
+    publisher-confirm-type: correlated
+    publisher-returns: true
+
+  # MySQL配置
   datasource:
-    driver-class-name: org.mariadb.jdbc.Driver
-    url: jdbc:mariadb://192.168.80.137:3306/collect?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/collect?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
     username: root
-    password: 123456
-    type: com.zaxxer.hikari.HikariDataSource
-    # Hikari 连接池配置
+    password: root
     hikari:
       minimum-idle: 5
       maximum-pool-size: 15
@@ -20,83 +57,33 @@ spring:
       pool-name: CollectHikariCP
       max-lifetime: 1800000
       connection-timeout: 30000
-      connection-test-query: SELECT 1
-
-  # MongoDB配置
-  data:
-    mongodb:
-      uri: mongodb://root:123456@192.168.80.137:27017/collect?authSource=admin
-      database: collect
-      auto-index-creation: true
-
-    # Redis配置
-    redis:
-      password: 123456
-      timeout: 5000
-
-      # 连接池配置
-      lettuce:
-        pool:
-          max-active: 8
-          max-idle: 8
-          min-idle: 0
-          max-wait: 1000
-
-      # 集群配置
-      cluster:
-        nodes:
-          - 192.168.80.137:6379
-          - 192.168.80.137:6380
-          - 192.168.80.137:6381
-          - 192.168.80.137:6382
-          - 192.168.80.137:6383
-          - 192.168.80.137:6384
-
-  # RabbitMQ配置
-  rabbitmq:
-    host: 192.168.80.137
-    port: 5672
-    username: admin
-    password: 123456
-    virtual-host: /
-    publisher-confirm-type: correlated
-    publisher-returns: true
-    template:
-      mandatory: true
-    listener:
-      simple:
-        acknowledge-mode: manual
-        concurrency: 3
-        max-concurrency: 10
-        prefetch: 1
-        retry:
-          enabled: true
-          initial-interval: 1000
-          max-attempts: 3
-          max-interval: 10000
-          multiplier: 2.0
 
 # MyBatis配置
 mybatis:
   mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.study.collect.domain.entity
   configuration:
     map-underscore-to-camel-case: true
     log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
-# 采集任务配置
+
+# 采集配置
 collect:
   task:
+    queue-capacity: 10000
     retry:
       max-attempts: 3
       initial-interval: 1000
-      max-interval: 10000
       multiplier: 2.0
-    connection:
-      connect-timeout: 5000
-      read-timeout: 10000
-      max-connections: 100
-    monitor:
-      metrics-interval: 60000
-      cleanup-interval: 86400000
+      max-interval: 10000
+    thread-pool:
+      core-size: 10
+      max-size: 20
+      queue-capacity: 1000
+      keep-alive-seconds: 60
+  monitor:
+    metrics-interval: 60
+    cleanup-interval: 3600
+
 # 监控配置
 management:
   endpoints:
@@ -109,10 +96,18 @@ management:
   metrics:
     tags:
       application: ${spring.application.name}
+    export:
+      prometheus:
+        enabled: true
 
+# 日志配置
 logging:
   level:
-    com.study: debug
-    org.springframework.data.mongodb: debug
-    org.springframework.amqp: debug
-    org.springframework.data.redis: info
+    root: INFO
+    com.study.collect: DEBUG
+  file:
+    name: logs/collect.log
+  logback:
+    rollingpolicy:
+      max-file-size: 100MB
+      max-history: 30

@@ -1,0 +1,40 @@
+# application-dev.yml
+server:
+  port: 8080
+
+spring:
+  data:
+    mongodb:
+      uri: mongodb://localhost:27017/collect_dev
+      database: collect_dev
+    redis:
+      host: localhost
+      port: 6379
+      password:
+      database: 0
+
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+    virtual-host: /dev
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/collect_dev?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    username: root
+    password: root
+
+logging:
+  level:
+    com.study.collect: DEBUG
+  file:
+    name: logs/collect-dev.log
+
+collect:
+  task:
+    retry:
+      max-attempts: 5
+      initial-interval: 1000
+  monitor:
+    metrics-interval: 30

@@ -1,0 +1,73 @@
+# application-prod.yml
+server:
+  port: 8082
+
+spring:
+  data:
+    mongodb:
+      uri: mongodb://mongodb1:27017,mongodb2:27017,mongodb3:27017/collect_prod?replicaSet=rs0
+      database: collect_prod
+    redis:
+      cluster:
+        nodes:
+          - redis1:6379
+          - redis2:6379
+          - redis3:6379
+        max-redirects: 3
+      password: Prod@2024
+
+  rabbitmq:
+    addresses: rabbitmq1:5672,rabbitmq2:5672,rabbitmq3:5672
+    username: prod
+    password: Prod@2024
+    virtual-host: /prod
+    listener:
+      simple:
+        concurrency: 10
+        max-concurrency: 30
+
+  datasource:
+    url: jdbc:mysql://mysql-master:3306,mysql-slave1:3306,mysql-slave2:3306/collect_prod?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    username: prod
+    password: Prod@2024
+    hikari:
+      minimum-idle: 10
+      maximum-pool-size: 30
+
+logging:
+  level:
+    com.study.collect: WARN
+  file:
+    name: logs/collect-prod.log
+    max-size: 1GB
+    max-history: 60
+
+collect:
+  task:
+    queue-capacity: 50000
+    retry:
+      max-attempts: 3
+      initial-interval: 5000
+    thread-pool:
+      core-size: 20
+      max-size: 40
+      queue-capacity: 5000
+  monitor:
+    metrics-interval: 60
+    alert:
+      enabled: true
+      dingtalk:
+        webhook: https://oapi.dingtalk.com/robot/send?access_token=xxx
+      email:
+        enabled: true
+        to: ops@company.com
+
+management:
+  endpoint:
+    health:
+      show-details: when_authorized
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+      base-path: /monitor

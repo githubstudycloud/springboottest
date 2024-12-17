@@ -1,0 +1,40 @@
+# application-test.yml
+server:
+  port: 8081
+
+spring:
+  data:
+    mongodb:
+      uri: mongodb://mongodb-test:27017/collect_test
+      database: collect_test
+    redis:
+      host: redis-test
+      port: 6379
+      password: test123
+      database: 0
+
+  rabbitmq:
+    host: rabbitmq-test
+    port: 5672
+    username: test
+    password: test123
+    virtual-host: /test
+
+  datasource:
+    url: jdbc:mysql://mysql-test:3306/collect_test?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    username: test
+    password: test123
+
+logging:
+  level:
+    com.study.collect: INFO
+  file:
+    name: logs/collect-test.log
+
+collect:
+  task:
+    retry:
+      max-attempts: 3
+      initial-interval: 2000
+  monitor:
+    metrics-interval: 60
