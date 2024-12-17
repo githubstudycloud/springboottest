@@ -1,98 +1,50 @@
 # application.yml
-server:
-  port: 8080
-  servlet:
-    context-path: /collect
-  tomcat:
-    max-threads: 200
-    min-spare-threads: 10
-
 spring:
   application:
     name: platform-collect
+  profiles:
+    active: @profile.active@ # 通过Maven Profile激活不同环境
 
-  # 数据源配置
-  data:
-    mongodb:
-      uri: mongodb://localhost:27017/collect
-      database: collect
-      auto-index-creation: true
-    redis:
-      host: localhost
-      port: 6379
-      password:
-      database: 0
-      lettuce:
-        pool:
-          max-active: 8
-          max-idle: 8
-          min-idle: 0
-          max-wait: -1ms
+  # 公共配置
+  main:
+    allow-bean-definition-overriding: true
+    allow-circular-references: false
+  mvc:
+    throw-exception-if-no-handler-found: true
+  web:
+    resources:
+      add-mappings: false
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: Asia/Shanghai
+    default-property-inclusion: non_null
 
-  # RabbitMQ配置
-  rabbitmq:
-    host: localhost
-    port: 5672
-    username: guest
-    password: guest
-    virtual-host: /
-    listener:
-      simple:
-        concurrency: 5
-        max-concurrency: 20
-        prefetch: 1
-    publisher-confirm-type: correlated
-    publisher-returns: true
-
-  # MySQL配置
-  datasource:
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/collect?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
-    username: root
-    password: root
-    hikari:
-      minimum-idle: 5
-      maximum-pool-size: 15
-      idle-timeout: 30000
-      pool-name: CollectHikariCP
-      max-lifetime: 1800000
-      connection-timeout: 30000
-
-# MyBatis配置
+# MyBatis通用配置
 mybatis:
   mapper-locations: classpath:mapper/*.xml
   type-aliases-package: com.study.collect.domain.entity
   configuration:
     map-underscore-to-camel-case: true
+    cache-enabled: true
+    use-generated-keys: true
+    default-executor-type: REUSE
     log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
 
-# 采集配置
+# 采集通用配置
 collect:
   task:
-    queue-capacity: 10000
     retry:
-      max-attempts: 3
-      initial-interval: 1000
-      multiplier: 2.0
-      max-interval: 10000
+      enabled: true
     thread-pool:
-      core-size: 10
-      max-size: 20
-      queue-capacity: 1000
-      keep-alive-seconds: 60
+      enabled: true
   monitor:
-    metrics-interval: 60
-    cleanup-interval: 3600
+    enabled: true
 
-# 监控配置
+# 监控通用配置
 management:
   endpoints:
     web:
-      exposure:
-        include: health,info,metrics,prometheus
-  endpoint:
-    health:
-      show-details: always
+      base-path: /actuator
   metrics:
     tags:
       application: ${spring.application.name}
@@ -100,14 +52,12 @@ management:
       prometheus:
         enabled: true
 
-# 日志配置
+# 日志通用配置
 logging:
-  level:
-    root: INFO
-    com.study.collect: DEBUG
-  file:
-    name: logs/collect.log
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n"
   logback:
     rollingpolicy:
-      max-file-size: 100MB
-      max-history: 30
+      clean-history-on-start: false
+      file-name-pattern: ${LOG_FILE}.%d{yyyy-MM-dd}.%i.gz

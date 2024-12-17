@@ -1,0 +1,76 @@
+# application-alert.yml
+collect:
+  alert:
+    enabled: true
+
+    # 告警通道
+    channels:
+      dingtalk:
+        enabled: true
+        webhook: ${DINGTALK_WEBHOOK}
+        secret: ${DINGTALK_SECRET}
+      email:
+        enabled: true
+        host: smtp.company.com
+        port: 465
+        username: ${MAIL_USERNAME}
+        password: ${MAIL_PASSWORD}
+        from: alert@company.com
+        to: ops@company.com
+      sms:
+        enabled: true
+        provider: aliyun
+        access-key: ${SMS_ACCESS_KEY}
+        secret-key: ${SMS_SECRET_KEY}
+        template-code: SMS_ALERT_TEMPLATE
+        sign-name: Company
+
+    # 告警规则
+    rules:
+      # 系统级告警
+      - name: high-cpu-usage
+        metric: system.cpu.usage
+        threshold: 80
+        duration: 5m
+        severity: warning
+      - name: high-memory-usage
+        metric: system.memory.usage
+        threshold: 85
+        duration: 5m
+        severity: warning
+      - name: high-disk-usage
+        metric: system.disk.usage
+        threshold: 90
+        duration: 5m
+        severity: critical
+
+      # 业务级告警
+      - name: high-task-failure-rate
+        metric: collect.task.failure.rate
+        threshold: 10
+        duration: 15m
+        severity: warning
+      - name: large-task-queue
+        metric: collect.task.queue.size
+        threshold: 1000
+        duration: 5m
+        severity: warning
+      - name: slow-processing
+        metric: collect.task.process.time
+        threshold: 30
+        duration: 5m
+        severity: warning
+
+    # 告警聚合
+    aggregation:
+      window: 5m  # 聚合窗口
+      group-by:
+        - severity
+        - rule
+      max-alerts: 10  # 每个窗口最大告警数
+
+    # 告警抑制
+    suppression:
+      enabled: true
+      cool-down: 30m  # 相同告警抑制时间
+      max-alerts-per-hour: 50  # 每小时最大告警数

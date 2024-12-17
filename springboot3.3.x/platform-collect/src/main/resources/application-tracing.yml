@@ -1,0 +1,60 @@
+# application-tracing.yml
+spring:
+  sleuth:
+    enabled: true
+    sampler:
+      probability: 1.0
+    web:
+      client:
+        enabled: true
+    async:
+      enabled: true
+    integration:
+      enabled: true
+    scheduled:
+      enabled: true
+    messaging:
+      enabled: true
+
+  zipkin:
+    enabled: true
+    base-url: http://zipkin:9411
+    service:
+      name: ${spring.application.name}
+    sender:
+      type: rabbit  # 使用RabbitMQ发送追踪数据
+    rabbitmq:
+      queue: zipkin
+    message-timeout: 5
+
+logging:
+  pattern:
+    level: "[%X{traceId}/%X{spanId}] %-5p [%t] %C{2} - %m%n"
+
+collect:
+  trace:
+    # 采样策略
+    sampler:
+      type: adaptive  # adaptive, constant, rate-limiting
+      base-rate: 100  # 基础采样率(每秒)
+      lower-bound: 10 # 最低采样率
+      target-latency: 100  # 目标延迟(ms)
+
+    # 上下文传播
+    propagation:
+      type: B3  # B3, W3C
+      enabled-headers:
+        - x-request-id
+        - x-b3-traceid
+        - x-b3-spanid
+        - x-b3-parentspanid
+        - x-b3-sampled
+
+    # 追踪数据存储
+    storage:
+      type: elasticsearch  # elasticsearch, cassandra
+      elasticsearch:
+        hosts:
+          - elasticsearch1:9200
+          - elasticsearch2:9200
+        index-prefix: trace
