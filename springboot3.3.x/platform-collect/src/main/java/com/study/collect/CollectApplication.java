@@ -7,7 +7,7 @@ import org.springframework.context.annotation.ComponentScan;
 
 @SpringBootApplication
 @ComponentScan(basePackages = {"com.study"})
-@MapperScan("com.study.collect.mapper")
+//@MapperScan("com.study.collect.mapper")
 public class CollectApplication {
     public static void main(String[] args) {
         SpringApplication.run(CollectApplication.class, args);
