@@ -17,8 +17,8 @@
       <list>
         <option value="$PROJECT_DIR$/springboot2.7.18/pom.xml" />
         <option value="$PROJECT_DIR$/springboot1.5.22/pom.xml" />
-        <option value="$PROJECT_DIR$/springboot3.3.x/pom.xml" />
         <option value="$PROJECT_DIR$/pom.xml" />
+        <option value="$PROJECT_DIR$/springboot3.3.x/platform-collect/pom.xml" />
       </list>
     </option>
   </component>

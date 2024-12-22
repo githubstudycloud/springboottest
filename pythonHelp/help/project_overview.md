@@ -3,447 +3,149 @@
 ```
 platform-collect/
     pom.xml
-    src/
-        main/
-            java/
-                com/
-                    study/
-                        collect/
-                            CollectApplication.java
-                            api/
-                                controller/
-                                    CollectController.java
-                                    CollectStatsController.java
-                                    CollectSyncController.java
-                                    CollectTaskController.java
-                                data/
-                                    DataCompareController.java
-                                    DataQueryController.java
-                                monitor/
-                                    AlertController.java
-                                    MetricsController.java
-                                    MonitorController.java
-                            common/
-                                annotation/
-                                    collect/
-                                        Collector.java
-                                        CollectTrace.java
-                                        Processor.java
-                                        Retryable.java
-                                    lock/
-                                        CacheLock.java
-                                        DistributedLock.java
-                                    monitor/
-                                        Alert.java
-                                        Metrics.java
-                                        Monitor.java
-                                    validate/
-                                        DataValid.java
-                                        ParamValid.java
-                                constant/
-                                    cache/
-                                        CacheConstant.java
-                                        KeyConstant.java
-                                    collect/
-                                        CollectConstant.java
-                                        TaskConstant.java
-                                    data/
-                                        DataConstant.java
-                                        StatsConstant.java
-                                    db/
-                                        MongoConstant.java
-                                        RedisConstant.java
-                                    mq/
-                                        MessageConstant.java
-                                        QueueConstant.java
-                                enums/
-                                    collect/
-                                        CollectType.java
-                                        ProcessType.java
-                                        TaskStatus.java
-                                    data/
-                                        CompareType.java
-                                        DataType.java
-                                    sync/
-                                        SyncStatus.java
-                                        SyncType.java
-                                exception/
-                                    BaseException.java
-                                    collect/
-                                        CollectException.java
-                                        ProcessException.java
-                                        TaskException.java
-                                    data/
-                                        DataException.java
-                                        ValidateException.java
-                                    sync/
-                                        LockException.java
-                                        SyncException.java
-                                    system/
-                                        BusinessException.java
-                                        ConfigException.java
-                                        SystemException.java
-                                model/
-                                    dto/
-                                        CollectDTO.java
-                                        ResultDTO.java
-                                        TaskDTO.java
-                                    query/
-                                        DataQuery.java
-                                        StatsQuery.java
-                                    result/
-                                        PageResult.java
-                                        Response.java
-                                        TreeResult.java
-                                utils/
-                                    cache/
-                                        CacheUtil.java
-                                        KeyUtil.java
-                                    collect/
-                                        ListUtil.java
-                                        TaskUtil.java
-                                        TreeUtil.java
-                                    common/
-                                        DateUtil.java
-                                        FileUtil.java
-                                        JsonUtils.java
-                                        StringUtils.java
-                                        ThreadUtil.java
-                                        TraceUtil.java
-                                    data/
-                                        CompareUtil.java
-                                        ConvertUtil.java
-                                        StatsUtil.java
-                                        ValidateUtils.java
-                                    lock/
-                                        LockUtil.java
-                                        SyncUtil.java
-                            core/
-                                collector/
-                                    Collector.java
-                                    base/
-                                        AbstractCollector.java
-                                        CompoundCollector.java
-                                        HttpListCollector.java
-                                        HttpTreeCollector.java
-                                        ListCollector.java
-                                        TreeCollector.java
-                                    compound/
-                                        ListDetailCollector.java
-                                        MultiSourceCollector.java
-                                        TreeDetailCollector.java
-                                        TreeListCollector.java
-                                    factory/
-                                        CollectorFactory.java
-                                    list/
-                                        IncrListCollector.java
-                                        PageListCollector.java
-                                        ScrollListCollector.java
-                                        StreamListCollector.java
-                                    tree/
-                                        AsyncTreeCollector.java
-                                        LazyTreeCollector.java
-                                        RecursiveTreeCollector.java
-                                        SimpleTreeCollector.java
-                                engine/
-                                    AbstractCollectEngine.java
-                                    CollectContext.java
-                                    CollectEngine.java
-                                    StandardCollectEngine.java
-                                executor/
-                                    ShardTaskExecutor.java
-                                    base/
-                                        AbstractExecutor.java
-                                        CollectExecutor.java
-                                    context/
-                                        DefaultContext.java
-                                        ExecuteContext.java
-                                    impl/
-                                        AsyncExecutor.java
-                                        CompensateExecutor.java
-                                        RetryExecutor.java
-                                    monitor/
-                                        ExecuteMonitor.java
-                                        StatusCollector.java
-                                impl/
-                                    AsyncCollectEngine.java
-                                    DistributedEngine.java
-                                    IncrementalEngine.java
-                                    StandardCollectEngine.java
-                                processor/
-                                    ProcessContext.java
-                                    Processor.java
-                                    base/
-                                        AbstractProcessor.java
-                                        DataTransformer.java
-                                        ListProcessor.java
-                                        TreeProcessor.java
-                                    chain/
-                                        ChainContext.java
-                                        DataProcessManager.java
-                                        ProcessorChain.java
-                                        ProcessorChainBuilder.java
-                                    impl/
-                                        compare/
-                                            ListCompareProcessor.java
-                                            TreeCompareProcessor.java
-                                        filter/
-                                            ListFilter.java
-                                            TreeFilter.java
-                                        merge/
-                                            ListMerger.java
-                                            TreeMerger.java
-                                        stats/
-                                            ListStatsProcessor.java
-                                            TreeStatsProcessor.java
-                                        storage/
-                                            CacheProcessor.java
-                                            MongoProcessor.java
-                                        sync/
-                                            ListSyncProcessor.java
-                                            TreeSyncProcessor.java
-                                        task/
-                                            TaskPriorityProcessor.java
-                                            TaskShardingProcessor.java
-                                        transform/
-                                            ListTransformer.java
-                                            TreeTransformer.java
-                                        validate/
-                                            DataValidator.java
-                                            RuleValidator.java
-                                scheduler/
-                                    base/
-                                        AbstractTaskScheduler.java
-                                        ScheduleContext.java
-                                        StandardTaskScheduler.java
-                                        TaskScheduler.java
-                                    dispatch/
-                                        DefaultDispatcher.java
-                                        TaskDispatcher.java
-                                    monitor/
-                                        MetricsCollector.java
-                                        ScheduleMonitor.java
-                                    strategy/
-                                        DispatchStrategy.java
-                                        TaskSplitStrategy.java
-                                strategy/
-                                    ConfigurationManager.java
-                                    DataSynchronizationManager.java
-                                    DataValidationManager.java
-                                    DedupStrategy.java
-                                    DispatchStrategy.java
-                                    DistributedCoordinationManager.java
-                                    DistributedProcessCoordinator.java
-                                    DynamicShardingStrategy.java
-                                    FailureRecoveryManager.java
-                                    FaultToleranceChain.java
-                                    FaultToleranceManager.java
-                                    MetricsOptimizationManager.java
-                                    MultiLevelCacheManager.java
-                                    PerformanceOptimizationManager.java
-                                    RangeShardingStrategy.java
-                                    ResourceManager.java
-                                    SchedulingOptimizationManager.java
-                                    SecurityManager.java
-                                    ShardDataConsistencyManager.java
-                                    ShardingStrategy.java
-                                    ShardingStrategyManager.java
-                                    ShardTaskMonitorManager.java
-                                    TaskCompensationManager.java
-                                    balance/
-                                        ConsistentHash.java
-                                        LoadBalanceStrategy.java
-                                        RandomBalance.java
-                                        RoundRobinStrategy.java
-                                    dedup/
-                                        DedupStrategy.java
-                                        ExponentialRetryStrategy.java
-                                        RedisDedupStrategy.java
-                                        RetryStrategy.java
-                                        SimpleDedupStrategy.java
-                                    priority/
-                                        DynamicPriority.java
-                                        PriorityStrategy.java
-                                        SimplePriority.java
-                                    route/
-                                        HashRoute.java
-                                        RouteStrategy.java
-                            domain/
-                                entity/
-                                    data/
-                                        CollectData.java
-                                        list/
-                                            ListData.java
-                                            ListMeta.java
-                                        stats/
-                                            CollectStats.java
-                                            DataStats.java
-                                        tree/
-                                            TreeMeta.java
-                                            TreeNode.java
-                                    sync/
-                                        SyncConfig.java
-                                        SyncResult.java
-                                        SyncTask.java
-                                    task/
-                                        CollectTask.java
-                                        SubTask.java
-                                        TaskConfig.java
-                                        TaskContext.java
-                                        TaskResult.java
-                                        TaskStats.java
-                                    version/
-                                        DataVersion.java
-                                        VersionMeta.java
-                                repository/
-                                    BaseRepository.java
-                                    data/
-                                        CollectDataRepository.java
-                                        ListRepository.java
-                                        TreeNodeRepository.java
-                                        TreeRepository.java
-                                    task/
-                                        TaskRepository.java
-                                        TaskStatsRepository.java
-                                    version/
-                                        VersionRepository.java
-                                service/
-                                    collect/
-                                        CollectDomainService.java
-                                        StatsQueryService.java
-                                        TaskManageService.java
-                                    data/
-                                        DataQueryService.java
-                                        ListDataService.java
-                                        TreeDataService.java
-                                    sync/
-                                        DataSyncService.java
-                                        SyncTaskService.java
-                                    version/
-                                        VersionService.java
-                            infrastructure/
-                                config/
-                                    cache/
-                                        RedisConfig.java
-                                    db/
-                                        MongoConfig.java
-                                        MysqlConfig.java
-                                    mq/
-                                        KafkaConfig.java
-                                        RabbitConfig.java
-                                    thread/
-                                        ThreadPoolConfig.java
-                                lock/
-                                    aspect/
-                                        LockAspect.java
-                                    impl/
-                                        RedisDistributedLock.java
-                                        ZkLock.java
-                                monitor/
-                                    alert/
-                                        AlertAggregator.java
-                                        AlertManager.java
-                                        AlertNotifier.java
-                                    metrics/
-                                        MonitoringAspect.java
+    collect-business/
+        pom.xml
+        business-enterprise/
+            pom.xml
+            src/
+                main/
+                    java/
+                        com/
+                            study/
+                                collect/
+                                    business/
+                                        enterprise/
+                                            collector/
+                                                EnterpriseCollector.java
+                                            config/
+                                                EnterpriseAutoConfiguration.java
+                                            controller/
+                                                EnterpriseController.java
+                                            model/
+                                                Enterprise.java
+                                            processor/
+                                                EnterpriseProcessor.java
+                                            repository/
+                                                EnterpriseRepository.java
+                                            service/
+                                                EnterpriseService.java
+                    resources/
+                        META-INF/
+                            spring.factories
+        business-finance/
+            pom.xml
+            src/
+                main/
+                    java/
+                        com/
+                            study/
+                                collect/
+                                    business/
+                                        finance/
+                                            collector/
+                                                FinanceCollector.java
+                                            config/
+                                                FinanceAutoConfiguration.java
+                                            controller/
+                                                FinanceController.java
+                                            model/
+                                                FinanceData.java
+                                            processor/
+                                                FinanceProcessor.java
+                                            repository/
+                                                FinanceRepository.java
+                                            service/
+                                                FinanceService.java
+                    resources/
+                        META-INF/
+                            spring.factories
+        business-medical/
+            pom.xml
+            src/
+                main/
+                    java/
+                        com/
+                            study/
+                                business/
+                                    medical/
                                         collector/
-                                            DataMetrics.java
-                                            MetricsCollector.java
-                                            SystemMetrics.java
-                                            TaskMetrics.java
-                                        reporter/
-                                            MetricsReporter.java
-                                            PrometheusReporter.java
-                                    trace/
-                                        TraceContext.java
-                                        TraceManager.java
-                                mq/
-                                    config/
-                                        ExchangeConfig.java
-                                        QueueConfig.java
-                                    consumer/
-                                        MessageConsumer.java
-                                        ResultConsumer.java
-                                        TaskConsumer.java
-                                    message/
-                                        CollectMessage.java
-                                        SyncMessage.java
-                                    producer/
-                                        MessageProducer.java
-                                        ResultProducer.java
-                                        TaskProducer.java
-                                persistent/
-                                    cache/
-                                        key/
-                                            KeyGenerator.java
-                                        manager/
-                                            CacheManager.java
-                                        repository/
-                                            BaseCacheRepository.java
-                                            ListCacheRepository.java
-                                            TaskCacheRepository.java
-                                            TreeNodeCacheRepository.java
-                                    mongo/
-                                        converter/
-                                            ListConverter.java
-                                            TreeConverter.java
-                                        repository/
-                                            ListRepositoryImpl.java
-                                            TaskRepositoryImpl.java
-                                            TreeNodeRepositoryImpl.java
-                                            TreeRepositoryImpl.java
-                                        template/
-                                            ListTemplate.java
-                                            TreeTemplate.java
-                                schedule/
-                                    DistributedTaskScheduler.java
-                                    ShardTaskScheduler.java
-                                    elastic/
-                                        ConsistentHashLoadBalancer.java
-                                        DynamicScheduler.java
-                                        LoadBalancer.java
-                                    quartz/
+                                            MedicalCollector.java
                                         config/
-                                            JobFactory.java
-                                            QuartzConfig.java
-                                        job/
-                                            CollectJob.java
-                            model/
-                                request/
-                                    collect/
-                                        AlertQueryRequest.java
-                                        CollectRequest.java
-                                        CompareRequest.java
-                                        SyncRequest.java
-                                    query/
-                                        DataQueryRequest.java
-                                        StatsQueryRequest.java
-                                response/
-                                    collect/
-                                        CollectResult.java
-                                        CollectStatsVO.java
-                                        CompareResult.java
-                                        DataCompareVO.java
-                                    data/
-                                        ListDataVO.java
-                                        MetricsData.java
-                                        TreeDataVO.java
-            resources/
-                application-alert.yml
-                application-dev.yml
-                application-discovery.yml
-                application-prod.yml
-                application-security.yml
-                application-test.yml
-                application-tracing.yml
-                application.yml
-                init.sql
-                test.http
-                test.sql
-                testTree.http
-                tree.http
-                TreeHttp.http
-                treequery.http
+                                            MedicalAutoConfiguration.java
+                                        controller/
+                                            MedicalController.java
+                                        engine/
+                                            MedicalEngine.java
+                                        model/
+                                            MedicalData.java
+                                        processor/
+                                            DicomProcessor.java
+                                            ImageProcessor.java
+                                            PrivacyProcessor.java
+                                        repository/
+                                            FinanceRepository.java
+                                        service/
+                                            MedicalService.java
+                    resources/
+                        META-INF/
+                            spring.factories
+    collect-common/
+        pom.xml
+        src/
+            main/
+                java/
+                    com/
+                        study/
+                            App.java
+                            collect/
+                                common/
+                                    exception/
+                                        BaseException.java
+                                    model/
+                                        Response.java
+                                    util/
+                                        DateUtils.java
+                                        JsonUtils.java
+    collect-core/
+        pom.xml
+        src/
+            main/
+                java/
+                    com/
+                        study/
+                            collect/
+                                core/
+                                    annotation/
+                                        Collector.java
+                                        Processor.java
+                                        Repository.java
+                                    collector/
+                                        AbstractCollector.java
+                                        ICollector.java
+                                    config/
+                                        CollectAutoConfiguration.java
+                                        RabbitConfiguration.java
+                                        RedisConfiguration.java
+                                    constant/
+                                    processor/
+                                        AbstractProcessor.java
+                                        IProcessor.java
+                                    repository/
+                                        IRepository.java
+                                    util/
+    collect-starter/
+        pom.xml
+        src/
+            main/
+                java/
+                    com/
+                        study/
+                            collect/
+                                CollectApplication.java
+                resources/
+                    application-dev.yml
+                    application-prod.yml
+                    application.yml
 ```
 
 # File Contents
@@ -461,25 +163,33 @@ platform-collect/
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
         <version>3.2.9</version>
+        <relativePath/> <!-- 添加这一行 -->
     </parent>
 
     <groupId>com.study</groupId>
     <artifactId>platform-collect</artifactId>
     <version>1.0.0-SNAPSHOT</version>
-    <packaging>jar</packaging>
+    <packaging>pom</packaging>
+
+    <modules>
+        <module>collect-core</module>
+        <module>collect-common</module>
+        <module>collect-business</module>
+        <module>collect-starter</module>
+    </modules>
 
     <properties>
         <java.version>21</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 
-        <!-- Dependency versions -->
+        <!-- 依赖版本管理 -->
         <spring-boot.version>3.2.9</spring-boot.version>
+        <mysql.version>8.3.0</mysql.version>
         <mongodb-driver.version>4.11.1</mongodb-driver.version>
         <lettuce.version>6.3.2.RELEASE</lettuce.version>
         <redisson.version>3.27.2</redisson.version>
         <rabbitmq.version>5.20.0</rabbitmq.version>
-        <mysql.version>8.3.0</mysql.version>
         <mybatis.version>3.0.3</mybatis.version>
         <jackson.version>2.17.0</jackson.version>
         <prometheus.version>1.12.4</prometheus.version>
@@ -490,155 +200,131 @@ platform-collect/
         <guava.version>33.1.0-jre</guava.version>
     </properties>
 
-    <dependencies>
-        <!-- Spring Boot Starters -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-validation</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-actuator</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-aop</artifactId>
-        </dependency>
+    <dependencyManagement>
+        <dependencies>
+            <!-- 内部模块依赖 -->
+            <dependency>
+                <groupId>com.study</groupId>
+                <artifactId>collect-core</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.study</groupId>
+                <artifactId>collect-common</artifactId>
+                <version>${project.version}</version>
+            </dependency>
 
-        <!-- MongoDB -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-mongodb</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.mongodb</groupId>
-            <artifactId>mongodb-driver-sync</artifactId>
-            <version>${mongodb-driver.version}</version>
-        </dependency>
+            <!-- MySQL -->
+            <dependency>
+                <groupId>com.mysql</groupId>
+                <artifactId>mysql-connector-j</artifactId>
+                <version>${mysql.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.mybatis.spring.boot</groupId>
+                <artifactId>mybatis-spring-boot-starter</artifactId>
+                <version>${mybatis.version}</version>
+            </dependency>
 
-        <!-- Redis -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-redis</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.lettuce</groupId>
-            <artifactId>lettuce-core</artifactId>
-            <version>${lettuce.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.redisson</groupId>
-            <artifactId>redisson</artifactId>
-            <version>${redisson.version}</version>
-        </dependency>
+            <!-- MongoDB -->
+            <dependency>
+                <groupId>org.mongodb</groupId>
+                <artifactId>mongodb-driver-sync</artifactId>
+                <version>${mongodb-driver.version}</version>
+            </dependency>
 
-        <!-- RabbitMQ -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-amqp</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.rabbitmq</groupId>
-            <artifactId>amqp-client</artifactId>
-            <version>${rabbitmq.version}</version>
-        </dependency>
+            <!-- Redis -->
+            <dependency>
+                <groupId>io.lettuce</groupId>
+                <artifactId>lettuce-core</artifactId>
+                <version>${lettuce.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.redisson</groupId>
+                <artifactId>redisson</artifactId>
+                <version>${redisson.version}</version>
+            </dependency>
 
-        <!-- MySQL -->
-        <dependency>
-            <groupId>com.mysql</groupId>
-            <artifactId>mysql-connector-j</artifactId>
-            <version>${mysql.version}</version>
-        </dependency>
+            <!-- RabbitMQ -->
+            <dependency>
+                <groupId>com.rabbitmq</groupId>
+                <artifactId>amqp-client</artifactId>
+                <version>${rabbitmq.version}</version>
+            </dependency>
 
-        <!-- MyBatis -->
-        <dependency>
-            <groupId>org.mybatis.spring.boot</groupId>
-            <artifactId>mybatis-spring-boot-starter</artifactId>
-            <version>${mybatis.version}</version>
-        </dependency>
+            <!-- Prometheus -->
+            <dependency>
+                <groupId>io.micrometer</groupId>
+                <artifactId>micrometer-registry-prometheus</artifactId>
+                <version>${prometheus.version}</version>
+            </dependency>
 
-        <!-- Prometheus -->
-        <dependency>
-            <groupId>io.micrometer</groupId>
-            <artifactId>micrometer-registry-prometheus</artifactId>
-            <version>${prometheus.version}</version>
-        </dependency>
-
-        <!-- Utils -->
-        <dependency>
-            <groupId>org.projectlombok</groupId>
-            <artifactId>lombok</artifactId>
-            <version>${lombok.version}</version>
-            <optional>true</optional>
-        </dependency>
-        <dependency>
-            <groupId>org.mapstruct</groupId>
-            <artifactId>mapstruct</artifactId>
-            <version>${mapstruct.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.commons</groupId>
-            <artifactId>commons-lang3</artifactId>
-            <version>${commons-lang3.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>commons-io</groupId>
-            <artifactId>commons-io</artifactId>
-            <version>${commons-io.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
-            <version>${guava.version}</version>
-        </dependency>
-
-        <!-- Test -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-test</artifactId>
-            <scope>test</scope>
-        </dependency>
-    </dependencies>
+            <!-- Common -->
+            <dependency>
+                <groupId>org.projectlombok</groupId>
+                <artifactId>lombok</artifactId>
+                <version>${lombok.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.mapstruct</groupId>
+                <artifactId>mapstruct</artifactId>
+                <version>${mapstruct.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-lang3</artifactId>
+                <version>${commons-lang3.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>commons-io</groupId>
+                <artifactId>commons-io</artifactId>
+                <version>${commons-io.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.google.guava</groupId>
+                <artifactId>guava</artifactId>
+                <version>${guava.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <build>
-        <plugins>
-            <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-                <configuration>
-                    <excludes>
-                        <exclude>
-                            <groupId>org.projectlombok</groupId>
-                            <artifactId>lombok</artifactId>
-                        </exclude>
-                    </excludes>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <configuration>
-                    <source>${java.version}</source>
-                    <target>${java.version}</target>
-                    <annotationProcessorPaths>
-                        <path>
-                            <groupId>org.projectlombok</groupId>
-                            <artifactId>lombok</artifactId>
-                            <version>${lombok.version}</version>
-                        </path>
-                        <path>
-                            <groupId>org.mapstruct</groupId>
-                            <artifactId>mapstruct-processor</artifactId>
-                            <version>${mapstruct.version}</version>
-                        </path>
-                    </annotationProcessorPaths>
-                </configuration>
-            </plugin>
-        </plugins>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-maven-plugin</artifactId>
+                    <configuration>
+                        <excludes>
+                            <exclude>
+                                <groupId>org.projectlombok</groupId>
+                                <artifactId>lombok</artifactId>
+                            </exclude>
+                        </excludes>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <configuration>
+                        <source>${java.version}</source>
+                        <target>${java.version}</target>
+                        <annotationProcessorPaths>
+                            <path>
+                                <groupId>org.projectlombok</groupId>
+                                <artifactId>lombok</artifactId>
+                                <version>${lombok.version}</version>
+                            </path>
+                            <path>
+                                <groupId>org.mapstruct</groupId>
+                                <artifactId>mapstruct-processor</artifactId>
+                                <version>${mapstruct.version}</version>
+                            </path>
+                        </annotationProcessorPaths>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
     </build>
 
     <profiles>
@@ -667,344 +353,1276 @@ platform-collect/
 </project>
 ```
 
-## CollectApplication.java
+## pom.xml
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.study</groupId>
+        <artifactId>platform-collect</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>collect-business</artifactId>
+    <packaging>pom</packaging>
+
+    <modules>
+        <module>business-enterprise</module>
+        <module>business-finance</module>
+        <module>business-medical</module>
+    </modules>
+
+    <dependencies>
+        <!-- 核心依赖 -->
+        <dependency>
+            <groupId>com.study</groupId>
+            <artifactId>collect-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.study</groupId>
+            <artifactId>collect-common</artifactId>
+        </dependency>
+    </dependencies>
+</project>
+```
+
+## pom.xml
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.study</groupId>
+        <artifactId>collect-business</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>business-enterprise</artifactId>
+
+    <dependencies>
+        <!-- Spring Boot Web -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- Database -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-mongodb</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.mybatis.spring.boot</groupId>
+            <artifactId>mybatis-spring-boot-starter</artifactId>
+        </dependency>
+
+        <!-- Cache -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-cache</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+
+        <!-- Test -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+</project>
+```
+
+## EnterpriseCollector.java
 
 ```java
-package com.study.collect;
+package com.study.collect.business.enterprise.collector;
 
-import org.mybatis.spring.annotation.MapperScan;
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
+import com.study.collect.business.enterprise.model.Enterprise;
+import com.study.collect.business.enterprise.repository.EnterpriseRepository;
+import com.study.collect.core.annotation.Collector;
+import com.study.collect.core.collector.ICollector;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
+
+@Collector(type = "enterprise")
+@Component
+@RequiredArgsConstructor
+public class EnterpriseCollector implements ICollector<String, Enterprise> {
+
+    private final EnterpriseRepository repository;
+
+    @Override
+    public Enterprise collect(String code) {
+        return repository.findByCode(code);
+    }
+
+    @Override
+    public String getType() {
+        return "enterprise";
+    }
+}
+
+```
+
+## EnterpriseAutoConfiguration.java
+
+```java
+package com.study.collect.business.enterprise.config;
+
 import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Configuration;
 
-@SpringBootApplication
-@ComponentScan(basePackages = {"com.study"})
-//@MapperScan("com.study.collect.mapper")
-public class CollectApplication {
-    public static void main(String[] args) {
-        SpringApplication.run(CollectApplication.class, args);
+@Configuration
+@ComponentScan("com.study.collect.business.enterprise")
+public class EnterpriseAutoConfiguration {
+}
+```
+
+## EnterpriseController.java
+
+```java
+package com.study.collect.business.enterprise.controller;
+
+import com.study.collect.business.enterprise.model.Enterprise;
+import com.study.collect.business.enterprise.service.EnterpriseService;
+import com.study.collect.common.model.Response;
+import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/enterprise")
+@RequiredArgsConstructor
+public class EnterpriseController {
+
+    private final EnterpriseService enterpriseService;
+
+    @GetMapping("/collect/{code}")
+    public Response<Enterprise> collect(@PathVariable String code) {
+        Enterprise enterprise = enterpriseService.collectAndProcess(code);
+        return Response.success(enterprise);
     }
 }
 ```
 
-## CollectController.java
+## Enterprise.java
 
 ```java
-package com.study.collect.api.controller;
+package com.study.collect.business.enterprise.model;
 
-// 基础采集操作
+import lombok.Data;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+import java.time.LocalDateTime;
 
-import com.study.collect.common.enums.collect.TaskStatus;
-import com.study.collect.common.model.result.Response;
-import com.study.collect.domain.entity.task.CollectTask;
-import com.study.collect.domain.repository.task.TaskRepository;
-import com.study.collect.model.request.collect.CollectRequest;
-import jakarta.validation.Valid;
+@Data
+@Document(collection = "enterprise")
+public class Enterprise {
+    @Id
+    private String id;
+    private String name;
+    private String code;
+    private String address;
+    private String contact;
+    private String phone;
+    private LocalDateTime createTime;
+    private LocalDateTime updateTime;
+}
+```
+
+## EnterpriseProcessor.java
+
+```java
+package com.study.collect.business.enterprise.processor;
+
+import com.study.collect.business.enterprise.model.Enterprise;
+import com.study.collect.core.annotation.Processor;
+import com.study.collect.core.processor.AbstractProcessor;
+import org.springframework.stereotype.Component;
+
+@Processor(type = "enterprise", order = 100)
+@Component
+public class EnterpriseProcessor extends AbstractProcessor<Enterprise> {
+
+    @Override
+    protected Enterprise doProcess(Enterprise data) {
+        // 简单的数据处理
+        if (data != null) {
+            // 处理电话格式
+            if (data.getPhone() != null) {
+                data.setPhone(formatPhone(data.getPhone()));
+            }
+            // 处理地址格式
+            if (data.getAddress() != null) {
+                data.setAddress(formatAddress(data.getAddress()));
+            }
+        }
+        return data;
+    }
+
+    @Override
+    public String getType() {
+        return "enterprise";
+    }
+
+    @Override
+    public int getOrder() {
+        return 0;
+    }
+
+    private String formatPhone(String phone) {
+        // 电话号码格式化逻辑
+        return phone.replaceAll("(\\d{3})(\\d{4})(\\d{4})", "$1-$2-$3");
+    }
+
+    private String formatAddress(String address) {
+        // 地址格式化逻辑
+        return address.trim().replaceAll("\\s+", " ");
+    }
+}
+
+```
+
+## EnterpriseRepository.java
+
+```java
+package com.study.collect.business.enterprise.repository;
+
+import com.study.collect.business.enterprise.model.Enterprise;
+import com.study.collect.core.repository.IRepository;
+import org.springframework.data.mongodb.repository.MongoRepository;
+
+public interface EnterpriseRepository extends IRepository<Enterprise, String>, MongoRepository<Enterprise, String> {
+    Enterprise findByCode(String code);
+}
+
+```
+
+## EnterpriseService.java
+
+```java
+package com.study.collect.business.enterprise.service;
+
+import com.study.collect.business.enterprise.collector.EnterpriseCollector;
+import com.study.collect.business.enterprise.model.Enterprise;
+import com.study.collect.business.enterprise.processor.EnterpriseProcessor;
+import com.study.collect.business.enterprise.repository.EnterpriseRepository;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.stereotype.Service;
+
+@Service
+@RequiredArgsConstructor
+public class EnterpriseService {
+
+    private final EnterpriseCollector collector;
+    private final EnterpriseProcessor processor;
+    private final EnterpriseRepository repository;
+
+    public Enterprise collectAndProcess(String code) {
+        // 1. 采集数据
+        Enterprise enterprise = collector.collect(code);
+        if (enterprise == null) {
+            return null;
+        }
+
+        // 2. 处理数据
+        enterprise = processor.process(enterprise);
+
+        // 3. 保存数据
+        return repository.save(enterprise);
+    }
+}
+
+```
+
+## spring.factories
+
+```
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+com.study.collect.business.enterprise.config.EnterpriseAutoConfiguration
+```
+
+## pom.xml
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.study</groupId>
+        <artifactId>collect-business</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>business-finance</artifactId>
+
+    <dependencies>
+        <!-- Spring Boot Web -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- Financial Libraries -->
+        <dependency>
+            <groupId>org.ta4j</groupId>
+            <artifactId>ta4j-core</artifactId>
+            <version>0.15</version>
+        </dependency>
+
+        <!-- Storage -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-mongodb</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+
+        <!-- Message Queue -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-amqp</artifactId>
+        </dependency>
+
+        <!-- Test -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+</project>
+```
+
+## FinanceCollector.java
+
+```java
+package com.study.collect.business.finance.collector;
+
+import com.study.collect.business.finance.model.FinanceData;
+import com.study.collect.core.collector.AbstractCollector;
+import com.study.collect.core.annotation.Collector;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
-/**
- * 采集任务控制器
- */
-@RestController
-@RequestMapping("/api/collect")
+@Collector(type = "finance")
+@Component
 @RequiredArgsConstructor
-@Slf4j
-public class CollectController {
+public class FinanceCollector extends AbstractCollector<String, FinanceData> {
 
-    private final CollectTaskService taskService;
-    private final TaskRepository taskRepository;
+    private final RedisTemplate<String, Object> redisTemplate;
+    private static final String CACHE_PREFIX = "finance:stock:";
 
-    /**
-     * 提交采集任务
-     */
-    @PostMapping("/submit")
-    public Response<String> submitTask(@RequestBody @Valid CollectRequest request) {
-        try {
-            // 创建任务
-            CollectTask task = createTask(request);
-            // 提交任务
-            taskService.submitTask(task);
-            return Response.success(task.getId());
-        } catch (Exception e) {
-            log.error("Submit task failed", e);
-            return Response.error("SUBMIT_FAILED", e.getMessage());
+    @Override
+    protected void preProcess(String stockCode) {
+        // 检查缓存是否存在
+        String key = CACHE_PREFIX + stockCode;
+        if (Boolean.TRUE.equals(redisTemplate.hasKey(key))) {
+            throw new CollectException("Data already collected: " + stockCode);
         }
     }
 
-    /**
-     * 停止任务
-     */
-    @PostMapping("/{taskId}/stop")
-    public Response<Void> stopTask(@PathVariable String taskId) {
-        try {
-            taskService.stopTask(taskId);
-            return Response.success();
-        } catch (Exception e) {
-            log.error("Stop task failed", e);
-            return Response.error("STOP_FAILED", e.getMessage());
+    @Override
+    protected FinanceData doCollect(String stockCode) {
+        // 模拟从外部API获取数据
+        FinanceData data = collectFromExternalApi(stockCode);
+
+        // 缓存数据
+        String key = CACHE_PREFIX + stockCode;
+        redisTemplate.opsForValue().set(key, data);
+
+        return data;
+    }
+
+    @Override
+    protected void postProcess(FinanceData data) {
+        // 计算衍生指标
+        calculateIndicators(data);
+    }
+
+    private FinanceData collectFromExternalApi(String stockCode) {
+        // 模拟外部API调用
+        FinanceData data = new FinanceData();
+        data.setStockCode(stockCode);
+        data.setTradeTime(LocalDateTime.now());
+        return data;
+    }
+
+    private void calculateIndicators(FinanceData data) {
+        // 计算交易金额
+        if (data.getPrice() != null && data.getVolume() != null) {
+            data.setAmount(data.getPrice().multiply(data.getVolume()));
         }
     }
 
-    /**
-     * 获取任务状态
-     */
-    @GetMapping("/{taskId}/status")
-    public Response<TaskStatus> getTaskStatus(@PathVariable String taskId) {
-        try {
-            TaskStatus status = taskService.getTaskStatus(taskId);
-            return Response.success(status);
-        } catch (Exception e) {
-            log.error("Get task status failed", e);
-            return Response.error("STATUS_QUERY_FAILED", e.getMessage());
-        }
-    }
-
-    /**
-     * 获取任务结果
-     */
-    @GetMapping("/{taskId}/result")
-    public Response<CollectResult> getTaskResult(@PathVariable String taskId) {
-        try {
-            CollectResult result = taskService.getTaskResult(taskId);
-            return Response.success(result);
-        } catch (Exception e) {
-            log.error("Get task result failed", e);
-            return Response.error("RESULT_QUERY_FAILED", e.getMessage());
-        }
-    }
-
-    private CollectTask createTask(CollectRequest request) {
-        CollectTask task = new CollectTask();
-        task.setId(UUID.randomUUID().toString());
-        task.setName(request.getName());
-        task.setType(request.getType());
-        task.setStatus(TaskStatus.WAITING.name());
-        task.setPriority(request.getPriority());
-        task.setParams(request.getParams());
-        task.setRetryTimes(0);
-        task.setMaxRetryTimes(request.getMaxRetryTimes());
-        task.setCreateTime(LocalDateTime.now());
-        return task;
+    @Override
+    public String getType() {
+        return "finance";
     }
 }
-
 ```
 
-## CollectStatsController.java
+## FinanceAutoConfiguration.java
 
 ```java
-package com.study.collect.api.controller;
+package com.study.collect.business.finance.config;
 
-// 采集统计查询
-public class CollectStatsController {
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+@ComponentScan("com.study.collect.business.finance")
+public class FinanceAutoConfiguration {
 }
 
 ```
 
-## CollectSyncController.java
+## FinanceController.java
 
 ```java
-package com.study.collect.api.controller;
+package com.study.collect.business.finance.controller;
 
-// 同步刷新控制
-public class CollectSyncController {
-}
-
-```
-
-## CollectTaskController.java
-
-```java
-package com.study.collect.api.controller;
-
-// 任务管理
-public class CollectTaskController {
-}
-
-```
-
-## DataCompareController.java
-
-```java
-package com.study.collect.api.data;
-
-// 采集数据查询
-public class DataCompareController {
-}
-
-```
-
-## DataQueryController.java
-
-```java
-package com.study.collect.api.data;
-
-// 数据对比分析
-
-import com.study.collect.common.model.result.PageResult;
-import com.study.collect.common.model.result.Response;
-import com.study.collect.domain.entity.data.CollectData;
-import com.study.collect.domain.entity.data.stats.DataStats;
-import com.study.collect.domain.service.data.DataQueryService;
-import com.study.collect.model.request.collect.CompareRequest;
-import com.study.collect.model.request.query.DataQueryRequest;
-import com.study.collect.model.request.query.StatsQueryRequest;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.web.bind.annotation.*;
-
-/**
- * 数据查询控制器
- */
-@RestController
-@RequestMapping("/api/data")
-@RequiredArgsConstructor
-@Slf4j
-public class DataQueryController {
-
-    private final DataQueryService queryService;
-
-    /**
-     * 分页查询数据
-     */
-    @GetMapping("/page")
-    public Response<PageResult<CollectData>> queryByPage(DataQueryRequest request) {
-        try {
-            PageResult<CollectData> result = queryService.queryByPage(request);
-            return Response.success(result);
-        } catch (Exception e) {
-            log.error("Query data failed", e);
-            return Response.error("QUERY_FAILED", e.getMessage());
-        }
-    }
-
-    /**
-     * 查询统计信息
-     */
-    @GetMapping("/stats")
-    public Response<DataStats> queryStats(StatsQueryRequest request) {
-        try {
-            DataStats stats = queryService.queryStats(request);
-            return Response.success(stats);
-        } catch (Exception e) {
-            log.error("Query stats failed", e);
-            return Response.error("STATS_QUERY_FAILED", e.getMessage());
-        }
-    }
-
-    /**
-     * 数据对比
-     */
-    @PostMapping("/compare")
-    public Response<CompareResult> compareData(@RequestBody CompareRequest request) {
-        try {
-            CompareResult result = queryService.compareData(request);
-            return Response.success(result);
-        } catch (Exception e) {
-            log.error("Compare data failed", e);
-            return Response.error("COMPARE_FAILED", e.getMessage());
-        }
-    }
-}
-
-```
-
-## AlertController.java
-
-```java
-package com.study.collect.api.monitor;
-
-// 指标监控
-public class AlertController {
-}
-
-```
-
-## MetricsController.java
-
-```java
-package com.study.collect.api.monitor;
-
-// 告警管理
-public class MetricsController {
-}
-
-```
-
-## MonitorController.java
-
-```java
-package com.study.collect.api.monitor;
-
-import com.study.collect.common.annotation.monitor.Alert;
-import com.study.collect.common.model.result.Response;
-import com.study.collect.infrastructure.monitor.alert.AlertManager;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
-
-/**
- * 监控控制器
- */
 @RestController
-@RequestMapping("/api/monitor")
+@RequestMapping("/api/finance")
 @RequiredArgsConstructor
+public class FinanceController {
+
+//    private final EnterpriseService enterpriseService;
+//
+//    @GetMapping("/collect/{code}")
+//    public Response<Enterprise> collect(@PathVariable String code) {
+//        Enterprise enterprise = enterpriseService.collectAndProcess(code);
+//        return Response.success(enterprise);
+//    }
+}
+```
+
+## FinanceData.java
+
+```java
+package com.study.collect.business.finance.model;
+
+import lombok.Data;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+@Data
+@Document(collection = "finance_data")
+public class FinanceData {
+    @Id
+    private String id;
+    private String stockCode;
+    private String stockName;
+    private BigDecimal price;
+    private BigDecimal volume;
+    private BigDecimal amount;
+    private LocalDateTime tradeTime;
+    private LocalDateTime createTime;
+}
+
+```
+
+## FinanceProcessor.java
+
+```java
+package com.study.collect.business.finance.processor;
+
+import com.study.collect.business.finance.model.FinanceData;
+import com.study.collect.core.processor.AbstractProcessor;
+import com.study.collect.core.annotation.Processor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDateTime;
+
 @Slf4j
-public class MonitorController {
+@Processor(type = "finance", order = 100)
+@Component
+public class FinanceProcessor extends AbstractProcessor<FinanceData> {
 
-    private final MetricsCollector metricsCollector;
-    private final AlertManager alertManager;
+    @Override
+    protected FinanceData doProcess(FinanceData data) {
+        // 数据验证
+        validateData(data);
 
-    /**
-     * 获取监控指标
-     */
-    @GetMapping("/metrics")
-    public Response<MetricsData> getMetrics() {
-        try {
-            MetricsData metrics = metricsCollector.collectMetrics();
-            return Response.success(metrics);
-        } catch (Exception e) {
-            log.error("Get metrics failed", e);
-            return Response.error("METRICS_QUERY_FAILED", e.getMessage());
+        // 数据转换
+        transformData(data);
+
+        // 数据补充
+        enrichData(data);
+
+        return data;
+    }
+
+    private void validateData(FinanceData data) {
+        if (data.getPrice() == null || data.getPrice().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new ProcessException("Invalid price");
+        }
+        if (data.getVolume() == null || data.getVolume().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new ProcessException("Invalid volume");
         }
     }
 
-    /**
-     * 查询告警信息
-     */
-    @GetMapping("/alerts")
-    public Response<List<Alert>> getAlerts(AlertQueryRequest request) {
+    private void transformData(FinanceData data) {
+        // 价格保留2位小数
+        if (data.getPrice() != null) {
+            data.setPrice(data.getPrice().setScale(2, RoundingMode.HALF_UP));
+        }
+
+        // 成交量保留0位小数
+        if (data.getVolume() != null) {
+            data.setVolume(data.getVolume().setScale(0, RoundingMode.HALF_UP));
+        }
+    }
+
+    private void enrichData(FinanceData data) {
+        // 设置创建时间
+        data.setCreateTime(LocalDateTime.now());
+    }
+
+    @Override
+    public String getType() {
+        return "finance";
+    }
+}
+
+```
+
+## FinanceRepository.java
+
+```java
+package com.study.collect.business.finance.repository;
+
+
+import com.study.collect.business.finance.model.FinanceData;
+import com.study.collect.core.repository.IRepository;
+import org.springframework.data.mongodb.repository.MongoRepository;
+
+public interface FinanceRepository extends IRepository<FinanceData, String>, MongoRepository<FinanceData, String> {
+    FinanceData findByCode(String code);
+}
+
+```
+
+## FinanceService.java
+
+```java
+package com.study.collect.business.finance.service;
+
+import com.study.collect.business.finance.collector.FinanceCollector;
+import com.study.collect.business.finance.model.FinanceData;
+import com.study.collect.business.finance.processor.FinanceProcessor;
+import com.study.collect.business.finance.repository.FinanceRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+@Service
+@RequiredArgsConstructor
+public class FinanceService {
+
+    private final FinanceCollector collector;
+    private final FinanceProcessor processor;
+    private final FinanceRepository repository;
+
+    public FinanceData collectStockData(String stockCode) {
+        // 1. 采集数据
+        FinanceData data = collector.collect(stockCode);
+
+        // 2. 处理数据
+        data = processor.process(data);
+
+        // 3. 保存数据
+        return repository.save(data);
+    }
+}
+```
+
+## spring.factories
+
+```
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+com.study.collect.business.finance.config.FinanceAutoConfiguration
+```
+
+## pom.xml
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.study</groupId>
+        <artifactId>collect-business</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>business-medical</artifactId>
+
+    <dependencies>
+        <!-- Spring Boot Web -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- DICOM Libraries -->
+<!--        <dependency>-->
+<!--            <groupId>org.dcm4che</groupId>-->
+<!--            <artifactId>dcm4che-core</artifactId>-->
+<!--            <version>5.31.1</version>-->
+<!--        </dependency>-->
+<!--        <dependency>-->
+<!--            <groupId>org.dcm4che</groupId>-->
+<!--            <artifactId>dcm4che-imageio</artifactId>-->
+<!--            <version>5.31.1</version>-->
+<!--        </dependency>-->
+
+        <!-- Storage -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-mongodb</artifactId>
+        </dependency>
+
+        <!-- Object Storage -->
+        <dependency>
+            <groupId>io.minio</groupId>
+            <artifactId>minio</artifactId>
+            <version>8.5.7</version>
+        </dependency>
+
+        <!-- Security -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+
+        <!-- Cache -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+
+        <!-- Test -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+</project>
+```
+
+## MedicalCollector.java
+
+```java
+package com.study.collect.business.medical.collector;
+
+import com.study.collect.business.medical.engine.MedicalEngine;
+import com.study.collect.business.medical.model.MedicalData;
+import com.study.collect.core.collector.ICollector;
+import com.study.collect.core.annotation.Collector;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
+
+@Collector(type = "medical")
+@Component
+@RequiredArgsConstructor
+public class MedicalCollector implements ICollector<String, MedicalData> {
+
+    private final MedicalEngine engine;
+
+    @Override
+    public MedicalData collect(String patientId) {
+        return engine.process(patientId);
+    }
+
+    @Override
+    public String getType() {
+        return "medical";
+    }
+}
+
+```
+
+## MedicalAutoConfiguration.java
+
+```java
+package com.study.collect.business.medical.config;
+
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+@ComponentScan("com.study.collect.business.medical")
+public class MedicalAutoConfiguration {
+}
+```
+
+## MedicalController.java
+
+```java
+package com.study.collect.business.medical.controller;
+
+import com.study.collect.business.medical.model.MedicalData;
+import com.study.collect.business.medical.service.MedicalService;
+import com.study.collect.common.model.Response;
+import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/medical")
+@RequiredArgsConstructor
+public class MedicalController {
+
+    private final MedicalService medicalService;
+
+    @GetMapping("/collect/{patientId}")
+    public Response<MedicalData> collect(@PathVariable String patientId) {
+        MedicalData data = medicalService.collectPatientData(patientId);
+        return Response.success(data);
+    }
+}
+```
+
+## MedicalEngine.java
+
+```java
+package com.study.business.medical.engine;
+
+import com.study.business.medical.model.MedicalData;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
+
+@Component
+@RequiredArgsConstructor
+public class MedicalEngine {
+
+    private final DicomProcessor dicomProcessor;
+    private final ImageProcessor imageProcessor;
+    private final PrivacyProcessor privacyProcessor;
+
+    public MedicalData process(String patientId) {
+        // 1. 读取DICOM文件
+        MedicalData data = dicomProcessor.readDicomData(patientId);
+
+        // 2. 处理图像数据
+        data = imageProcessor.process(data);
+
+        // 3. 隐私数据处理
+        data = privacyProcessor.process(data);
+
+        return data;
+    }
+}
+```
+
+## MedicalData.java
+
+```java
+package com.study.business.medical.model;
+
+import lombok.Data;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+import java.time.LocalDateTime;
+
+@Data
+@Document(collection = "medical_data")
+public class MedicalData {
+    @Id
+    private String id;
+    private String patientId;
+    private String patientName;
+    private Integer age;
+    private String gender;
+    private String diagnosis;
+    private byte[] imageData;  // 医学影像数据
+    private String imageType;  // 影像类型(CT/MRI等)
+    private LocalDateTime examTime;
+    private LocalDateTime createTime;
+}
+```
+
+## DicomProcessor.java
+
+```java
+package com.study.collect.business.medical.processor;
+
+import com.study.collect.business.medical.model.MedicalData;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+
+@Slf4j
+@Component
+public class DicomProcessor {
+
+    public MedicalData readDicomData(String patientId) {
+        // 模拟读取DICOM文件
+        log.info("Reading DICOM data for patient: {}", patientId);
+
+        MedicalData data = new MedicalData();
+        data.setPatientId(patientId);
+        // 设置其他数据...
+        return data;
+    }
+}
+```
+
+## ImageProcessor.java
+
+```java
+package com.study.collect.business.medical.processor;
+
+import com.study.collect.business.medical.model.MedicalData;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+
+@Slf4j
+@Component
+public class ImageProcessor {
+
+    public MedicalData process(MedicalData data) {
+        if (data.getImageData() != null) {
+            // 图像增强
+            enhanceImage(data);
+
+            // 图像压缩
+            compressImage(data);
+        }
+        return data;
+    }
+
+    private void enhanceImage(MedicalData data) {
+        // 图像增强处理逻辑
+        log.info("Enhancing image for patient: {}", data.getPatientId());
+    }
+
+    private void compressImage(MedicalData data) {
+        // 图像压缩处理逻辑
+        log.info("Compressing image for patient: {}", data.getPatientId());
+    }
+}
+
+```
+
+## PrivacyProcessor.java
+
+```java
+package com.study.collect.business.medical.processor;
+
+import com.study.collect.business.medical.model.MedicalData;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+
+@Slf4j
+@Component
+public class PrivacyProcessor {
+
+    public MedicalData process(MedicalData data) {
+        // 脱敏处理
+        maskSensitiveData(data);
+
+        // 加密处理
+        encryptSensitiveData(data);
+
+        return data;
+    }
+
+    private void maskSensitiveData(MedicalData data) {
+        // 对敏感字段进行掩码
+        if (data.getPatientName() != null) {
+            data.setPatientName(maskName(data.getPatientName()));
+        }
+    }
+
+    private void encryptSensitiveData(MedicalData data) {
+        // 加密敏感数据
+        log.info("Encrypting sensitive data for patient: {}", data.getPatientId());
+    }
+
+    private String maskName(String name) {
+        if (name == null || name.length() <= 1) {
+            return name;
+        }
+        return name.substring(0, 1) + "*".repeat(name.length() - 1);
+    }
+}
+
+```
+
+## FinanceRepository.java
+
+```java
+package com.study.business.medical.repository;
+
+
+import com.study.business.medical.model.MedicalData;
+import com.study.collect.business.finance.model.FinanceData;
+import com.study.collect.core.repository.IRepository;
+import org.springframework.data.mongodb.repository.MongoRepository;
+
+public interface medicalRepository extends IRepository<MedicalData, String>, MongoRepository<MedicalData, String> {
+    MedicalData findByCode(String code);
+}
+
+```
+
+## MedicalService.java
+
+```java
+package com.study.collect.business.medical.service;
+
+import com.study.collect.business.medical.collector.MedicalCollector;
+import com.study.collect.business.medical.model.MedicalData;
+import com.study.collect.business.medical.repository.MedicalRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+@Service
+@RequiredArgsConstructor
+public class MedicalService {
+
+    private final MedicalCollector collector;
+    private final MedicalRepository repository;
+
+    public MedicalData collectPatientData(String patientId) {
+        // 1. 采集和处理数据
+        MedicalData data = collector.collect(patientId);
+
+        // 2. 保存数据
+        return repository.save(data);
+    }
+}
+```
+
+## spring.factories
+
+```
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+com.study.collect.business.medical.config.MedicalAutoConfiguration
+```
+
+## pom.xml
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.study</groupId>
+        <artifactId>platform-collect</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>collect-common</artifactId>
+
+    <dependencies>
+        <!-- Spring Boot -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter</artifactId>
+        </dependency>
+
+        <!-- Validation -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
+        <!-- Jackson -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+        </dependency>
+
+        <!-- Utils -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>commons-io</groupId>
+            <artifactId>commons-io</artifactId>
+        </dependency>
+
+        <!-- Test -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>
+```
+
+## App.java
+
+```java
+package com.study;
+
+/**
+ * Hello world!
+ *
+ */
+public class App 
+{
+    public static void main( String[] args )
+    {
+        System.out.println( "Hello World!" );
+    }
+}
+
+```
+
+## BaseException.java
+
+```java
+package com.study.collect.common.exception;
+
+import lombok.Getter;
+
+@Getter
+public abstract class BaseException extends RuntimeException {
+    private final String code;
+
+    protected BaseException(String code, String message) {
+        super(message);
+        this.code = code;
+    }
+}
+```
+
+## Response.java
+
+```java
+package com.study.collect.common.model;
+
+import lombok.Data;
+
+@Data
+public class Response<T> {
+    private String code;
+    private String message;
+    private T data;
+
+    public static <T> Response<T> success(T data) {
+        Response<T> response = new Response<>();
+        response.setCode("200");
+        response.setMessage("success");
+        response.setData(data);
+        return response;
+    }
+
+    public static <T> Response<T> error(String code, String message) {
+        Response<T> response = new Response<>();
+        response.setCode(code);
+        response.setMessage(message);
+        return response;
+    }
+}
+```
+
+## DateUtils.java
+
+```java
+package com.study.collect.common.util;
+
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+
+public class DateUtils {
+    private static final String DEFAULT_PATTERN = "yyyy-MM-dd HH:mm:ss";
+    private static final DateTimeFormatter DEFAULT_FORMATTER = DateTimeFormatter.ofPattern(DEFAULT_PATTERN);
+
+    public static String format(LocalDateTime dateTime) {
+        return dateTime != null ? dateTime.format(DEFAULT_FORMATTER) : null;
+    }
+
+    public static LocalDateTime parse(String dateStr) {
+        return dateStr != null ? LocalDateTime.parse(dateStr, DEFAULT_FORMATTER) : null;
+    }
+}
+
+```
+
+## JsonUtils.java
+
+```java
+package com.study.collect.common.util;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
+public class JsonUtils {
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+
+    public static String toJson(Object obj) {
         try {
-            List<Alert> alerts = alertManager.queryAlerts(request);
-            return Response.success(alerts);
+            return MAPPER.writeValueAsString(obj);
         } catch (Exception e) {
-            log.error("Query alerts failed", e);
-            return Response.error("ALERT_QUERY_FAILED", e.getMessage());
+            log.error("Convert to JSON failed", e);
+            throw new RuntimeException("Convert to JSON failed", e);
+        }
+    }
+
+    public static <T> T fromJson(String json, Class<T> type) {
+        try {
+            return MAPPER.readValue(json, type);
+        } catch (Exception e) {
+            log.error("Parse JSON failed", e);
+            throw new RuntimeException("Parse JSON failed", e);
         }
     }
 }
+```
+
+## pom.xml
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.study</groupId>
+        <artifactId>platform-collect</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>collect-core</artifactId>
+
+    <dependencies>
+        <!-- Spring Boot -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-aop</artifactId>
+        </dependency>
+
+        <!-- Redis -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.redisson</groupId>
+            <artifactId>redisson</artifactId>
+        </dependency>
+
+        <!-- MongoDB -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-mongodb</artifactId>
+        </dependency>
+
+        <!-- RabbitMQ -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-amqp</artifactId>
+        </dependency>
+
+        <!-- Metrics -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+
+        <!-- Common -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+        </dependency>
+
+        <!-- Test -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>
 ```
 
 ## Collector.java
 
 ```java
-package com.study.collect.common.annotation.collect;
+package com.study.collect.core.annotation;
 
-//采集器注解
 import java.lang.annotation.*;
 
-/**
- * 采集器注解
- */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
@@ -1025,32 +1643,15 @@ public @interface Collector {
     boolean enabled() default true;
 }
 
-
-```
-
-## CollectTrace.java
-
-```java
-package com.study.collect.common.annotation.collect;
-
-// 采集追踪注解
-public class CollectTrace {
-}
-
 ```
 
 ## Processor.java
 
 ```java
-package com.study.collect.common.annotation.collect;
-
-// 处理器注解
+package com.study.collect.core.annotation;
 
 import java.lang.annotation.*;
 
-/**
- * 处理器注解
- */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
@@ -1061,7 +1662,7 @@ public @interface Processor {
     String type();
 
     /**
-     * 处理器顺序
+     * 处理顺序
      */
     int order() default 0;
 
@@ -1070,13070 +1671,504 @@ public @interface Processor {
      */
     boolean enabled() default true;
 }
+
 ```
 
-## Retryable.java
+## Repository.java
 
 ```java
-package com.study.collect.common.annotation.collect;
+package com.study.collect.core.annotation;
 
 import java.lang.annotation.*;
 
-/**
- * 重试注解
- */
-@Target(ElementType.METHOD)
+@Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
-public @interface Retryable {
+public @interface Repository {
     /**
-     * 最大重试次数
+     * 仓储类型
      */
-    int maxAttempts() default 3;
+    String type();
 
     /**
-     * 重试间隔(ms)
-     */
-    long delay() default 1000;
-
-    /**
-     * 触发重试的异常
-     */
-    Class<? extends Throwable>[] include() default {};
-
-    /**
-     * 不触发重试的异常
-     */
-    Class<? extends Throwable>[] exclude() default {};
-}
-
-```
-
-## CacheLock.java
-
-```java
-package com.study.collect.common.annotation.lock;
-
-// 缓存锁注解
-public class CacheLock {
-}
-
-```
-
-## DistributedLock.java
-
-```java
-package com.study.collect.common.annotation.lock;
-
-// 分布式锁注解
-
-import java.lang.annotation.*;
-
-/**
- * 分布式锁注解
- */
-@Target(ElementType.METHOD)
-@Retention(RetentionPolicy.RUNTIME)
-@Documented
-public @interface DistributedLock {
-    /**
-     * 锁的key
-     */
-    String key();
-
-    /**
-     * 超时时间(ms)
-     */
-    long timeout() default 5000;// 30000
-
-    /**
-     * 等待时间(ms)
-     */
-    long waitTime() default 1000;
-}
-
-
-```
-
-## Alert.java
-
-```java
-package com.study.collect.common.annotation.monitor;
-
-// 告警注解
-public class Alert {
-}
-
-```
-
-## Metrics.java
-
-```java
-package com.study.collect.common.annotation.monitor;
-
-// 指标注解
-public class Metrics {
-}
-
-```
-
-## Monitor.java
-
-```java
-package com.study.collect.common.annotation.monitor;
-
-import java.lang.annotation.*;
-
-/**
- * 监控注解
- */
-@Target({ElementType.METHOD, ElementType.TYPE})
-@Retention(RetentionPolicy.RUNTIME)
-@Documented
-public @interface Monitor {
-    /**
-     * 监控名称
-     */
-    String name();
-
-    /**
-     * 监控描述
+     * 存储描述
      */
     String description() default "";
-
-    /**
-     * 是否记录参数
-     */
-    boolean logParams() default false;
-
-    /**
-     * 是否记录结果
-     */
-    boolean logResult() default false;
 }
-```
-
-## DataValid.java
-
-```java
-package com.study.collect.common.annotation.validate;
-
-// 数据校验注解
-public class DataValid {
-}
-
-```
-
-## ParamValid.java
-
-```java
-package com.study.collect.common.annotation.validate;
-
-// 参数校验注解
-public class ParamValid {
-}
-
-```
-
-## CacheConstant.java
-
-```java
-package com.study.collect.common.constant.cache;
-
-// 缓存常量
-/**
- * 缓存相关常量
- */
-public final class CacheConstant {
-    private CacheConstant() {}
-
-    public static final String CACHE_PREFIX = "COLLECT_";
-    public static final long DEFAULT_EXPIRE_TIME = 3600L;
-    public static final String DATA_CACHE_PREFIX = CACHE_PREFIX + "DATA_";
-    public static final String TASK_CACHE_PREFIX = CACHE_PREFIX + "TASK_";
-}
-```
-
-## KeyConstant.java
-
-```java
-package com.study.collect.common.constant.cache;
-
-// 缓存Key常量
-public class KeyConstant {
-}
-
-```
-
-## CollectConstant.java
-
-```java
-package com.study.collect.common.constant.collect;
-
-// 采集常量
-public class CollectConstant {
-}
-
-```
-
-## TaskConstant.java
-
-```java
-package com.study.collect.common.constant.collect;
-
-// 任务常量
-
-/**
- * 任务相关常量
- */
-public final class TaskConstant {
-    private TaskConstant() {}
-
-    public static final String TASK_PREFIX = "COLLECT_TASK_";
-    public static final int MAX_RETRY_TIMES = 3;
-    public static final long DEFAULT_TIMEOUT = 60000L;
-    public static final int DEFAULT_BATCH_SIZE = 100;
-    public static final String TASK_LOCK_PREFIX = "TASK_LOCK_";
-}
-```
-
-## DataConstant.java
-
-```java
-package com.study.collect.common.constant.data;
-
-// 数据常量
-public class DataConstant {
-}
-
-```
-
-## StatsConstant.java
-
-```java
-package com.study.collect.common.constant.data;
-
-// 统计常量
-public class StatsConstant {
-}
-
-```
-
-## MongoConstant.java
-
-```java
-package com.study.collect.common.constant.db;
-
-// mongo常量
-public class MongoConstant {
-}
-
-```
-
-## RedisConstant.java
-
-```java
-package com.study.collect.common.constant.db;
-
-// Redis常量
-public class RedisConstant {
-}
-
-```
-
-## MessageConstant.java
-
-```java
-package com.study.collect.common.constant.mq;
-
-// 消息常量
-/**
- * 消息相关常量
- */
-public final class MessageConstant {
-    private MessageConstant() {}
-
-    public static final String TASK_EXCHANGE = "collect.task";
-    public static final String TASK_QUEUE = "collect.task.queue";
-    public static final String RESULT_EXCHANGE = "collect.result";
-    public static final String RESULT_QUEUE = "collect.result.queue";
-}
-
-```
-
-## QueueConstant.java
-
-```java
-package com.study.collect.common.constant.mq;
-
-// 队列常量
-public class QueueConstant {
-}
-
-```
-
-## CollectType.java
-
-```java
-package com.study.collect.common.enums.collect;
-
-// 采集类型
-
-import lombok.Getter;
-
-/**
- * 采集类型枚举
- */
-@Getter
-public enum CollectType {
-    TREE("TREE", "树形结构"),
-    LIST("LIST", "列表结构"),
-    SINGLE("SINGLE", "单条数据"),
-    COMPOUND("COMPOUND", "复合结构");
-
-    private final String code;
-    private final String desc;
-
-    CollectType(String code, String desc) {
-        this.code = code;
-        this.desc = desc;
-    }
-}
-```
-
-## ProcessType.java
-
-```java
-package com.study.collect.common.enums.collect;
-
-// 处理类型
-
-import lombok.Getter;
-
-/**
- * 处理类型枚举
- */
-@Getter
-public enum ProcessType {
-    TRANSFORM("TRANSFORM", "数据转换"),
-    FILTER("FILTER", "数据过滤"),
-    VALIDATE("VALIDATE", "数据校验"),
-    STORE("STORE", "数据存储"),
-    STATISTICS("STATISTICS", "数据统计");
-
-    private final String code;
-    private final String desc;
-
-    ProcessType(String code, String desc) {
-        this.code = code;
-        this.desc = desc;
-    }
-}
-
-```
-
-## TaskStatus.java
-
-```java
-package com.study.collect.common.enums.collect;
-
-// 任务状态
-import lombok.Getter;
-
-/**
- * 任务状态枚举
- */
-@Getter
-public enum TaskStatus {
-    WAITING("WAITING", "等待执行"),
-    RUNNING("RUNNING", "执行中"),
-    SUCCESS("SUCCESS", "执行成功"),
-    FAILED("FAILED", "执行失败"),
-    TIMEOUT("TIMEOUT", "执行超时"),
-    CANCELED("CANCELED", "已取消");
-
-    private final String code;
-    private final String desc;
-
-    TaskStatus(String code, String desc) {
-        this.code = code;
-        this.desc = desc;
-    }
-}
-
-```
-
-## CompareType.java
-
-```java
-package com.study.collect.common.enums.data;
-
-// 比较类型
-public class CompareType {
-}
-
-```
-
-## DataType.java
-
-```java
-package com.study.collect.common.enums.data;
-
-// 数据类型
-public class DataType {
-}
-
-```
-
-## SyncStatus.java
-
-```java
-package com.study.collect.common.enums.sync;
-
-// 同步状态
-public class SyncStatus {
-}
-
-```
-
-## SyncType.java
-
-```java
-package com.study.collect.common.enums.sync;
-
-// 同步类型
-
-import lombok.Getter;
-
-/**
- * 同步类型枚举
- */
-@Getter
-public enum SyncType {
-    FULL("FULL", "全量同步"),
-    INCREMENT("INCREMENT", "增量同步"),
-    DELTA("DELTA", "差异同步");
-
-    private final String code;
-    private final String desc;
-
-    SyncType(String code, String desc) {
-        this.code = code;
-        this.desc = desc;
-    }
-}
-```
-
-## BaseException.java
-
-```java
-package com.study.collect.common.exception;
-
-import lombok.Getter;
-
-/**
- * 基础异常类,所有业务异常的父类
- */
-@Getter
-public abstract class BaseException extends RuntimeException {
-
-    private final String code;
-    private final String message;
-
-    protected BaseException(String code, String message) {
-        super(message);
-        this.code = code;
-        this.message = message;
-    }
-
-    protected BaseException(String code, String message, Throwable cause) {
-        super(message, cause);
-        this.code = code;
-        this.message = message;
-    }
-}
-```
-
-## CollectException.java
-
-```java
-package com.study.collect.common.exception.collect;
-
-// 采集异常
-
-import com.study.collect.common.exception.system.BusinessException;
-
-/**
- * 采集异常 - 用于数据采集过程中的错误
- */
-public class CollectException extends BusinessException {
-
-    public CollectException(String code, String message) {
-        super(code, message);
-    }
-
-    public CollectException(String message) {
-        super("COLLECT_ERROR", message);
-    }
-
-    public CollectException(String message, Throwable cause) {
-        super("COLLECT_ERROR", message, cause);
-    }
-}
-
-```
-
-## ProcessException.java
-
-```java
-package com.study.collect.common.exception.collect;
-
-// 处理异常
-
-import com.study.collect.common.exception.system.BusinessException;
-
-/**
- * 处理异常 - 用于数据处理过程中的错误
- */
-public class ProcessException extends BusinessException {
-
-    public ProcessException(String code, String message) {
-        super(code, message);
-    }
-
-    public ProcessException(String message) {
-        super("PROCESS_ERROR", message);
-    }
-
-    public ProcessException(String message, Throwable cause) {
-        super("PROCESS_ERROR", message, cause);
-    }
-}
-
-```
-
-## TaskException.java
-
-```java
-package com.study.collect.common.exception.collect;
-
-// 任务异常
-public class TaskException {
-}
-
-```
-
-## DataException.java
-
-```java
-package com.study.collect.common.exception.data;
-
-// 数据异常
-public class DataException {
-}
-
-```
-
-## ValidateException.java
-
-```java
-package com.study.collect.common.exception.data;
-
-// 校验异常
-
-import com.study.collect.common.exception.system.BusinessException;
-
-/**
- * 验证异常 - 用于数据验证错误
- */
-public class ValidateException extends BusinessException {
-
-    public ValidateException(String code, String message) {
-        super(code, message);
-    }
-
-    public ValidateException(String message) {
-        super("VALIDATE_ERROR", message);
-    }
-
-    public ValidateException(String message, Throwable cause) {
-        super("VALIDATE_ERROR", message, cause);
-    }
-}
-```
-
-## LockException.java
-
-```java
-package com.study.collect.common.exception.sync;
-
-// 锁异常
-public class LockException {
-}
-
-```
-
-## SyncException.java
-
-```java
-package com.study.collect.common.exception.sync;
-
-// 同步异常
-
-import com.study.collect.common.exception.system.BusinessException;
-
-/**
- * 同步异常 - 用于数据同步过程中的错误
- */
-public class SyncException extends BusinessException {
-
-    public SyncException(String code, String message) {
-        super(code, message);
-    }
-
-    public SyncException(String message) {
-        super("SYNC_ERROR", message);
-    }
-
-    public SyncException(String message, Throwable cause) {
-        super("SYNC_ERROR", message, cause);
-    }
-}
-```
-
-## BusinessException.java
-
-```java
-package com.study.collect.common.exception.system;
-
-import com.study.collect.common.exception.BaseException;
-
-/**
- * 业务异常 - 用于业务逻辑异常
- */
-public class BusinessException extends BaseException {
-
-    public BusinessException(String code, String message) {
-        super(code, message);
-    }
-
-    public BusinessException(String code, String message, Throwable cause) {
-        super(code, message, cause);
-    }
-}
-```
-
-## ConfigException.java
-
-```java
-package com.study.collect.common.exception.system;
-
-// 配置异常
-/**
- * 配置异常 - 用于配置错误
- */
-public class ConfigException extends SystemException {
-
-    public ConfigException(String message) {
-        super("CONFIG_ERROR", message);
-    }
-
-    public ConfigException(String message, Throwable cause) {
-        super("CONFIG_ERROR", message, cause);
-    }
-}
-
-```
-
-## SystemException.java
-
-```java
-package com.study.collect.common.exception.system;
-
-// 系统异常
-
-import com.study.collect.common.exception.BaseException;
-
-/**
- * 系统异常 - 用于系统级别的异常
- */
-public class SystemException extends BaseException {
-
-    public SystemException(String code, String message) {
-        super(code, message);
-    }
-
-    public SystemException(String code, String message, Throwable cause) {
-        super(code, message, cause);
-    }
-}
-```
-
-## CollectDTO.java
-
-```java
-package com.study.collect.common.model.dto;
-
-// 采集DTO
-public class CollectDTO {
-}
-
-```
-
-## ResultDTO.java
-
-```java
-package com.study.collect.common.model.dto;
-
-// 结果DTO
-public class ResultDTO {
-}
-
-```
-
-## TaskDTO.java
-
-```java
-package com.study.collect.common.model.dto;
-
-// 任务DTO
-public class TaskDTO {
-}
-
-```
-
-## DataQuery.java
-
-```java
-package com.study.collect.common.model.query;
-
-// 数据查询
-public class DataQuery {
-}
-
-```
-
-## StatsQuery.java
-
-```java
-package com.study.collect.common.model.query;
-
-// 统计查询
-public class StatsQuery {
-}
-
-```
-
-## PageResult.java
-
-```java
-package com.study.collect.common.model.result;
-
-// 分页结果
-
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-import java.util.Collections;
-
-/**
- * 分页响应结果
- */
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class PageResult<T> {
-    /**
-     * 当前页码
-     */
-    private Integer pageNum;
-
-    /**
-     * 每页大小
-     */
-    private Integer pageSize;
-
-    /**
-     * 总记录数
-     */
-    private Long total;
-
-    /**
-     * 总页数
-     */
-    private Integer pages;
-
-    /**
-     * 数据列表
-     */
-    private List<T> list;
-
-    public static <T> PageResult<T> empty() {
-        return PageResult.<T>builder()
-                .pageNum(1)
-                .pageSize(10)
-                .total(0L)
-                .pages(0)
-                .list(Collections.emptyList())
-                .build();
-    }
-}
-
-
-```
-
-## Response.java
-
-```java
-package com.study.collect.common.model.result;
-
-// 通用响应
-import com.fasterxml.jackson.annotation.JsonInclude;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-/**
- * 统一响应结果
- */
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-@JsonInclude(JsonInclude.Include.NON_NULL)
-public class Response<T> {
-    /**
-     * 状态码
-     */
-    private String code;
-
-    /**
-     * 消息
-     */
-    private String message;
-
-    /**
-     * 数据
-     */
-    private T data;
-
-    /**
-     * 时间戳
-     */
-    private Long timestamp;
-
-    public static <T> Response<T> success() {
-        return success(null);
-    }
-
-    public static <T> Response<T> success(T data) {
-        return Response.<T>builder()
-                .code("200")
-                .message("success")
-                .data(data)
-                .timestamp(System.currentTimeMillis())
-                .build();
-    }
-
-    public static <T> Response<T> error(String code, String message) {
-        return Response.<T>builder()
-                .code(code)
-                .message(message)
-                .timestamp(System.currentTimeMillis())
-                .build();
-    }
-}
-```
-
-## TreeResult.java
-
-```java
-package com.study.collect.common.model.result;
-
-// 树形结果
-
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-import java.util.ArrayList;
-import java.util.List;
-
-/**
- * 树形结构响应结果
- */
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class TreeResult<T> {
-    /**
-     * 节点ID
-     */
-    private String id;
-
-    /**
-     * 父节点ID
-     */
-    private String parentId;
-
-    /**
-     * 节点数据
-     */
-    private T data;
-
-    /**
-     * 子节点
-     */
-    private List<TreeResult<T>> children;
-
-    /**
-     * 是否叶子节点
-     */
-    private Boolean leaf;
-
-    /**
-     * 节点层级
-     */
-    private Integer level;
-
-    public static <T> TreeResult<T> of(T data) {
-        return TreeResult.<T>builder()
-                .data(data)
-                .children(new ArrayList<>())
-                .leaf(true)
-                .level(0)
-                .build();
-    }
-}
-
-```
-
-## CacheUtil.java
-
-```java
-package com.study.collect.common.utils.cache;
-
-// 缓存工具类
-public class CacheUtil {
-}
-
-```
-
-## KeyUtil.java
-
-```java
-package com.study.collect.common.utils.cache;
-
-// 缓存key工具类
-public class KeyUtil {
-}
-
-```
-
-## ListUtil.java
-
-```java
-package com.study.collect.common.utils.collect;
-
-// 列表工具类
-public class ListUtil {
-}
-
-```
-
-## TaskUtil.java
-
-```java
-package com.study.collect.common.utils.collect;
-
-// 任务工具类
-public class TaskUtil {
-}
-
-```
-
-## TreeUtil.java
-
-```java
-package com.study.collect.common.utils.collect;
-
-// 树工具
-public class TreeUtil {
-}
-
-```
-
-## DateUtil.java
-
-```java
-package com.study.collect.common.utils.common;
-
-import lombok.extern.slf4j.Slf4j;
-
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-
-/**
- * 日期工具类
- */
-@Slf4j
-public final class DateUtils {
-    private DateUtils() {}
-
-    public static String formatDateTime(LocalDateTime dateTime) {
-        if (dateTime == null) {
-            return null;
-        }
-        return DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").format(dateTime);
-    }
-
-    public static LocalDateTime parseDateTime(String dateStr) {
-        if (StringUtils.isEmpty(dateStr)) {
-            return null;
-        }
-        try {
-            return LocalDateTime.parse(dateStr, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-        } catch (Exception e) {
-            log.error("Parse date string failed: {}", dateStr, e);
-            return null;
-        }
-    }
-
-    public static long getTimestamp() {
-        return System.currentTimeMillis();
-    }
-}
-
-```
-
-## FileUtil.java
-
-```java
-package com.study.collect.common.utils.common;
-
-// 文件工具类
-public class FileUtil {
-}
-
-```
-
-## JsonUtils.java
-
-```java
-package com.study.collect.common.utils.common;
-// JSON工具类
-
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import lombok.extern.slf4j.Slf4j;
-
-/**
- * JSON工具类
- */
-@Slf4j
-public final class JsonUtils {
-    private static final ObjectMapper objectMapper = new ObjectMapper();
-
-    static {
-        objectMapper.registerModule(new JavaTimeModule());
-        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-    }
-
-    private JsonUtils() {}
-
-    public static String toJson(Object object) {
-        try {
-            return objectMapper.writeValueAsString(object);
-        } catch (JsonProcessingException e) {
-            log.error("Convert object to JSON failed", e);
-            throw new RuntimeException("Convert to JSON failed", e);
-        }
-    }
-
-    public static <T> T fromJson(String json, Class<T> clazz) {
-        try {
-            return objectMapper.readValue(json, clazz);
-        } catch (JsonProcessingException e) {
-            log.error("Parse JSON to object failed", e);
-            throw new RuntimeException("Parse JSON failed", e);
-        }
-    }
-}
-```
-
-## StringUtils.java
-
-```java
-package com.study.collect.common.utils.common;
-
-import java.util.Collection;
-import java.util.stream.Collectors;
-
-/**
- * 字符串工具类
- */
-public final class StringUtils {
-    private StringUtils() {}
-
-    public static boolean isEmpty(String str) {
-        return str == null || str.trim().length() == 0;
-    }
-
-    public static boolean isNotEmpty(String str) {
-        return !isEmpty(str);
-    }
-
-    public static String defaultIfEmpty(String str, String defaultValue) {
-        return isEmpty(str) ? defaultValue : str;
-    }
-
-    public static String join(Collection<?> collection, String separator) {
-        if (collection == null || collection.isEmpty()) {
-            return "";
-        }
-        return collection.stream()
-                .map(Object::toString)
-                .collect(Collectors.joining(separator));
-    }
-}
-```
-
-## ThreadUtil.java
-
-```java
-package com.study.collect.common.utils.common;
-
-// 线程工具
-public class ThreadUtil {
-}
-
-```
-
-## TraceUtil.java
-
-```java
-package com.study.collect.common.utils.common;
-
-// 跟踪工具
-public class TraceUtil {
-}
-
-```
-
-## CompareUtil.java
-
-```java
-package com.study.collect.common.utils.data;
-
-// 比较工具
-public class CompareUtil {
-}
-
-```
-
-## ConvertUtil.java
-
-```java
-package com.study.collect.common.utils.data;
-
-// 转换工具
-public class ConvertUtil {
-}
-
-```
-
-## StatsUtil.java
-
-```java
-package com.study.collect.common.utils.data;
-
-// 统计工具
-public class StatsUtil {
-}
-
-```
-
-## ValidateUtils.java
-
-```java
-package com.study.collect.common.utils.data;
-
-// 数据校验工具
-
-import com.study.collect.common.exception.data.ValidateException;
-import com.study.collect.common.utils.common.StringUtils;
-
-import java.util.Collection;
-
-/**
- * 验证工具类
- */
-public final class ValidateUtils {
-    private ValidateUtils() {}
-
-    public static void notNull(Object object, String message) {
-        if (object == null) {
-            throw new ValidateException(message);
-        }
-    }
-
-    public static void notEmpty(String str, String message) {
-        if (StringUtils.isEmpty(str)) {
-            throw new ValidateException(message);
-        }
-    }
-
-    public static void notEmpty(Collection<?> collection, String message) {
-        if (collection == null || collection.isEmpty()) {
-            throw new ValidateException(message);
-        }
-    }
-
-    public static void isTrue(boolean expression, String message) {
-        if (!expression) {
-            throw new ValidateException(message);
-        }
-    }
-}
-```
-
-## LockUtil.java
-
-```java
-package com.study.collect.common.utils.lock;
-
-// 锁工具
-public class LockUtil {
-}
-
-```
-
-## SyncUtil.java
-
-```java
-package com.study.collect.common.utils.lock;
-
-// 同步工具
-public class SyncUtil {
-}
-
-```
-
-## Collector.java
-
-```java
-package com.study.collect.core.collector;
-
-import com.study.collect.common.enums.collect.CollectType;
-import com.study.collect.core.engine.CollectContext;
-
-/**
- * 采集器接口
- */
-public interface Collector {
-    /**
-     * 执行采集
-     */
-    Object collect(CollectContext context);
-
-    /**
-     * 获取采集器类型
-     */
-    CollectType getType();
-
-    /**
-     * 是否支持采集类型
-     */
-    boolean supports(CollectType type);
-}
-
-
 ```
 
 ## AbstractCollector.java
 
 ```java
-package com.study.collect.core.collector.base;
+package com.study.collect.core.collector;
 
-// 采集器基类
-
-import com.study.collect.common.exception.collect.CollectException;
-import com.study.collect.core.engine.CollectContext;
-
-/**
- * 抽象采集器基类
- */
-@Slf4j
-public abstract class AbstractCollector implements Collector {
-
-    @Override
-    public Object collect(CollectContext context) {
-        try {
-            // 前置检查
-            preCheck(context);
-
-            // 执行采集
-            Object data = doCollect(context);
-
-            // 后置处理
-            return postProcess(data, context);
-        } catch (Exception e) {
-            log.error("Collect failed", e);
-            throw new CollectException("Collect failed: " + e.getMessage(), e);
-        }
-    }
-
-    /**
-     * 前置检查
-     */
-    protected void preCheck(CollectContext context) {
-        if (!supports(context.getCollectType())) {
-            throw new CollectException("Unsupported collect type: " + context.getCollectType());
-        }
-    }
-
-    /**
-     * 执行采集
-     */
-    protected abstract Object doCollect(CollectContext context);
-
-    /**
-     * 后置处理
-     */
-    protected Object postProcess(Object data, CollectContext context) {
-        return data;
-    }
-}
-
-```
-
-## CompoundCollector.java
-
-```java
-package com.study.collect.core.collector.base;
-
-// 复合采集基类
-import com.study.collect.common.enums.collect.CollectType;
-import com.study.collect.common.exception.collect.CollectException;
-import com.study.collect.core.engine.CollectContext;
+import com.study.collect.core.annotation.Collector;
 import lombok.extern.slf4j.Slf4j;
 
-/**
- * 复合采集器基类
- * 用于组合多个采集器实现复杂采集逻辑
- */
 @Slf4j
-public abstract class CompoundCollector extends AbstractCollector {
+public abstract class AbstractCollector<T, R> implements ICollector<T, R> {
 
     @Override
-    public CollectType getType() {
-        return CollectType.COMPOUND;
-    }
-
-    @Override
-    public boolean supports(CollectType type) {
-        return CollectType.COMPOUND.equals(type);
-    }
-
-    @Override
-    protected Object doCollect(CollectContext context) {
-        try {
-            // 1. 准备采集器
-            initCollectors(context);
-
-            // 2. 主采集过程
-            Object primaryData = doPrimaryCollect(context);
-
-            // 3. 详细数据采集
-            Object detailData = doDetailCollect(context, primaryData);
-
-            // 4. 组合数据
-            return combine(primaryData, detailData);
-
-        } catch (Exception e) {
-            log.error("Compound collect failed", e);
-            throw new CollectException("Compound collect failed: " + e.getMessage());
-        }
-    }
-
-    /**
-     * 初始化采集器
-     */
-    protected abstract void initCollectors(CollectContext context);
-
-    /**
-     * 执行主采集
-     */
-    protected abstract Object doPrimaryCollect(CollectContext context);
-
-    /**
-     * 执行详细数据采集
-     */
-    protected abstract Object doDetailCollect(CollectContext context, Object primaryData);
-
-    /**
-     * 组合采集结果
-     */
-    protected abstract Object combine(Object primaryData, Object detailData);
-}
-
-```
-
-## HttpListCollector.java
-
-```java
-package com.study.collect.core.collector.base;
-
-import com.study.collect.common.exception.collect.CollectException;
-import com.study.collect.core.engine.CollectContext;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpEntity;
-import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestTemplate;
-
-import java.util.Map;
-
-/**
- * HTTP列表采集器
- */
-@Component("httpListCollector")
-@RequiredArgsConstructor
-@Slf4j
-public class HttpListCollector extends ListCollector {
-
-    private final RestTemplate restTemplate;
-
-    @Override
-    protected long getTotal(CollectContext context) {
-        String url = buildTotalUrl(context);
-
-        try {
-            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
-                    url,
-                    HttpMethod.GET,
-                    buildHttpEntity(context),
-                    new ParameterizedTypeReference<Map<String, Object>>() {}
-            );
-
-            return Long.parseLong(response.getBody().get("total").toString());
-        } catch (Exception e) {
-            log.error("Get total count failed", e);
-            throw new CollectException("Get total count failed", e);
-        }
-    }
-
-    @Override
-    protected List<Object> collectPage(int page, int pageSize, CollectContext context) {
-        String url = buildPageUrl(context, page, pageSize);
-
-        try {
-            ResponseEntity<List<Object>> response = restTemplate.exchange(
-                    url,
-                    HttpMethod.GET,
-                    buildHttpEntity(context),
-                    new ParameterizedTypeReference<List<Object>>() {}
-            );
-
-            return response.getBody();
-        } catch (Exception e) {
-            log.error("Collect page data failed, page: {}", page, e);
-            throw new CollectException("Collect page data failed", e);
-        }
-    }
-
-    private HttpEntity<?> buildHttpEntity(CollectContext context) {
-        HttpHeaders headers = new HttpHeaders();
-        if (context.getParams().containsKey("headers")) {
-            Map<String, String> headerMap = (Map<String, String>) context.getParams().get("headers");
-            headerMap.forEach(headers::add);
-        }
-        return new HttpEntity<>(headers);
-    }
-
-    private String buildTotalUrl(CollectContext context) {
-        return context.getParams().get("url") + "/count";
-    }
-
-    private String buildPageUrl(CollectContext context, int page, int pageSize) {
-        return context.getParams().get("url") + "?page=" + page + "&size=" + pageSize;
-    }
-}
-```
-
-## HttpTreeCollector.java
-
-```java
-package com.study.collect.core.collector.base;
-
-import com.study.collect.common.exception.collect.CollectException;
-import com.study.collect.core.engine.CollectContext;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpEntity;
-import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestTemplate;
-
-import java.util.Collections;
-
-/**
- * HTTP树形采集器
- */
-@Component("httpTreeCollector")
-@RequiredArgsConstructor
-@Slf4j
-public class HttpTreeCollector extends TreeCollector {
-
-    private final RestTemplate restTemplate;
-
-    @Override
-    protected TreeNode collectRoot(CollectContext context) {
-        String url = context.getParams().get("url").toString();
-        HttpMethod method = HttpMethod.valueOf(context.getParams().get("method").toString());
-
-        try {
-            ResponseEntity<TreeNode> response = restTemplate.exchange(
-                    url,
-                    method,
-                    buildHttpEntity(context),
-                    TreeNode.class
-            );
-
-            return response.getBody();
-        } catch (Exception e) {
-            log.error("Collect root node failed", e);
-            throw new CollectException("Collect root node failed", e);
-        }
-    }
-
-    @Override
-    protected List<TreeNode> doCollectChildren(TreeNode parent, CollectContext context) {
-        String url = buildChildrenUrl(parent, context);
-        if (url == null) {
-            return Collections.emptyList();
-        }
-
-        try {
-            ResponseEntity<List<TreeNode>> response = restTemplate.exchange(
-                    url,
-                    HttpMethod.GET,
-                    buildHttpEntity(context),
-                    new ParameterizedTypeReference<List<TreeNode>>() {}
-            );
-
-            return response.getBody();
-        } catch (Exception e) {
-            log.error("Collect children failed for node: {}", parent.getId(), e);
-            throw new CollectException("Collect children failed", e);
-        }
-    }
-
-    private HttpEntity<?> buildHttpEntity(CollectContext context) {
-        HttpHeaders headers = new HttpHeaders();
-        // 添加请求头
-        if (context.getParams().containsKey("headers")) {
-            Map<String, String> headerMap = (Map<String, String>) context.getParams().get("headers");
-            headerMap.forEach(headers::add);
-        }
-        return new HttpEntity<>(headers);
-    }
-
-    private String buildChildrenUrl(TreeNode parent, CollectContext context) {
-        String baseUrl = context.getParams().get("url").toString();
-        return baseUrl + "/" + parent.getId() + "/children";
-    }
-}
-
-```
-
-## ListCollector.java
-
-```java
-package com.study.collect.core.collector.base;
-
-// 列表采集基类
-
-import com.study.collect.common.enums.collect.CollectType;
-import com.study.collect.core.engine.CollectContext;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.util.CollectionUtils;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-
-/**
- * 列表采集器抽象基类
- */
-@Slf4j
-public abstract class ListCollector extends AbstractCollector {
-
-    @Override
-    public CollectType getType() {
-        return CollectType.LIST;
-    }
-
-    @Override
-    public boolean supports(CollectType type) {
-        return CollectType.LIST.equals(type);
-    }
-
-    @Override
-    protected Object doCollect(CollectContext context) {
-        // 获取总数
-        long total = getTotal(context);
-        if (total <= 0) {
-            return Collections.emptyList();
-        }
-
-        // 分页采集
-        int pageSize = getPageSize(context);
-        int pageCount = (int) Math.ceil((double) total / pageSize);
-
-        List<Object> result = new ArrayList<>();
-        for (int page = 1; page <= pageCount; page++) {
-            List<Object> pageData = collectPage(page, pageSize, context);
-            if (CollectionUtils.isEmpty(pageData)) {
-                break;
-            }
-            result.addAll(pageData);
-        }
-
-        return result;
-    }
-
-    /**
-     * 获取数据总数
-     */
-    protected abstract long getTotal(CollectContext context);
-
-    /**
-     * 获取分页大小
-     */
-    protected int getPageSize(CollectContext context) {
-        Object pageSizeObj = context.getParams().get("pageSize");
-        return pageSizeObj != null ? Integer.parseInt(pageSizeObj.toString()) : 100;
-    }
-
-    /**
-     * 采集分页数据
-     */
-    protected abstract List<Object> collectPage(int page, int pageSize, CollectContext context);
-}
-
-```
-
-## TreeCollector.java
-
-```java
-package com.study.collect.core.collector.base;
-
-// 树形采集基类
-
-import com.study.collect.common.enums.collect.CollectType;
-import com.study.collect.common.exception.collect.CollectException;
-import com.study.collect.core.engine.CollectContext;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.util.CollectionUtils;
-
-/**
- * 树形采集器抽象基类
- */
-@Slf4j
-public abstract class TreeCollector extends AbstractCollector {
-
-    @Override
-    public CollectType getType() {
-        return CollectType.TREE;
-    }
-
-    @Override
-    public boolean supports(CollectType type) {
-        return CollectType.TREE.equals(type);
-    }
-
-    @Override
-    protected Object doCollect(CollectContext context) {
-        // 获取根节点
-        TreeNode root = collectRoot(context);
-        if (root == null) {
-            return null;
-        }
-
-        // 递归采集子节点
-        collectChildren(root, context);
-
-        return root;
-    }
-
-    /**
-     * 采集根节点
-     */
-    protected abstract TreeNode collectRoot(CollectContext context);
-
-    /**
-     * 采集子节点
-     */
-    protected void collectChildren(TreeNode parent, CollectContext context) {
-        try {
-            List<TreeNode> children = doCollectChildren(parent, context);
-            if (CollectionUtils.isEmpty(children)) {
-                return;
-            }
-
-            parent.setChildren(children);
-            children.forEach(child -> {
-                child.setParentId(parent.getId());
-                child.setLevel(parent.getLevel() + 1);
-                collectChildren(child, context);
-            });
-        } catch (Exception e) {
-            log.error("Collect children failed for node: {}", parent.getId(), e);
-            throw new CollectException("Collect children failed", e);
-        }
-    }
-
-    /**
-     * 执行子节点采集
-     */
-    protected abstract List<TreeNode> doCollectChildren(TreeNode parent, CollectContext context);
-}
-
-```
-
-## ListDetailCollector.java
-
-```java
-package com.study.collect.core.collector.compound;
-
-// 列表详情收集器
-public class ListDetailCollector {
-}
-
-```
-
-## MultiSourceCollector.java
-
-```java
-package com.study.collect.core.collector.compound;
-
-// 多源收集器
-public class MultiSourceCollector {
-}
-
-```
-
-## TreeDetailCollector.java
-
-```java
-package com.study.collect.core.collector.compound;
-
-// 树形明细收集器
-public class TreeDetailCollector {
-}
-
-```
-
-## TreeListCollector.java
-
-```java
-package com.study.collect.core.collector.compound;
-
-// 树形列表收集器
-public class TreeListCollector {
-}
-
-```
-
-## CollectorFactory.java
-
-```java
-package com.study.collect.core.collector.factory;
-
-public class CollectorFactory {
-}
-
-```
-
-## IncrListCollector.java
-
-```java
-package com.study.collect.core.collector.list;
-
-// 增量列表收集器
-public class IncrListCollector {
-}
-
-```
-
-## PageListCollector.java
-
-```java
-package com.study.collect.core.collector.list;
-
-// 分页列表收集器
-public class PageListCollector {
-}
-
-```
-
-## ScrollListCollector.java
-
-```java
-package com.study.collect.core.collector.list;
-
-//  滚动列表收集器
-public class ScrollListCollector {
-}
-
-```
-
-## StreamListCollector.java
-
-```java
-package com.study.collect.core.collector.list;
-
-// 列表流收集器
-public class StreamListCollector {
-}
-
-```
-
-## AsyncTreeCollector.java
-
-```java
-package com.study.collect.core.collector.tree;
-
-// 异步树收集器
-public class AsyncTreeCollector {
-}
-
-```
-
-## LazyTreeCollector.java
-
-```java
-package com.study.collect.core.collector.tree;
-
-// 懒加载树收集器
-public class LazyTreeCollector {
-}
-
-```
-
-## RecursiveTreeCollector.java
-
-```java
-package com.study.collect.core.collector.tree;
-
-// 递归树收集器
-public class RecursiveTreeCollector {
-}
-
-```
-
-## SimpleTreeCollector.java
-
-```java
-package com.study.collect.core.collector.tree;
-
-// 简单树收集器
-public class SimpleTreeCollector {
-}
-
-```
-
-## AbstractCollectEngine.java
-
-```java
-package com.study.collect.core.engine;
-
-// 抽象基类
-
-import com.study.collect.common.enums.collect.CollectType;
-import com.study.collect.common.enums.collect.TaskStatus;
-import com.study.collect.common.utils.data.ValidateUtils;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.util.CollectionUtils;
-
-import java.time.LocalDateTime;
-
-/**
- * 采集引擎抽象基类
- */
-@Slf4j
-public abstract class AbstractCollectEngine implements CollectEngine {
-
-    @Override
-    public CollectResult collect(CollectContext context) {
-        try {
-            // 前置处理
-            preCollect(context);
-
-            // 执行采集
-            CollectResult result = doCollect(context);
-
-            // 后置处理
-            postCollect(context, result);
-
-            return result;
-        } catch (Exception e) {
-            log.error("Collect failed", e);
-            return CollectResult.error(e.getMessage());
-        }
-    }
-
-    /**
-     * 前置处理
-     */
-    protected void preCollect(CollectContext context) {
-        // 参数校验
-        validateContext(context);
-        // 初始化上下文
-        initContext(context);
-        // 记录开始时间
-        context.setStartTime(LocalDateTime.now());
-    }
-
-    /**
-     * 执行采集
-     */
-    protected abstract CollectResult doCollect(CollectContext context);
-
-    /**
-     * 后置处理
-     */
-    protected void postCollect(CollectContext context, CollectResult result) {
-        // 更新任务状态
-        updateTaskStatus(context.getTaskId(), result.isSuccess() ?
-                TaskStatus.SUCCESS : TaskStatus.FAILED);
-        // 记录执行结果
-        saveResult(context, result);
-    }
-
-    /**
-     * 参数校验
-     */
-    protected void validateContext(CollectContext context) {
-        ValidateUtils.notNull(context, "Context cannot be null");
-        ValidateUtils.notEmpty(context.getTaskId(), "TaskId cannot be empty");
-        ValidateUtils.notNull(context.getCollectType(), "CollectType cannot be null");
-    }
-
-    /**
-     * 初始化上下文
-     */
-    protected void initContext(CollectContext context) {
-        if (context.getTimeout() <= 0) {
-            context.setTimeout(DEFAULT_TIMEOUT);
-        }
-        if (CollectionUtils.isEmpty(context.getProcessors())) {
-            context.setProcessors(getDefaultProcessors(context.getCollectType()));
-        }
-    }
-
-    /**
-     * 获取默认处理器链
-     */
-    protected abstract List<Processor> getDefaultProcessors(CollectType type);
-}
-```
-
-## CollectContext.java
-
-```java
-package com.study.collect.core.engine;
-
-import com.study.collect.common.enums.collect.CollectType;
-
-import java.time.LocalDateTime;
-
-/**
- * 采集上下文
- */
-@Data
-@Builder
-public class CollectContext {
-    /**
-     * 任务ID
-     */
-    private String taskId;
-
-    /**
-     * 采集类型
-     */
-    private CollectType collectType;
-
-    /**
-     * 采集参数
-     */
-    private Map<String, Object> params;
-
-    /**
-     * 处理器链
-     */
-    private List<Processor> processors;
-
-    /**
-     * 采集开始时间
-     */
-    private LocalDateTime startTime;
-
-    /**
-     * 超时时间(ms)
-     */
-    private long timeout;
-}
-
-```
-
-## CollectEngine.java
-
-```java
-package com.study.collect.core.engine;
-
-// 引擎接口
-import com.study.collect.common.enums.collect.TaskStatus;
-import lombok.extern.slf4j.Slf4j;
-import java.util.List;
-
-/**
- * 采集引擎接口
- */
-public interface CollectEngine {
-    /**
-     * 执行采集任务
-     */
-    CollectResult collect(CollectContext context);
-
-    /**
-     * 停止任务
-     */
-    void stop(String taskId);
-
-    /**
-     * 获取任务状态
-     */
-    TaskStatus getStatus(String taskId);
-}
-
-```
-
-## StandardCollectEngine.java
-
-```java
-package com.study.collect.core.engine;
-
-import com.study.collect.common.enums.collect.TaskStatus;
-import com.study.collect.core.processor.impl.storage.MongoProcessor;
-
-import java.util.Arrays;
-
-/**
- * 标准采集引擎实现
- */
-@Component
-@RequiredArgsConstructor
-@Slf4j
-public class StandardCollectEngine extends AbstractCollectEngine {
-
-    private final CollectorFactory collectorFactory;
-    private final ProcessorChainBuilder chainBuilder;
-    private final TaskRepository taskRepository;
-    private final MetricsCollector metricsCollector;
-
-    @Override
-    protected CollectResult doCollect(CollectContext context) {
-        Timer.Sample sample = metricsCollector.startTimer();
-        try {
-            // 获取采集器
-            Collector collector = collectorFactory.getCollector(context.getCollectType());
-
-            // 构建处理器链
-            ProcessorChain chain = chainBuilder.build(context.getProcessors());
-
-            // 执行采集
-            Object data = collector.collect(context);
-
-            // 执行处理链
-            ProcessContext processContext = new ProcessContext(data, context.getParams());
-            chain.process(processContext);
-
-            // 返回结果
-            return CollectResult.success(processContext.getResult());
-        } finally {
-            metricsCollector.stopTimer(sample);
-        }
-    }
-
-    @Override
-    protected List<Processor> getDefaultProcessors(CollectType type) {
-        switch (type) {
-            case TREE:
-                return Arrays.asList(
-                        new TreeTransformer(),
-                        new TreeFilter(),
-                        new TreeValidator(),
-                        new CacheProcessor(),
-                        new MongoProcessor()
-                );
-            case LIST:
-                return Arrays.asList(
-                        new ListTransformer(),
-                        new ListFilter(),
-                        new ListValidator(),
-                        new CacheProcessor(),
-                        new MongoProcessor()
-                );
-            default:
-                return Arrays.asList(
-                        new DataTransformer(),
-                        new DataValidator(),
-                        new CacheProcessor(),
-                        new MongoProcessor()
-                );
-        }
-    }
-
-    @Override
-    public void stop(String taskId) {
-        try {
-            taskRepository.updateStatus(taskId, TaskStatus.CANCELED);
-            log.info("Task stopped: {}", taskId);
-        } catch (Exception e) {
-            log.error("Failed to stop task", e);
-            throw new TaskException("Failed to stop task: " + taskId, e);
-        }
-    }
-
-    @Override
-    public TaskStatus getStatus(String taskId) {
-        try {
-            Optional<CollectTask> task = taskRepository.findById(taskId);
-            return task.map(t -> TaskStatus.valueOf(t.getStatus()))
-                    .orElseThrow(() -> new TaskException("Task not found: " + taskId));
-        } catch (Exception e) {
-            log.error("Failed to get task status", e);
-            throw new TaskException("Failed to get task status: " + taskId, e);
-        }
-    }
-}
-```
-
-## ShardTaskExecutor.java
-
-```java
-package com.study.collect.core.executor;
-
-import com.study.collect.common.enums.collect.TaskStatus;
-import com.study.collect.common.exception.collect.TaskException;
-import com.study.collect.domain.entity.task.CollectTask;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.springframework.stereotype.Component;
-
-import java.time.LocalDateTime;
-import java.util.*;
-import java.util.stream.Collectors;
-
-/**
- * 分片任务执行器(续)
- */
-@Slf4j
-@Component
-@RequiredArgsConstructor
-public class ShardTaskExecutor {
-
-    /**
-     * 合并分片结果
-     */
-    private ShardExecuteResult mergeResults(List<ShardResult> results, CollectTask task) {
-        try {
-            // 1. 验证结果完整性
-            validateResults(results, task);
-
-            // 2. 排序结果
-            List<ShardResult> sortedResults = results.stream()
-                    .sorted(Comparator.comparingInt(r -> r.getShard().getShardIndex()))
-                    .collect(Collectors.toList());
-
-            // 3. 合并数据
-            Object mergedData = mergeShardData(sortedResults);
-
-            // 4. 合并统计信息
-            Map<String, Object> stats = mergeShardStats(sortedResults);
-
-            // 5. 更新任务状态
-            updateTaskStatus(task, TaskStatus.SUCCESS, stats);
-
-            return ShardExecuteResult.success(mergedData)
-                    .withStats(stats);
-
-        } catch (Exception e) {
-            log.error("Merge results failed: {}", task.getId(), e);
-            throw new TaskException("Merge results failed: " + e.getMessage());
-        }
-    }
-
-    /**
-     * 验证结果完整性
-     */
-    private void validateResults(List<ShardResult> results, CollectTask task) {
-        // 1. 检查结果数量
-        if (results.size() != task.getShardCount()) {
-            throw new TaskException(
-                    String.format("Results count mismatch: expected %d, got %d",
-                            task.getShardCount(), results.size())
-            );
-        }
-
-        // 2. 检查结果连续性
-        Set<Integer> shardIndexes = results.stream()
-                .map(r -> r.getShard().getShardIndex())
-                .collect(Collectors.toSet());
-
-        for (int i = 0; i < task.getShardCount(); i++) {
-            if (!shardIndexes.contains(i)) {
-                throw new TaskException("Missing shard result: " + i);
-            }
-        }
-    }
-
-    /**
-     * 合并分片数据
-     */
-    @SuppressWarnings("unchecked")
-    private Object mergeShardData(List<ShardResult> results) {
-        if (results.isEmpty()) {
-            return null;
-        }
-
-        // 获取第一个结果的数据类型
-        Object firstData = results.get(0).getData();
-
-        if (firstData instanceof List) {
-            // 合并列表数据
-            return results.stream()
-                    .map(r -> (List<Object>) r.getData())
-                    .flatMap(List::stream)
-                    .collect(Collectors.toList());
-
-        } else if (firstData instanceof Map) {
-            // 合并Map数据
-            Map<String, Object> merged = new HashMap<>();
-            results.forEach(r ->
-                    merged.putAll((Map<String, Object>) r.getData())
-            );
-            return merged;
-
-        } else {
-            throw new TaskException("Unsupported data type for merge: "
-                    + firstData.getClass());
-        }
-    }
-
-    /**
-     * 合并统计信息
-     */
-    private Map<String, Object> mergeShardStats(List<ShardResult> results) {
-        Map<String, Object> mergedStats = new HashMap<>();
-
-        // 1. 基础统计
-        mergedStats.put("totalShards", results.size());
-        mergedStats.put("successShards",
-                results.stream().filter(ShardResult::isSuccess).count());
-
-        // 2. 处理时间统计
-        OptionalDouble avgProcessTime = results.stream()
-                .mapToLong(r -> r.getProcessTime().toMillis())
-                .average();
-        mergedStats.put("avgProcessTime",
-                avgProcessTime.orElse(0));
-
-        // 3. 数据统计
-        long totalRecords = results.stream()
-                .mapToLong(r -> ((Number) r.getStats()
-                        .getOrDefault("recordCount", 0L)).longValue())
-                .sum();
-        mergedStats.put("totalRecords", totalRecords);
-
-        return mergedStats;
-    }
-
-    /**
-     * 处理分片错误
-     */
-    private ShardResult handleShardError(TaskShard shard, Exception e) {
-        try {
-            // 1. 更新分片状态
-            updateShardStatus(shard, ShardStatus.FAILED);
-
-            // 2. 记录错误信息
-            saveShardError(shard, e);
-
-            // 3. 判断是否可重试
-            boolean retriable = isRetriable(shard, e);
-
-            // 4. 构建错误结果
-            return ShardResult.failed(shard, e.getMessage(), retriable);
-
-        } catch (Exception ex) {
-            log.error("Handle shard error failed: {}", shard.getId(), ex);
-            return ShardResult.failed(shard, "Error handling failed", false);
-        }
-    }
-
-    /**
-     * 判断是否可重试
-     */
-    private boolean isRetriable(TaskShard shard, Exception e) {
-        // 1. 检查重试次数
-        if (shard.getRetryCount() >= shard.getMaxRetryTimes()) {
-            return false;
-        }
-
-        // 2. 检查异常类型
-        if (e instanceof NonRetriableException) {
-            return false;
-        }
-
-        // 3. 检查错误消息
-        String errorMessage = e.getMessage();
-        if (errorMessage != null && (
-                errorMessage.contains("invalid data") ||
-                        errorMessage.contains("authorization failed"))) {
-            return false;
-        }
-
-        return true;
-    }
-
-    /**
-     * 计算重试延迟
-     */
-    private long calculateRetryDelay(TaskShard shard) {
-        // 指数退避策略
-        int retryCount = shard.getRetryCount();
-        long baseDelay = 1000L; // 1秒
-        long maxDelay = 60000L; // 1分钟
-
-        long delay = baseDelay * (long) Math.pow(2, retryCount);
-        return Math.min(delay, maxDelay);
-    }
-
-    /**
-     * 保存分片错误信息
-     */
-    private void saveShardError(TaskShard shard, Exception e) {
-        ShardError error = ShardError.builder()
-                .shardId(shard.getId())
-                .taskId(shard.getTaskId())
-                .errorType(e.getClass().getSimpleName())
-                .errorMessage(e.getMessage())
-                .stackTrace(ExceptionUtils.getStackTrace(e))
-                .createTime(LocalDateTime.now())
-                .build();
-
-        shardErrorRepository.save(error);
-    }
-
-    /**
-     * 更新任务状态
-     */
-    private void updateTaskStatus(CollectTask task,
-                                  TaskStatus status, Map<String, Object> stats) {
-
-        task.setStatus(status.name());
-        task.setEndTime(LocalDateTime.now());
-        task.setStats(stats);
-
-        taskRepository.save(task);
-
-        // 发送任务状态变更事件
-        TaskStatusChangedEvent event = new TaskStatusChangedEvent(
-                task.getId(), status, stats);
-        eventPublisher.publishEvent(event);
-    }
-}
-```
-
-## AbstractExecutor.java
-
-```java
-package com.study.collect.core.executor.base;
-
-// 执行器基类
-public class AbstractExecutor {
-}
-
-```
-
-## CollectExecutor.java
-
-```java
-package com.study.collect.core.executor.base;
-
-// 执行器接口
-public class CollectExecutor {
-}
-
-```
-
-## DefaultContext.java
-
-```java
-package com.study.collect.core.executor.context;
-
-// 默认实现
-public class DefaultContext {
-}
-
-```
-
-## ExecuteContext.java
-
-```java
-package com.study.collect.core.executor.context;
-
-// 上下文接口
-public class ExecuteContext {
-}
-
-```
-
-## AsyncExecutor.java
-
-```java
-package com.study.collect.core.executor.impl;
-
-// 异步执行器
-public class AsyncExecutor {
-}
-
-```
-
-## CompensateExecutor.java
-
-```java
-package com.study.collect.core.executor.impl;
-// 补偿执行器
-public class CompensateExecutor {
-}
-
-```
-
-## RetryExecutor.java
-
-```java
-package com.study.collect.core.executor.impl;
-
-// 重试执行器
-public class RetryExecutor {
-}
-
-```
-
-## ExecuteMonitor.java
-
-```java
-package com.study.collect.core.executor.monitor;
-// 监控接口
-public class ExecuteMonitor {
-}
-
-```
-
-## StatusCollector.java
-
-```java
-package com.study.collect.core.executor.monitor;
-// 状态采集
-public class StatusCollector {
-}
-
-```
-
-## AsyncCollectEngine.java
-
-```java
-package com.study.collect.core.impl;
-
-// 异步实现
-import com.study.collect.common.enums.collect.TaskStatus;
-import com.study.collect.common.exception.collect.TaskException;
-import com.study.collect.core.collector.factory.CollectorFactory;
-import com.study.collect.core.engine.AbstractCollectEngine;
-import com.study.collect.core.engine.CollectContext;
-import com.study.collect.core.engine.CollectResult;
-import com.study.collect.domain.entity.task.CollectTask;
-import com.study.collect.domain.repository.task.TaskRepository;
-import io.micrometer.core.instrument.Timer;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-
-import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
-
-/**
- * 异步采集引擎实现
- */
-@Slf4j
-@Component("asyncCollectEngine")
-@RequiredArgsConstructor
-public class AsyncCollectEngine extends AbstractCollectEngine {
-
-    private final ExecutorService executorService;
-    private final TaskRepository taskRepository;
-    private final CollectorFactory collectorFactory;
-    private final MetricsCollector metricsCollector;
-
-    @Override
-    protected CollectResult doCollect(CollectContext context) {
-        Timer.Sample sample = metricsCollector.startTimer();
-        try {
-            // 1. 异步执行采集
-            CompletableFuture<CollectResult> future = CompletableFuture
-                    .supplyAsync(() -> {
-                        try {
-                            // 获取采集器
-                            Collector collector = collectorFactory.getCollector(context.getCollectType());
-
-                            // 执行采集
-                            Object data = collector.collect(context);
-
-                            // 处理结果
-                            return CollectResult.success(data);
-                        } catch (Exception e) {
-                            log.error("Collect failed", e);
-                            return CollectResult.error(e.getMessage());
-                        }
-                    }, executorService)
-                    .orTimeout(context.getTimeout(), TimeUnit.MILLISECONDS)
-                    .exceptionally(e -> {
-                        log.error("Collect failed with timeout", e);
-                        return CollectResult.error("Collect timeout");
-                    });
-
-            // 2. 获取结果
-            return future.get();
-
-        } catch (Exception e) {
-            log.error("Async collect failed", e);
-            return CollectResult.error(e.getMessage());
-        } finally {
-            metricsCollector.stopTimer(sample);
-        }
-    }
-
-    @Override
-    public void stop(String taskId) {
-        try {
-            taskRepository.updateStatus(taskId, TaskStatus.CANCELED);
-            log.info("Task stopped: {}", taskId);
-        } catch (Exception e) {
-            log.error("Failed to stop task", e);
-            throw new TaskException("Failed to stop task: " + taskId);
-        }
-    }
-
-    @Override
-    public TaskStatus getStatus(String taskId) {
-        try {
-            Optional<CollectTask> task = taskRepository.findById(taskId);
-            return task.map(t -> TaskStatus.valueOf(t.getStatus()))
-                    .orElseThrow(() -> new TaskException("Task not found: " + taskId));
-        } catch (Exception e) {
-            log.error("Failed to get task status", e);
-            throw new TaskException("Failed to get task status: " + taskId);
-        }
-    }
-}
-```
-
-## DistributedEngine.java
-
-```java
-package com.study.collect.core.impl;
-
-// 分布式实现
-public class DistributedEngine {
-}
-
-```
-
-## IncrementalEngine.java
-
-```java
-package com.study.collect.core.impl;
-
-// 增量采集引擎
-public class IncrementalEngine {
-}
-
-```
-
-## StandardCollectEngine.java
-
-```java
-package com.study.collect.core.impl;
-
-// 标准实现
-public class StandardCollectEngine {
-}
-
-```
-
-## ProcessContext.java
-
-```java
-package com.study.collect.core.processor;
-
-import lombok.Builder;
-import lombok.Data;
-
-/**
- * 处理上下文
- */
-@Data
-@Builder
-public class ProcessContext {
-    /**
-     * 原始数据
-     */
-    private Object rawData;
-
-    /**
-     * 处理结果
-     */
-    private Object result;
-
-    /**
-     * 处理参数
-     */
-    private Map<String, Object> params;
-
-    /**
-     * 是否继续处理
-     */
-    private boolean continueProcess = true;
-}
-
-```
-
-## Processor.java
-
-```java
-package com.study.collect.core.processor;
-
-import com.study.collect.common.enums.collect.ProcessType;
-
-/**
- * 处理器接口
- */
-public interface Processor {
-    /**
-     * 执行处理
-     */
-    void process(ProcessContext context);
-
-    /**
-     * 获取处理器类型
-     */
-    ProcessType getType();
-
-    /**
-     * 获取处理器顺序
-     */
-    int getOrder();
-}
-
-```
-
-## AbstractProcessor.java
-
-```java
-package com.study.collect.core.processor.base;
-
-// 处理器基类
-
-import com.study.collect.common.exception.collect.ProcessException;
-import com.study.collect.core.processor.ProcessContext;
-import lombok.extern.slf4j.Slf4j;
-
-/**
- * 抽象处理器基类
- */
-@Slf4j
-public abstract class AbstractProcessor implements Processor {
-
-    @Override
-    public void process(ProcessContext context) {
-        try {
-            // 前置处理
-            preProcess(context);
-
-            // 执行处理
-            if (shouldProcess(context)) {
-                doProcess(context);
-            }
-
-            // 后置处理
-            postProcess(context);
-        } catch (Exception e) {
-            log.error("Process failed", e);
-            handleError(context, e);
-        }
-    }
-
-    /**
-     * 前置处理
-     */
-    protected void preProcess(ProcessContext context) {
-        // 默认实现为空
-    }
-
-    /**
-     * 判断是否需要处理
-     */
-    protected boolean shouldProcess(ProcessContext context) {
-        return true;
-    }
-
-    /**
-     * 执行处理
-     */
-    protected abstract void doProcess(ProcessContext context);
-
-    /**
-     * 后置处理
-     */
-    protected void postProcess(ProcessContext context) {
-        // 默认实现为空
-    }
-
-    /**
-     * 错误处理
-     */
-    protected void handleError(ProcessContext context, Exception e) {
-        throw new ProcessException("Process failed: " + e.getMessage(), e);
-    }
-}
-```
-
-## DataTransformer.java
-
-```java
-package com.study.collect.core.processor.base;
-
-import com.study.collect.common.enums.collect.ProcessType;
-
-/**
- * 数据转换处理器
- */
-@Component
-@Slf4j
-public class DataTransformer extends AbstractProcessor {
-
-    @Override
-    public ProcessType getType() {
-        return ProcessType.TRANSFORM;
-    }
-
-    @Override
-    public int getOrder() {
-        return 100;
-    }
-
-    @Override
-    protected void doProcess(ProcessContext context) {
-        Object rawData = context.getRawData();
-        if (rawData == null) {
-            return;
-        }
-
-        try {
-            // 执行数据转换
-            Object result = transform(rawData);
-            context.setResult(result);
-        } catch (Exception e) {
-            log.error("Transform data failed", e);
-            throw new ProcessException("Transform data failed", e);
-        }
-    }
-
-    protected Object transform(Object data) {
-        // 具体转换逻辑由子类实现
-        return data;
-    }
-}
-
-
-```
-
-## ListProcessor.java
-
-```java
-package com.study.collect.core.processor.base;
-
-// 列表处理器基类
-public class ListProcessor {
-}
-
-```
-
-## TreeProcessor.java
-
-```java
-package com.study.collect.core.processor.base;
-
-// TreeProcessor
-public class TreeProcessor {
-}
-
-```
-
-## ChainContext.java
-
-```java
-package com.study.collect.core.processor.chain;
-
-// 链上下文
-public class ChainContext {
-}
-
-```
-
-## DataProcessManager.java
-
-```java
-package com.study.collect.core.processor.chain;
-
-import com.study.collect.core.processor.ProcessContext;
-import com.study.collect.core.processor.chain.ProcessorChain;
-import com.study.collect.core.processor.chain.ProcessorChainBuilder;
-import io.micrometer.core.instrument.Timer;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-
-import java.time.Duration;
-import java.time.LocalDateTime;
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-
-/**
- * 数据处理流程管理器
- */
-@Slf4j
-@Component
-@RequiredArgsConstructor
-public class DataProcessManager {
-
-    private final ProcessorChainBuilder chainBuilder;
-    private final ProcessorRegistry processorRegistry;
-    private final MetricsCollector metricsCollector;
-    private final CacheManager cacheManager;
-
-    /**
-     * 执行处理流程
-     */
-    public ProcessResult process(ProcessRequest request) {
-        String flowId = UUID.randomUUID().toString();
-        Timer.Sample timer = metricsCollector.startTimer("process_flow");
-
-        try {
-            // 1. 构建处理上下文
-            ProcessContext context = buildContext(request, flowId);
-
-            // 2. 获取处理器链
-            ProcessorChain chain = getProcessorChain(request);
-
-            // 3. 执行处理流程
-            return executeFlow(chain, context);
-
-        } catch (Exception e) {
-            log.error("Process flow failed: {}", flowId, e);
-            return ProcessResult.failed(e.getMessage());
-        } finally {
-            metricsCollector.stopTimer(timer);
-        }
-    }
-
-    private ProcessContext buildContext(ProcessRequest request, String flowId) {
-        return ProcessContext.builder()
-                .flowId(flowId)
-                .data(request.getData())
-                .type(request.getType())
-                .params(request.getParams())
-                .startTime(LocalDateTime.now())
-                .build();
-    }
-
-    private ProcessorChain getProcessorChain(ProcessRequest request) {
-        // 1. 尝试从缓存获取
-        String cacheKey = "processor_chain:" + request.getType();
-        ProcessorChain chain = cacheManager.get(cacheKey, ProcessorChain.class);
-        if (chain != null) {
-            return chain;
-        }
-
-        // 2. 构建处理器链
-        List<Processor> processors = processorRegistry.getProcessors(request.getType());
-        chain = chainBuilder.build(processors);
-
-        // 3. 缓存处理器链
-        cacheManager.set(cacheKey, chain, 3600); // 1小时缓存
-
-        return chain;
-    }
-
-    private ProcessResult executeFlow(ProcessorChain chain, ProcessContext context) {
+    public R collect(T param) {
         try {
             // 1. 前置处理
-            preProcess(context);
+            preProcess(param);
 
-            // 2. 执行处理链
-            chain.process(context);
+            // 2. 执行采集
+            R result = doCollect(param);
 
             // 3. 后置处理
-            postProcess(context);
-
-            // 4. 构建结果
-            return buildResult(context);
-
-        } catch (Exception e) {
-            log.error("Execute flow failed: {}", context.getFlowId(), e);
-            handleProcessError(context, e);
-            throw e;
-        } finally {
-            // 记录处理时间
-            long duration = Duration.between(
-                    context.getStartTime(),
-                    LocalDateTime.now()
-            ).toMillis();
-            metricsCollector.recordProcessDuration(duration);
-        }
-    }
-
-    private void preProcess(ProcessContext context) {
-        // 1. 记录开始时间
-        context.setStartTime(LocalDateTime.now());
-
-        // 2. 初始化处理状态
-        context.setStatus(ProcessStatus.PROCESSING);
-
-        // 3. 记录处理开始
-        saveProcessLog(context, "开始处理数据");
-    }
-
-    private void postProcess(ProcessContext context) {
-        // 1. 更新处理状态
-        context.setStatus(ProcessStatus.COMPLETED);
-        context.setEndTime(LocalDateTime.now());
-
-        // 2. 记录处理完成
-        saveProcessLog(context, "数据处理完成");
-
-        // 3. 清理上下文
-        cleanupContext(context);
-    }
-
-    private void handleProcessError(ProcessContext context, Exception e) {
-        // 1. 更新处理状态
-        context.setStatus(ProcessStatus.FAILED);
-        context.setEndTime(LocalDateTime.now());
-        context.setError(e.getMessage());
-
-        // 2. 记录错误日志
-        saveProcessLog(context, "处理失败: " + e.getMessage());
-
-        // 3. 增加错误计数
-        metricsCollector.incrementProcessError(context.getType());
-    }
-
-    private void saveProcessLog(ProcessContext context, String message) {
-        ProcessLog log = ProcessLog.builder()
-                .flowId(context.getFlowId())
-                .type(context.getType())
-                .message(message)
-                .timestamp(LocalDateTime.now())
-                .build();
-
-        // 异步保存日志
-        CompletableFuture.runAsync(() -> {
-            try {
-                processLogRepository.save(log);
-            } catch (Exception e) {
-                log.error("Save process log failed", e);
-            }
-        });
-    }
-}
-
-
-```
-
-## ProcessorChain.java
-
-```java
-package com.study.collect.core.processor.chain;
-
-// 处理器链
-
-import com.study.collect.common.exception.collect.ProcessException;
-import com.study.collect.core.processor.ProcessContext;
-import lombok.RequiredArgsConstructor;
-
-/**
- * 处理器链
- */
-@RequiredArgsConstructor
-public class ProcessorChain {
-
-    private final List<Processor> processors;
-
-    public void process(ProcessContext context) {
-        for (Processor processor : processors) {
-            if (!context.isContinueProcess()) {
-                break;
-            }
-            try {
-                processor.process(context);
-            } catch (Exception e) {
-                throw new ProcessException("Process failed at " + processor.getType(), e);
-            }
-        }
-    }
-}
-```
-
-## ProcessorChainBuilder.java
-
-```java
-package com.study.collect.core.processor.chain;
-
-// 链构建器
-import com.study.collect.core.processor.Processor;
-import com.study.collect.core.processor.impl.validate.DataValidator;
-import com.study.collect.core.processor.impl.transform.DataTransformer;
-import com.study.collect.core.processor.impl.storage.CacheProcessor;
-import com.study.collect.core.processor.impl.storage.MongoProcessor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-import org.springframework.util.CollectionUtils;
-
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.stream.Collectors;
-
-/**
- * 处理器链构建器
- */
-@Component
-public class ProcessorChainBuilder {
-
-    /**
-     * 构建处理器链
-     */
-    public ProcessorChain build(List<Processor> processors) {
-        // 1. 验证和过滤
-        List<Processor> validProcessors = validateProcessors(processors);
-
-        // 2. 排序处理器
-        List<Processor> sortedProcessors = sortProcessors(validProcessors);
-
-        // 3. 添加默认处理器
-        List<Processor> finalProcessors = addDefaultProcessors(sortedProcessors);
-
-        // 4. 创建处理器链
-        return new ProcessorChain(finalProcessors);
-    }
-
-    /**
-     * 验证处理器
-     */
-    private List<Processor> validateProcessors(List<Processor> processors) {
-        if (processors == null) {
-            return new ArrayList<>();
-        }
-        return processors.stream()
-                .filter(p -> p != null && p.getType() != null)
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * 排序处理器
-     */
-    private List<Processor> sortProcessors(List<Processor> processors) {
-        return processors.stream()
-                .sorted(Comparator.comparingInt(Processor::getOrder))
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * 添加默认处理器
-     */
-    private List<Processor> addDefaultProcessors(List<Processor> processors) {
-        List<Processor> result = new ArrayList<>(processors);
-
-        // 添加基础处理器
-        result.add(new DataTransformer()); // 数据转换
-        result.add(new DataValidator());   // 数据验证
-        result.add(new CacheProcessor());  // 缓存处理
-        result.add(new MongoProcessor());  // 存储处理
-
-        return result;
-    }
-
-    /**
-     * 构建自定义处理器链
-     */
-    public ProcessorChain buildCustom(List<Processor> processors, boolean addDefault) {
-        List<Processor> validProcessors = validateProcessors(processors);
-        List<Processor> sortedProcessors = sortProcessors(validProcessors);
-
-        if (addDefault) {
-            sortedProcessors = addDefaultProcessors(sortedProcessors);
-        }
-
-        return new ProcessorChain(sortedProcessors);
-    }
-}
-
-///**
-// * 数据处理链构建器
-// */
-//@Slf4j
-//@Component
-//public class ProcessorChainBuilder {
-//
-//    /**
-//     * 构建处理器链
-//     */
-//    public ProcessorChain build(List<Processor> processors) {
-//        // 1. 验证处理器
-//        validateProcessors(processors);
-//
-//        // 2. 排序处理器
-//        List<Processor> sortedProcessors = sortProcessors(processors);
-//
-//        // 3. 添加监控处理器
-//        sortedProcessors.add(0, new MonitorProcessor());
-//        sortedProcessors.add(new LogProcessor());
-//
-//        // 4. 构建处理器链
-//        return new ProcessorChain(sortedProcessors);
-//    }
-//
-//    private void validateProcessors(List<Processor> processors) {
-//        // 验证处理器不为空
-//        if (CollectionUtils.isEmpty(processors)) {
-//            throw new IllegalArgumentException("Processors cannot be empty");
-//        }
-//
-//        // 验证处理器类型
-//        processors.forEach(processor -> {
-//            if (processor.getType() == null) {
-//                throw new IllegalArgumentException(
-//                        "Processor type cannot be null: " + processor.getClass()
-//                );
-//            }
-//        });
-//    }
-//
-//    private List<Processor> sortProcessors(List<Processor> processors) {
-//        return processors.stream()
-//                .sorted(Comparator.comparingInt(Processor::getOrder))
-//                .collect(Collectors.toList());
-//    }
-//}
-
-```
-
-## ListCompareProcessor.java
-
-```java
-package com.study.collect.core.processor.impl.compare;
-
-public class ListCompareProcessor {
-}
-
-```
-
-## TreeCompareProcessor.java
-
-```java
-package com.study.collect.core.processor.impl.compare;
-
-public class TreeCompareProcessor {
-}
-
-```
-
-## ListFilter.java
-
-```java
-package com.study.collect.core.processor.impl.filter;
-
-// 列表过滤器
-public class ListFilter {
-}
-
-```
-
-## TreeFilter.java
-
-```java
-package com.study.collect.core.processor.impl.filter;
-
-// 树形过滤器
-public class TreeFilter {
-}
-
-```
-
-## ListMerger.java
-
-```java
-package com.study.collect.core.processor.impl.merge;
-
-// 列表合并器
-public class ListMerger {
-}
-
-```
-
-## TreeMerger.java
-
-```java
-package com.study.collect.core.processor.impl.merge;
-
-// 树合并
-public class TreeMerger {
-}
-
-```
-
-## ListStatsProcessor.java
-
-```java
-package com.study.collect.core.processor.impl.stats;
-
-// 列表统计处理器
-public class ListStatsProcessor {
-}
-
-```
-
-## TreeStatsProcessor.java
-
-```java
-package com.study.collect.core.processor.impl.stats;
-
-// 树形统计处理器
-public class TreeStatsProcessor {
-}
-
-```
-
-## CacheProcessor.java
-
-```java
-package com.study.collect.core.processor.impl.storage;
-
-// 缓存处理器
-public class CacheProcessor {
-}
-
-```
-
-## MongoProcessor.java
-
-```java
-package com.study.collect.core.processor.impl.storage;
-
-// Mongo处理器
-public class MongoProcessor {
-}
-
-```
-
-## ListSyncProcessor.java
-
-```java
-package com.study.collect.core.processor.impl.sync;
-
-// 列表同步处理器
-public class ListSyncProcessor {
-}
-
-```
-
-## TreeSyncProcessor.java
-
-```java
-package com.study.collect.core.processor.impl.sync;
-
-// 树形同步处理器
-public class TreeSyncProcessor {
-}
-
-```
-
-## TaskPriorityProcessor.java
-
-```java
-package com.study.collect.core.processor.impl.task;
-
-import com.study.collect.common.enums.collect.ProcessType;
-import com.study.collect.common.exception.collect.ProcessException;
-import com.study.collect.core.processor.ProcessContext;
-import com.study.collect.core.processor.base.AbstractProcessor;
-import com.study.collect.domain.entity.task.CollectTask;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-
-import java.time.Duration;
-import java.time.LocalDateTime;
-import java.util.Comparator;
-import java.util.List;
-import java.util.stream.Collectors;
-
-/**
- * 任务优先级处理器
- */
-@Slf4j
-@Component
-public class TaskPriorityProcessor extends AbstractProcessor {
-
-    @Override
-    public ProcessType getType() {
-        return ProcessType.PRIORITY;
-    }
-
-    @Override
-    public int getOrder() {
-        return 20;
-    }
-
-    @Override
-    protected void doProcess(ProcessContext context) {
-        List<CollectTask> tasks = (List<CollectTask>) context.getRawData();
-
-        try {
-            // 1. 计算任务优先级
-            tasks.forEach(this::calculatePriority);
-
-            // 2. 按优先级排序
-            List<CollectTask> sortedTasks = tasks.stream()
-                    .sorted(Comparator.comparing(CollectTask::getPriority).reversed())
-                    .collect(Collectors.toList());
-
-            // 3. 更新上下文
-            context.setResult(sortedTasks);
-
-        } catch (Exception e) {
-            log.error("Task priority process failed", e);
-            throw new ProcessException("Task priority process failed: " + e.getMessage());
-        }
-    }
-
-    private void calculatePriority(CollectTask task) {
-        int basePriority = task.getPriority();
-
-        // 1. 根据任务类型调整
-        basePriority += getTypePriorityAdjustment(task.getType());
-
-        // 2. 根据重试次数调整
-        basePriority -= task.getRetryTimes() * 2;
-
-        // 3. 根据等待时间调整
-        long waitTime = Duration.between(task.getCreateTime(), LocalDateTime.now()).toMinutes();
-        basePriority += Math.min(waitTime / 10, 10); // 最多加10分
-
-        task.setPriority(basePriority);
-    }
-
-    private int getTypePriorityAdjustment(String type) {
-        switch (type) {
-            case "HIGH":
-                return 10;
-            case "MEDIUM":
-                return 5;
-            case "LOW":
-                return 0;
-            default:
-                return 0;
-        }
-    }
-}
-
-```
-
-## TaskShardingProcessor.java
-
-```java
-package com.study.collect.core.processor.impl.task;
-import com.study.collect.common.exception.collect.ProcessException;
-import com.study.collect.core.processor.ProcessContext;
-import com.study.collect.core.processor.base.AbstractProcessor;
-import com.study.collect.common.enums.collect.ProcessType;
-import com.study.collect.core.strategy.RangeShardingStrategy;
-import com.study.collect.domain.entity.task.CollectTask;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-
-import java.util.List;
-
-/**
- * 任务分片处理器
- */
-@Slf4j
-@Component
-public class TaskShardingProcessor extends AbstractProcessor {
-
-    @Override
-    public ProcessType getType() {
-        return ProcessType.SHARDING;
-    }
-
-    @Override
-    public int getOrder() {
-        return 10;
-    }
-
-    @Override
-    protected void doProcess(ProcessContext context) {
-        CollectTask task = (CollectTask) context.getRawData();
-
-        try {
-            // 1. 计算分片策略
-            ShardingStrategy strategy = calculateStrategy(task);
-
-            // 2. 生成分片任务
-            List<CollectTask> shardTasks = strategy.shard(task);
-
-            // 3. 更新上下文
-            context.setResult(shardTasks);
-            context.getParams().put("sharded", true);
-
-        } catch (Exception e) {
-            log.error("Task sharding failed", e);
-            throw new ProcessException("Task sharding failed: " + e.getMessage());
-        }
-    }
-
-    private ShardingStrategy calculateStrategy(CollectTask task) {
-        // 根据任务类型和参数选择分片策略
-        if (task.getParams().containsKey("range")) {
-            return new RangeShardingStrategy();
-        } else if (task.getParams().containsKey("hash")) {
-            return new HashShardingStrategy();
-        }
-        return new SimpleShardingStrategy();
-    }
-}
-
-```
-
-## ListTransformer.java
-
-```java
-package com.study.collect.core.processor.impl.transform;
-
-// 列表转换器
-import com.study.collect.common.exception.collect.ProcessException;
-import com.study.collect.core.processor.ProcessContext;
-import com.study.collect.core.processor.base.AbstractProcessor;
-import com.study.collect.common.enums.collect.ProcessType;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-
-import java.util.List;
-import java.util.Objects;
-import java.util.stream.Collectors;
-
-/**
- * 列表数据转换处理器
- */
-@Slf4j
-@Component
-public class ListTransformer extends AbstractProcessor {
-
-    @Override
-    public ProcessType getType() {
-        return ProcessType.TRANSFORM;
-    }
-
-    @Override
-    public int getOrder() {
-        return 100;
-    }
-
-    @Override
-    protected void doProcess(ProcessContext context) {
-        Object rawData = context.getRawData();
-        if (!(rawData instanceof List)) {
-            throw new ProcessException("Data is not a list");
-        }
-
-        try {
-            List<Object> list = (List<Object>) rawData;
-
-            // 转换列表数据
-            List<Object> transformed = list.stream()
-                    .map(this::transformItem)
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.toList());
-
-            context.setResult(transformed);
-
-        } catch (Exception e) {
-            log.error("Transform list data failed", e);
-            throw new ProcessException("Transform list data failed", e);
-        }
-    }
-
-    /**
-     * 转换单个数据项
-     */
-    protected Object transformItem(Object item) {
-        // 默认实现,子类可覆盖
-        return item;
-    }
-}
-```
-
-## TreeTransformer.java
-
-```java
-package com.study.collect.core.processor.impl.transform;
-
-import com.study.collect.common.enums.collect.ProcessType;
-import com.study.collect.common.exception.collect.ProcessException;
-import com.study.collect.core.processor.ProcessContext;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-
-import java.util.stream.Collectors;
-
-// 树形转换器
-@Slf4j
-@Component
-public class TreeTransformer extends AbstractProcessor {
-
-    @Override
-    public ProcessType getType() {
-        return ProcessType.TRANSFORM;
-    }
-
-    @Override
-    public int getOrder() {
-        return 100;
-    }
-
-    @Override
-    protected void doProcess(ProcessContext context) {
-        Object rawData = context.getRawData();
-        if (!(rawData instanceof TreeNode)) {
-            throw new ProcessException("Data is not a tree node");
-        }
-
-        try {
-            TreeNode node = (TreeNode) rawData;
-
-            // 转换树节点
-            TreeNode transformed = transformNode(node);
-
-            // 递归转换子节点
-            if (transformed.getChildren() != null) {
-                List<TreeNode> transformedChildren = transformed.getChildren().stream()
-                        .map(this::transformNode)
-                        .collect(Collectors.toList());
-                transformed.setChildren(transformedChildren);
-            }
-
-            context.setResult(transformed);
-
-        } catch (Exception e) {
-            log.error("Transform tree data failed", e);
-            throw new ProcessException("Transform tree data failed", e);
-        }
-    }
-
-    /**
-     * 转换树节点
-     */
-    protected TreeNode transformNode(TreeNode node) {
-        // 默认实现,子类可覆盖
-        return node;
-    }
-}
-```
-
-## DataValidator.java
-
-```java
-package com.study.collect.core.processor.impl.validate;
-
-// 数据校验器
-
-import com.study.collect.common.enums.collect.ProcessType;
-import com.study.collect.core.processor.ProcessContext;
-
-/**
- * 数据验证处理器
- */
-@Component
-@Slf4j
-public class DataValidator extends AbstractProcessor {
-
-    @Override
-    public ProcessType getType() {
-        return ProcessType.VALIDATE;
-    }
-
-    @Override
-    public int getOrder() {
-        return 200;
-    }
-
-    @Override
-    protected void doProcess(ProcessContext context) {
-        Object data = context.getResult();
-        if (data == null) {
-            throw new ValidateException("Data cannot be null");
-        }
-
-        try {
-            // 执行数据验证
-            validate(data);
-        } catch (Exception e) {
-            log.error("Validate data failed", e);
-            throw new ValidateException("Validate data failed: " + e.getMessage());
-        }
-    }
-
-    protected void validate(Object data) {
-        // 具体验证逻辑由子类实现
-    }
-}
-
-```
-
-## RuleValidator.java
-
-```java
-package com.study.collect.core.processor.impl.validate;
-
-// 规则校验器
-public class RuleValidator {
-}
-
-```
-
-## AbstractTaskScheduler.java
-
-```java
-package com.study.collect.core.scheduler.base;
-
-// 调度器基类
-
-import com.study.collect.common.enums.collect.TaskStatus;
-import com.study.collect.common.exception.collect.TaskException;
-import com.study.collect.core.engine.CollectEngine;
-import com.study.collect.domain.entity.task.CollectTask;
-import com.study.collect.domain.repository.task.TaskRepository;
-import lombok.extern.slf4j.Slf4j;
-
-import java.util.List;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
-
-/**
- * 抽象任务调度器
- */
-@Slf4j
-public abstract class AbstractTaskScheduler implements TaskScheduler {
-
-    private volatile boolean running = false;
-    protected final BlockingQueue<CollectTask> taskQueue = new LinkedBlockingQueue<>();
-    protected final ExecutorService executorService;
-    protected final TaskRepository taskRepository;
-    protected final CollectEngine collectEngine;
-    protected final MetricsCollector metricsCollector;
-
-    protected AbstractTaskScheduler(
-            TaskRepository taskRepository,
-            CollectEngine collectEngine,
-            MetricsCollector metricsCollector,
-            ThreadPoolProperties properties
-    ) {
-        this.taskRepository = taskRepository;
-        this.collectEngine = collectEngine;
-        this.metricsCollector = metricsCollector;
-        this.executorService = new ThreadPoolExecutor(
-                properties.getCorePoolSize(),
-                properties.getMaxPoolSize(),
-                properties.getKeepAliveTime(),
-                TimeUnit.SECONDS,
-                new LinkedBlockingQueue<>(properties.getQueueCapacity()),
-                new ThreadPoolExecutor.CallerRunsPolicy()
-        );
-    }
-
-    @Override
-    public void submit(CollectTask task) {
-        if (!running) {
-            throw new TaskException("Scheduler is not running");
-        }
-        taskQueue.offer(task);
-        metricsCollector.incrementTaskCount();
-    }
-
-    @Override
-    public void start() {
-        if (running) {
-            return;
-        }
-        running = true;
-        init();
-        startSchedule();
-    }
-
-    @Override
-    public void stop() {
-        if (!running) {
-            return;
-        }
-        running = false;
-        executorService.shutdown();
-    }
-
-    /**
-     * 初始化
-     */
-    protected void init() {
-        // 加载未完成的任务
-        List<CollectTask> unfinishedTasks = taskRepository.findByStatus(TaskStatus.RUNNING.name());
-        unfinishedTasks.forEach(task -> {
-            task.setStatus(TaskStatus.WAITING.name());
-            taskRepository.save(task);
-            taskQueue.offer(task);
-        });
-    }
-
-    /**
-     * 开始调度
-     */
-    protected abstract void startSchedule();
-}
-
-```
-
-## ScheduleContext.java
-
-```java
-package com.study.collect.core.scheduler.base;
-
-// 调度上下文
-public class ScheduleContext {
-}
-
-```
-
-## StandardTaskScheduler.java
-
-```java
-package com.study.collect.core.scheduler.base;
-
-package com.study.collect.core.scheduler.base;
-
-import com.study.collect.common.enums.collect.TaskStatus;
-import com.study.collect.common.exception.collect.CollectException;
-import com.study.collect.core.engine.CollectEngine;
-import com.study.collect.domain.entity.task.CollectTask;
-import com.study.collect.domain.repository.task.TaskRepository;
-import com.study.collect.infrastructure.monitor.metrics.collector.MetricsCollector;
-import com.study.collect.model.response.collect.CollectResult;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
-
-import java.time.LocalDateTime;
-import java.util.concurrent.*;
-
-/**
- * 标准任务调度器
- */
-@Component
-@Slf4j
-public class StandardTaskScheduler extends AbstractTaskScheduler {
-
-    private final ScheduledExecutorService scheduleService = Executors.newScheduledThreadPool(1);
-    private final BlockingQueue<CollectTask> taskQueue;
-    private final ExecutorService executorService;
-    private final MetricsCollector metricsCollector;
-
-    public StandardTaskScheduler(
-            TaskRepository taskRepository,
-            CollectEngine collectEngine,
-            MetricsCollector metricsCollector,
-            @Value("${collect.scheduler.queue-capacity:1000}") int queueCapacity,
-            @Value("${collect.scheduler.core-pool-size:10}") int corePoolSize,
-            @Value("${collect.scheduler.max-pool-size:20}") int maxPoolSize
-    ) {
-        super(taskRepository, collectEngine);
-        this.taskQueue = new LinkedBlockingQueue<>(queueCapacity);
-        this.metricsCollector = metricsCollector;
-        this.executorService = new ThreadPoolExecutor(
-                corePoolSize,
-                maxPoolSize,
-                60L,
-                TimeUnit.SECONDS,
-                new LinkedBlockingQueue<>(queueCapacity),
-                new ThreadPoolExecutor.CallerRunsPolicy()
-        );
-    }
-
-    @Override
-    protected void startSchedule() {
-        // 1. 定时检查队列任务
-        scheduleService.scheduleAtFixedRate(
-                this::processQueuedTasks,
-                0,
-                100,
-                TimeUnit.MILLISECONDS
-        );
-
-        // 2. 定时检查超时任务
-        scheduleService.scheduleAtFixedRate(
-                this::checkTimeoutTasks,
-                0,
-                60,
-                TimeUnit.SECONDS
-        );
-    }
-
-    /**
-     * 处理队列中的任务
-     */
-    private void processQueuedTasks() {
-        try {
-            CollectTask task = taskQueue.poll(100, TimeUnit.MILLISECONDS);
-            if (task != null) {
-                executeTask(task);
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        } catch (Exception e) {
-            log.error("Process queued tasks failed", e);
-        }
-    }
-
-    /**
-     * 执行具体任务
-     */
-    private void executeTask(CollectTask task) {
-        executorService.submit(() -> {
-            try {
-                metricsCollector.incrementTaskCount();
-
-                // 更新任务状态
-                task.setStatus(TaskStatus.RUNNING.name());
-                task.setStartTime(LocalDateTime.now());
-                taskRepository.save(task);
-
-                // 执行采集
-                CollectResult result = collectEngine.collect(buildContext(task));
-
-                // 处理结果
-                handleResult(task, result);
-
-            } catch (Exception e) {
-                log.error("Execute task failed: {}", task.getId(), e);
-                handleError(task, e);
-            }
-        });
-    }
-
-    /**
-     * 处理任务结果
-     */
-    private void handleResult(CollectTask task, CollectResult result) {
-        if (result.isSuccess()) {
-            task.setStatus(TaskStatus.SUCCESS.name());
-            metricsCollector.incrementSuccessCount();
-        } else {
-            handleError(task, new CollectException(result.getMessage()));
-        }
-        task.setEndTime(LocalDateTime.now());
-        taskRepository.save(task);
-    }
-
-    /**
-     * 处理执行错误
-     */
-    private void handleError(CollectTask task, Exception e) {
-        // 检查重试
-        if (task.getRetryTimes() < task.getMaxRetryTimes()) {
-            task.setRetryTimes(task.getRetryTimes() + 1);
-            task.setStatus(TaskStatus.WAITING.name());
-            taskQueue.offer(task);
-        } else {
-            task.setStatus(TaskStatus.FAILED.name());
-            task.setEndTime(LocalDateTime.now());
-            taskRepository.save(task);
-            metricsCollector.incrementFailureCount();
-        }
-    }
-
-    @Override
-    public void stop() {
-        scheduleService.shutdown();
-        executorService.shutdown();
-        super.stop();
-    }
-}
-
-```
-
-## TaskScheduler.java
-
-```java
-package com.study.collect.core.scheduler.base;
-
-// 调度器接口
-
-import com.study.collect.domain.entity.task.CollectTask;
-
-/**
- * 任务调度器
- */
-public interface TaskScheduler {
-    /**
-     * 提交任务
-     */
-    void submit(CollectTask task);
-
-    /**
-     * 启动调度器
-     */
-    void start();
-
-    /**
-     * 停止调度器
-     */
-    void stop();
-}
-
-
-```
-
-## DefaultDispatcher.java
-
-```java
-package com.study.collect.core.scheduler.dispatch;
-
-// 默认实现
-public class DefaultDispatcher {
-}
-
-```
-
-## TaskDispatcher.java
-
-```java
-package com.study.collect.core.scheduler.dispatch;
-
-// 分发器接口
-public class TaskDispatcher {
-}
-
-```
-
-## MetricsCollector.java
-
-```java
-package com.study.collect.core.scheduler.monitor;
-
-// 指标采集
-public class MetricsCollector {
-}
-
-```
-
-## ScheduleMonitor.java
-
-```java
-package com.study.collect.core.scheduler.monitor;
-
-// 监控接口
-public class ScheduleMonitor {
-}
-
-```
-
-## DispatchStrategy.java
-
-```java
-package com.study.collect.core.scheduler.strategy;
-
-// 分发策略
-public class DispatchStrategy {
-}
-
-```
-
-## TaskSplitStrategy.java
-
-```java
-package com.study.collect.core.scheduler.strategy;
-
-// 任务分片策略
-public class TaskSplitStrategy {
-}
-
-```
-
-## ConfigurationManager.java
-
-```java
-package com.study.collect.core.strategy;
-
-import io.micrometer.core.instrument.Timer;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.event.EventListener;
-import org.springframework.stereotype.Component;
-
-import javax.naming.ConfigurationException;
-import java.time.Duration;
-import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
-
-/**
- * 配置管理器
- */
-@Slf4j
-@Component
-@RequiredArgsConstructor
-public class ConfigurationManager {
-
-    private final ConfigRepository configRepository;
-    private final ConfigValidator configValidator;
-    private final ConfigEncryptor configEncryptor;
-    private final ConfigChangeNotifier configChangeNotifier;
-    private final MetricsCollector metricsCollector;
-
-    // 本地配置缓存
-    private final Cache<String, ConfigurationItem> configCache;
-
-    /**
-     * 加载配置
-     */
-    public ConfigurationItem loadConfiguration(String key) {
-        Timer.Sample timer = metricsCollector.startTimer("config_load");
-
-        try {
-            // 1. 从本地缓存获取
-            ConfigurationItem cachedConfig = configCache.getIfPresent(key);
-            if (cachedConfig != null && !isExpired(cachedConfig)) {
-                return cachedConfig;
-            }
-
-            // 2. 从存储加载
-            ConfigurationItem config = configRepository.load(key);
-            if (config == null) {
-                return null;
-            }
-
-            // 3. 解密敏感配置
-            decryptSensitiveConfig(config);
-
-            // 4. 更新缓存
-            configCache.put(key, config);
-
-            return config;
-
-        } catch (Exception e) {
-            log.error("Load configuration failed: {}", key, e);
-            throw new ConfigurationException(
-                    "Failed to load configuration", e);
-        } finally {
-            metricsCollector.stopTimer(timer);
-        }
-    }
-
-    /**
-     * 更新配置
-     */
-    public void updateConfiguration(
-            ConfigurationItem config) {
-        String key = config.getKey();
-        Timer.Sample timer = metricsCollector.startTimer("config_update");
-
-        try {
-            // 1. 验证配置
-            configValidator.validate(config);
-
-            // 2. 加密敏感配置
-            encryptSensitiveConfig(config);
-
-            // 3. 保存配置
-            configRepository.save(config);
-
-            // 4. 清除本地缓存
-            configCache.invalidate(key);
-
-            // 5. 发送变更通知
-            notifyConfigChange(config);
-
-        } catch (Exception e) {
-            log.error("Update configuration failed: {}", key, e);
-            throw new ConfigurationException(
-                    "Failed to update configuration", e);
-        } finally {
-            metricsCollector.stopTimer(timer);
-        }
-    }
-
-    /**
-     * 配置热更新
-     */
-    @EventListener(ConfigChangeEvent.class)
-    public void handleConfigChange(ConfigChangeEvent event) {
-        String key = event.getKey();
-        log.info("Handling configuration change: {}", key);
-
-        try {
-            // 1. 验证变更事件
-            if (!isValidConfigChange(event)) {
-                return;
-            }
-
-            // 2. 重新加载配置
-            ConfigurationItem newConfig = loadConfiguration(key);
-
-            // 3. 通知相关组件
-            notifyComponents(key, newConfig);
-
-            // 4. 记录变更
-            logConfigChange(event);
-
-        } catch (Exception e) {
-            log.error("Handle config change failed: {}", key, e);
-        }
-    }
-
-    /**
-     * 敏感配置解密
-     */
-    private void decryptSensitiveConfig(ConfigurationItem config) {
-        if (!config.containsSensitiveData()) {
-            return;
-        }
-
-        try {
-            Map<String, Object> decryptedValues = new HashMap<>();
-
-            for (Map.Entry<String, Object> entry :
-                    config.getValues().entrySet()) {
-                if (isSensitiveField(entry.getKey())) {
-                    Object decryptedValue = configEncryptor
-                            .decrypt(entry.getValue().toString());
-                    decryptedValues.put(entry.getKey(), decryptedValue);
-                } else {
-                    decryptedValues.put(
-                            entry.getKey(), entry.getValue());
-                }
-            }
-
-            config.setValues(decryptedValues);
-
-        } catch (Exception e) {
-            log.error("Decrypt sensitive config failed", e);
-            throw new ConfigurationException(
-                    "Failed to decrypt sensitive configuration", e);
-        }
-    }
-
-    /**
-     * 通知配置变更
-     */
-    private void notifyConfigChange(ConfigurationItem config) {
-        ConfigChangeEvent event = ConfigChangeEvent.builder()
-                .key(config.getKey())
-                .type(ConfigChangeType.UPDATE)
-                .timestamp(LocalDateTime.now())
-                .version(config.getVersion())
-                .build();
-
-        configChangeNotifier.notify(event);
-    }
-
-    /**
-     * 检查配置是否过期
-     */
-    private boolean isExpired(ConfigurationItem config) {
-        if (config.getTtl() <= 0) {
-            return false;
-        }
-
-        return Duration.between(
-                config.getUpdateTime(),
-                LocalDateTime.now()
-        ).toSeconds() > config.getTtl();
-    }
-}
-```
-
-## DataSynchronizationManager.java
-
-```java
-package com.study.collect.core.strategy;
-
-import com.study.collect.common.exception.sync.SyncException;
-import com.study.collect.domain.entity.sync.SyncResult;
-import com.study.collect.model.request.collect.SyncRequest;
-import io.micrometer.core.instrument.Timer;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-
-import java.util.UUID;
-
-/**
- * 数据同步管理器
- */
-@Slf4j
-@Component
-@RequiredArgsConstructor
-public class DataSynchronizationManager {
-
-    private final NodeManager nodeManager;
-    private final DataRepository dataRepository;
-    private final VersionManager versionManager;
-    private final ConflictResolver conflictResolver;
-    private final MetricsCollector metricsCollector;
-
-    /**
-     * 执行数据同步
-     */
-    public SyncResult synchronize(SyncRequest request) {
-        String syncId = UUID.randomUUID().toString();
-        Timer.Sample timer = metricsCollector.startTimer("data_sync");
-
-        try {
-            // 1. 创建同步上下文
-            SyncContext context = createSyncContext(request, syncId);
-
-            // 2. 执行同步
-            return executeSync(context);
-
-        } catch (Exception e) {
-            log.error("Data sync failed: {}", syncId, e);
-            throw new SyncException("Sync failed: " + e.getMessage());
-        } finally {
-            metricsCollector.stopTimer(timer);
-        }
-    }
-
-    /**
-     * 执行同步
-     */
-    private SyncResult executeSync(SyncContext context) {
-        try {
-            // 1. 准备同步
-            prepareSynchronization(context);
-
-            // 2. 执行同步策略
-            SyncStrategy strategy = selectSyncStrategy(context);
-            SyncResult result = strategy.execute(context);
-
-            // 3. 处理冲突
-            handleSyncConflicts(context, result);
-
-            // 4. 提交同步
-            commitSynchronization(context, result);
+            postProcess(result);
 
             return result;
-
         } catch (Exception e) {
-            // 5. 处理同步失败
-            handleSyncFailure(context, e);
-            throw e;
+            log.error("Collect failed", e);
+            throw new CollectException("Collect failed: " + e.getMessage());
         }
     }
 
     /**
-     * 准备同步
+     * 前置处理
      */
-    private void prepareSynchronization(SyncContext context) {
-        // 1. 验证源节点和目标节点
-        validateNodes(context);
-
-        // 2. 比较版本
-        compareVersions(context);
-
-        // 3. 计算差异
-        calculateDifferences(context);
-
-        // 4. 估算同步量
-        estimateSyncVolume(context);
-    }
-
-    /**
-     * 处理同步冲突
-     */
-    private void handleSyncConflicts(SyncContext context, SyncResult result) {
-        if (!result.hasConflicts()) {
-            return;
-        }
-
-        // 1. 分析冲突
-        List<SyncConflict> conflicts = analyzeConflicts(result.getConflicts());
-
-        // 2. 解决冲突
-        for (SyncConflict conflict : conflicts) {
-            try {
-                resolveConflict(conflict, context);
-            } catch (Exception e) {
-                log.error("Resolve conflict failed: {}", conflict.getId(), e);
-                context.addUnresolvedConflict(conflict);
-            }
-        }
-
-        // 3. 验证冲突解决
-        verifyConflictResolution(context);
-    }
-
-    /**
-     * 提交同步
-     */
-    private void commitSynchronization(SyncContext context, SyncResult result) {
-        // 1. 验证同步结果
-        validateSyncResult(result);
-
-        // 2. 更新版本信息
-        updateVersions(context);
-
-        // 3. 广播同步完成
-        broadcastSyncCompletion(context);
-
-        // 4. 清理同步资源
-        cleanupSync(context);
-    }
-
-    /**
-     * 增量同步策略
-     */
-    private class IncrementalSyncStrategy implements SyncStrategy {
-
-        @Override
-        public SyncResult execute(SyncContext context) {
-            // 1. 获取增量数据
-            List<DataChange> changes = getIncrementalChanges(context);
-
-            // 2. 过滤变更
-            List<DataChange> filteredChanges = filterChanges(changes);
-
-            // 3. 应用变更
-            return applyChanges(filteredChanges, context);
-        }
-
-        private List<DataChange> getIncrementalChanges(SyncContext context) {
-            long lastSyncVersion = context.getLastSyncVersion();
-            long currentVersion = context.getCurrentVersion();
-
-            return dataRepository.getChangesBetweenVersions(
-                    lastSyncVersion,
-                    currentVersion
-            );
-        }
-    }
-
-    /**
-     * 全量同步策略
-     */
-    private class FullSyncStrategy implements SyncStrategy {
-
-        @Override
-        public SyncResult execute(SyncContext context) {
-            // 1. 准备全量数据
-            prepareFullSync(context);
-
-            // 2. 分块传输
-            List<DataBlock> blocks = transferDataBlocks(context);
-
-            // 3. 验证数据完整性
-            validateDataIntegrity(blocks);
-
-            // 4. 应用数据
-            return applyFullSync(blocks, context);
-        }
-    }
-}
-```
-
-## DataValidationManager.java
-
-```java
-package com.study.collect.core.strategy;
-
-import io.micrometer.core.instrument.Timer;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.hibernate.validator.internal.engine.validationcontext.ValidationContext;
-import org.springframework.stereotype.Component;
-
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.UUID;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
-
-/**
- * 数据校验管理器
- */
-@Slf4j
-@Component
-@RequiredArgsConstructor
-public class DataValidationManager {
-
-    private final ValidationRuleRepository ruleRepository;
-    private final DataRepository dataRepository;
-    private final MetricsCollector metricsCollector;
-
-    /**
-     * 执行数据校验
-     */
-    public ValidationResult validate(ValidationRequest request) {
-        String validationId = UUID.randomUUID().toString();
-        Timer.Sample timer = metricsCollector.startTimer("data_validation");
-
-        try {
-            // 1. 加载校验规则
-            List<ValidationRule> rules = loadValidationRules(request);
-
-            // 2. 创建校验上下文
-            ValidationContext context = createValidationContext(request, rules);
-
-            // 3. 执行校验规则
-            executeValidationRules(context);
-
-            // 4. 分析校验结果
-            return analyzeValidationResult(context);
-
-        } catch (Exception e) {
-            log.error("Data validation failed: {}", validationId, e);
-            throw new ValidationException("Validation failed: " + e.getMessage());
-        } finally {
-            metricsCollector.stopTimer(timer);
-        }
-    }
-
-    /**
-     * 执行校验规则
-     */
-    private void executeValidationRules(ValidationContext context) {
-        List<ValidationRule> rules = context.getRules();
-        ParallelValidationExecutor executor = new ParallelValidationExecutor(
-                rules.size()
-        );
-
-        try {
-            // 1. 并行执行校验规则
-            List<Future<RuleResult>> futures = rules.stream()
-                    .map(rule -> executor.submit(() -> executeRule(rule, context)))
-                    .collect(Collectors.toList());
-
-            // 2. 收集校验结果
-            List<RuleResult> results = new ArrayList<>();
-            for (Future<RuleResult> future : futures) {
-                try {
-                    results.add(future.get(
-                            context.getTimeout(),
-                            TimeUnit.MILLISECONDS
-                    ));
-                } catch (TimeoutException e) {
-                    handleRuleTimeout(context);
-                } catch (Exception e) {
-                    handleRuleError(context, e);
-                }
-            }
-
-            // 3. 更新校验上下文
-            context.setRuleResults(results);
-
-        } finally {
-            executor.shutdown();
-        }
-    }
-
-    /**
-     * 执行单个校验规则
-     */
-    private RuleResult executeRule(ValidationRule rule, ValidationContext context) {
-        String ruleId = rule.getId();
-        log.debug("Executing validation rule: {}", ruleId);
-        Timer.Sample ruleSample = metricsCollector.startTimer("rule_execution");
-
-        try {
-            // 1. 准备规则执行
-            prepareRuleExecution(rule, context);
-
-            // 2. 执行规则逻辑
-            RuleResult result = rule.execute(context);
-
-            // 3. 验证规则结果
-            verifyRuleResult(result, rule);
-
-            // 4. 记录执行日志
-            logRuleExecution(rule, result);
-
-            return result;
-
-        } catch (Exception e) {
-            log.error("Rule execution failed: {}", ruleId, e);
-            return RuleResult.failed(rule, e.getMessage());
-        } finally {
-            metricsCollector.stopTimer(ruleSample);
-        }
-    }
-
-    /**
-     * 分析校验结果
-     */
-    private ValidationResult analyzeValidationResult(ValidationContext context) {
-        try {
-            // 1. 收集校验统计
-            ValidationStats stats = collectValidationStats(context);
-
-            // 2. 分析失败原因
-            List<ValidationIssue> issues = analyzeValidationIssues(context);
-
-            // 3. 生成建议
-            List<ValidationSuggestion> suggestions = generateSuggestions(issues);
-
-            // 4. 构建校验报告
-            ValidationReport report = buildValidationReport(
-                    context, stats, issues, suggestions
-            );
-
-            return ValidationResult.builder()
-                    .success(isValidationSuccessful(stats))
-                    .stats(stats)
-                    .issues(issues)
-                    .suggestions(suggestions)
-                    .report(report)
-                    .build();
-
-        } catch (Exception e) {
-            log.error("Analyze validation result failed", e);
-            throw new ValidationException(
-                    "Failed to analyze validation result: " + e.getMessage()
-            );
-        }
-    }
-
-    /**
-     * 收集校验统计
-     */
-    private ValidationStats collectValidationStats(ValidationContext context) {
-        List<RuleResult> results = context.getRuleResults();
-
-        return ValidationStats.builder()
-                .totalRules(results.size())
-                .passedRules(countPassedRules(results))
-                .failedRules(countFailedRules(results))
-                .validatedRecords(context.getProcessedRecords())
-                .invalidRecords(countInvalidRecords(results))
-                .executionTime(context.getExecutionTime())
-                .build();
-    }
-
-    /**
-     * 分析验证问题
-     */
-    private List<ValidationIssue> analyzeValidationIssues(ValidationContext context) {
-        return context.getRuleResults().stream()
-                .filter(result -> !result.isSuccess())
-                .map(this::createValidationIssue)
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * 生成验证建议
-     */
-    private List<ValidationSuggestion> generateSuggestions(List<ValidationIssue> issues) {
-        return issues.stream()
-                .map(this::createSuggestion)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * 构建验证报告
-     */
-    private ValidationReport buildValidationReport(
-            ValidationContext context,
-            ValidationStats stats,
-            List<ValidationIssue> issues,
-            List<ValidationSuggestion> suggestions) {
-
-        return ValidationReport.builder()
-                .validationId(context.getValidationId())
-                .startTime(context.getStartTime())
-                .endTime(LocalDateTime.now())
-                .stats(stats)
-                .issues(issues)
-                .suggestions(suggestions)
-                .build();
-    }
-}
-```
-
-## DedupStrategy.java
-
-```java
-package com.study.collect.core.strategy;
-
-/**
- * 去重策略接口
- */
-public interface DedupStrategy {
-    /**
-     * 检查是否重复
-     */
-    boolean isDuplicate(String key);
-
-    /**
-     * 标记为已处理
-     */
-    void markProcessed(String key);
-}
-
-```
-
-## DispatchStrategy.java
-
-```java
-package com.study.collect.core.strategy;
-
-import com.study.collect.domain.entity.task.CollectTask;
-
-import java.util.List;
-
-/**
- * 任务分发策略接口
- */
-public interface DispatchStrategy {
-    /**
-     * 选择执行节点
-     */
-    String selectNode(List<String> nodes, CollectTask task);
-}
-
-
-```
-
-## DistributedCoordinationManager.java
-
-```java
-package com.study.collect.core.strategy;
-
-import com.study.collect.common.annotation.lock.DistributedLock;
-import io.micrometer.core.instrument.Timer;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.event.EventListener;
-import org.springframework.stereotype.Component;
-
-import java.time.LocalDateTime;
-
-/**
- * 分布式协调管理器
- */
-@Slf4j
-@Component
-@RequiredArgsConstructor
-public class DistributedCoordinationManager {
-
-    private final NodeManager nodeManager;
-    private final DistributedLock distributedLock;
-    private final EventBus eventBus;
-    private final StateRepository stateRepository;
-    private final MetricsCollector metricsCollector;
-
-    /**
-     * 节点选举
-     */
-    public ElectionResult electLeader(String groupId) {
-        String lockKey = "election:lock:" + groupId;
-        Timer.Sample timer = metricsCollector.startTimer("leader_election");
-
-        try {
-            // 1. 获取选举锁
-            if (!distributedLock.tryLock(lockKey, 30000)) {
-                throw new CoordinationException("Failed to acquire election lock");
-            }
-
-            try {
-                // 2. 验证当前节点状态
-                if (!isNodeEligible()) {
-                    return ElectionResult.notEligible();
-                }
-
-                // 3. 执行选举流程
-                return executeElection(groupId);
-
-            } finally {
-                distributedLock.unlock(lockKey);
-            }
-        } catch (Exception e) {
-            log.error("Leader election failed for group: {}", groupId, e);
-            throw new CoordinationException("Election failed: " + e.getMessage());
-        } finally {
-            metricsCollector.stopTimer(timer);
-        }
-    }
-
-    /**
-     * 执行选举流程
-     */
-    private ElectionResult executeElection(String groupId) {
-        // 1. 获取当前组信息
-        GroupState groupState = stateRepository.getGroupState(groupId);
-
-        // 2. 检查当前leader状态
-        if (hasValidLeader(groupState)) {
-            return ElectionResult.leaderExists(groupState.getLeaderId());
-        }
-
-        // 3. 获取候选节点
-        List<NodeInfo> candidates = getCandidateNodes(groupId);
-
-        // 4. 选择新leader
-        NodeInfo newLeader = selectNewLeader(candidates);
-        if (newLeader == null) {
-            return ElectionResult.failed("No eligible candidates");
-        }
-
-        // 5. 更新组状态
-        updateGroupLeader(groupId, newLeader);
-
-        // 6. 广播选举结果
-        broadcastElectionResult(groupId, newLeader);
-
-        return ElectionResult.success(newLeader.getId());
-    }
-
-    /**
-     * 状态同步
-     */
-    public void synchronizeState(String groupId) {
-        String lockKey = "sync:lock:" + groupId;
-
-        try {
-            // 1. 获取同步锁
-            if (!distributedLock.tryLock(lockKey, 30000)) {
-                throw new CoordinationException("Failed to acquire sync lock");
-            }
-
-            try {
-                // 2. 收集本地状态
-                NodeState localState = collectLocalState();
-
-                // 3. 获取集群状态
-                ClusterState clusterState = getClusterState(groupId);
-
-                // 4. 执行状态同步
-                synchronizeNodeState(localState, clusterState);
-
-            } finally {
-                distributedLock.unlock(lockKey);
-            }
-        } catch (Exception e) {
-            log.error("State synchronization failed for group: {}", groupId, e);
-            throw new CoordinationException("Sync failed: " + e.getMessage());
-        }
-    }
-
-    /**
-     * 任务协调
-     */
-    public void coordinateTask(String taskId) {
-        String lockKey = "task:coordination:" + taskId;
-
-        try {
-            // 1. 获取协调锁
-            if (!distributedLock.tryLock(lockKey, 30000)) {
-                throw new CoordinationException("Failed to acquire coordination lock");
-            }
-
-            try {
-                // 2. 获取任务状态
-                TaskState taskState = getTaskState(taskId);
-
-                // 3. 收集节点状态
-                Map<String, NodeState> nodeStates = collectNodeStates();
-
-                // 4. 执行任务协调
-                coordinateTaskExecution(taskState, nodeStates);
-
-            } finally {
-                distributedLock.unlock(lockKey);
-            }
-        } catch (Exception e) {
-            log.error("Task coordination failed: {}", taskId, e);
-            throw new CoordinationException("Coordination failed: " + e.getMessage());
-        }
-    }
-
-    /**
-     * 协调任务执行
-     */
-    private void coordinateTaskExecution(TaskState taskState,
-                                         Map<String, NodeState> nodeStates) {
-        // 1. 分析任务需求
-        TaskRequirements requirements = analyzeTaskRequirements(taskState);
-
-        // 2. 评估节点能力
-        Map<String, NodeCapability> capabilities =
-                evaluateNodeCapabilities(nodeStates);
-
-        // 3. 生成协调计划
-        CoordinationPlan plan = generateCoordinationPlan(
-                requirements, capabilities);
-
-        // 4. 执行协调
-        executeCoordination(plan);
-    }
-
-    /**
-     * 同步节点状态
-     */
-    private void synchronizeNodeState(NodeState localState,
-                                      ClusterState clusterState) {
-        // 1. 对比状态差异
-        StateDifference difference =
-                compareStates(localState, clusterState);
-
-        if (difference.hasChanges()) {
-            // 2. 应用状态更新
-            applyStateChanges(difference);
-
-            // 3. 验证同步结果
-            verifyStateSynchronization();
-
-            // 4. 广播状态更新
-            broadcastStateUpdate(localState);
-        }
-    }
-
-    /**
-     * 广播状态更新
-     */
-    private void broadcastStateUpdate(NodeState state) {
-        StateUpdateEvent event = StateUpdateEvent.builder()
-                .nodeId(state.getNodeId())
-                .state(state)
-                .timestamp(LocalDateTime.now())
-                .build();
-
-        eventBus.publish(Topics.STATE_UPDATE, event);
-    }
-
-    /**
-     * 处理状态更新事件
-     */
-    @EventListener(Topics.STATE_UPDATE)
-    public void handleStateUpdate(StateUpdateEvent event) {
-        try {
-            // 1. 验证事件
-            if (!isValidStateUpdate(event)) {
-                return;
-            }
-
-            // 2. 更新本地状态
-            updateLocalState(event.getState());
-
-            // 3. 检查状态一致性
-            checkStateConsistency();
-
-        } catch (Exception e) {
-            log.error("Handle state update failed", e);
-        }
-    }
-}
-```
-
-## DistributedProcessCoordinator.java
-
-```java
-package com.study.collect.core.strategy;
-
-import com.study.collect.common.annotation.lock.DistributedLock;
-import com.study.collect.common.exception.collect.ProcessException;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-
-import java.time.LocalDateTime;
-import java.util.*;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
-
-/**
- * 分布式数据处理协调器
- */
-@Slf4j
-@Component
-@RequiredArgsConstructor
-public class DistributedProcessCoordinator {
-
-    private final NodeManager nodeManager;
-    private final ProcessManager processManager;
-    private final LoadBalancer loadBalancer;
-    private final DistributedLock distributedLock;
-
-    /**
-     * 执行分布式处理
-     */
-    public ProcessResult processDistributed(ProcessRequest request) {
-        String processId = UUID.randomUUID().toString();
-        String lockKey = "process:lock:" + processId;
-
-        try {
-            // 1. 获取分布式锁
-            if (!distributedLock.lock(lockKey, 30000)) {
-                throw new ProcessException("Failed to acquire process lock");
-            }
-
-            // 2. 创建处理计划
-            ProcessPlan plan = createProcessPlan(request);
-
-            // 3. 分发处理任务
-            List<Future<ProcessResult>> futures = distributeProcessTasks(plan);
-
-            // 4. 收集处理结果
-            return aggregateResults(futures);
-
-        } finally {
-            distributedLock.unlock(lockKey);
-        }
-    }
-
-    private ProcessPlan createProcessPlan(ProcessRequest request) {
-        // 1. 获取可用节点
-        List<NodeInfo> nodes = nodeManager.getActiveNodes();
-        if (nodes.isEmpty()) {
-            throw new ProcessException("No available nodes for processing");
-        }
-
-        // 2. 划分数据分片
-        List<DataShard> shards = splitDataShards(request.getData(), nodes.size());
-
-        // 3. 创建处理计划
-        return ProcessPlan.builder()
-                .processId(UUID.randomUUID().toString())
-                .shards(shards)
-                .nodes(nodes)
-                .startTime(LocalDateTime.now())
-                .timeout(request.getTimeout())
-                .build();
-    }
-
-    private List<Future<ProcessResult>> distributeProcessTasks(ProcessPlan plan) {
-        List<Future<ProcessResult>> futures = new ArrayList<>();
-        ExecutorService executor = Executors.newFixedThreadPool(plan.getShards().size());
-
-        try {
-            // 为每个分片创建处理任务
-            for (int i = 0; i < plan.getShards().size(); i++) {
-                DataShard shard = plan.getShards().get(i);
-                NodeInfo node = selectProcessNode(plan.getNodes(), shard);
-
-                Future<ProcessResult> future = executor.submit(() ->
-                        processDataShard(shard, node));
-                futures.add(future);
-            }
-
-            return futures;
-        } finally {
-            executor.shutdown();
-        }
-    }
-
-    private NodeInfo selectProcessNode(List<NodeInfo> nodes, DataShard shard) {
-        // 1. 计算负载权重
-        Map<NodeInfo, Double> weights = nodes.stream()
-                .collect(Collectors.toMap(
-                        node -> node,
-                        this::calculateNodeWeight
-                ));
-
-        // 2. 选择最适合的节点
-        return weights.entrySet().stream()
-                .max(Map.Entry.comparingByValue())
-                .map(Map.Entry::getKey)
-                .orElseThrow(() -> new ProcessException("No suitable node found"));
-    }
-
-    private double calculateNodeWeight(NodeInfo node) {
-        // 1. 基础权重
-        double weight = 1.0;
-
-        // 2. 考虑CPU使用率
-        weight *= (1 - node.getCpuUsage() / 100.0);
-
-        // 3. 考虑内存使用率
-        weight *= (1 - node.getMemoryUsage() / 100.0);
-
-        // 4. 考虑当前处理任务数
-        weight *= (1 - node.getTaskCount() / 100.0);
-
-        return weight;
-    }
-
-    private ProcessResult processDataShard(DataShard shard, NodeInfo node) {
-        try {
-            // 1. 构建处理请求
-            ProcessRequest request = ProcessRequest.builder()
-                    .shardId(shard.getId())
-                    .data(shard.getData())
-                    .params(shard.getParams())
-                    .timeout(shard.getTimeout())
-                    .build();
-
-            // 2. 发送处理请求
-            return processManager.process(request);
-
-        } catch (Exception e) {
-            log.error("Process shard failed: {}", shard.getId(), e);
-            return ProcessResult.failed(e.getMessage());
-        }
-    }
-
-    private ProcessResult aggregateResults(List<Future<ProcessResult>> futures)
-            throws ProcessException {
-
-        List<ProcessResult> results = new ArrayList<>();
-        List<String> errors = new ArrayList<>();
-
-        // 1. 收集所有分片结果
-        for (Future<ProcessResult> future : futures) {
-            try {
-                ProcessResult result = future.get(30, TimeUnit.SECONDS);
-                if (result.isSuccess()) {
-                    results.add(result);
-                } else {
-                    errors.add(result.getError());
-                }
-            } catch (Exception e) {
-                errors.add(e.getMessage());
-            }
-        }
-
-        // 2. 检查处理结果
-        if (!errors.isEmpty()) {
-            throw new ProcessException("Some shards failed: " + String.join(", ", errors));
-        }
-
-        // 3. 合并处理结果
-        return mergeResults(results);
-    }
-
-    private ProcessResult mergeResults(List<ProcessResult> results) {
-        try {
-            // 1. 准备合并
-            Object mergedData = null;
-            Map<String, Object> mergedStats = new HashMap<>();
-
-            // 2. 合并数据
-            for (ProcessResult result : results) {
-                if (mergedData == null) {
-                    mergedData = result.getData();
-                } else {
-                    mergedData = mergeData(mergedData, result.getData());
-                }
-
-                // 合并统计信息
-                mergeStats(mergedStats, result.getStats());
-            }
-
-            // 3. 构建最终结果
-            return ProcessResult.success(mergedData)
-                    .withStats(mergedStats);
-
-        } catch (Exception e) {
-            log.error("Merge results failed", e);
-            throw new ProcessException("Merge results failed: " + e.getMessage());
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    private Object mergeData(Object data1, Object data2) {
-        // 根据数据类型选择合并策略
-        if (data1 instanceof List) {
-            List<Object> merged = new ArrayList<>((List<Object>) data1);
-            merged.addAll((List<Object>) data2);
-            return merged;
-        } else if (data1 instanceof Map) {
-            Map<String, Object> merged = new HashMap<>((Map<String, Object>) data1);
-            merged.putAll((Map<String, Object>) data2);
-            return merged;
-        } else {
-            throw new ProcessException("Unsupported data type for merge");
-        }
-    }
-
-    private void mergeStats(Map<String, Object> stats1, Map<String, Object> stats2) {
-        stats2.forEach((key, value) -> {
-            if (value instanceof Number) {
-                // 数值类型统计信息直接相加
-                double val1 = stats1.containsKey(key) ?
-                        ((Number) stats1.get(key)).doubleValue() : 0;
-                double val2 = ((Number) value).doubleValue();
-                stats1.put(key, val1 + val2);
-            } else {
-                // 其他类型保留最新值
-                stats1.put(key, value);
-            }
-        });
-    }
-}
-```
-
-## DynamicShardingStrategy.java
-
-```java
-package com.study.collect.core.strategy;
-
-import com.study.collect.domain.entity.task.CollectTask;
-import lombok.extern.slf4j.Slf4j;
-
-import java.util.List;
-
-/**
- * 动态分片策略实现
- */
-@Slf4j
-public class DynamicShardingStrategy implements ShardingStrategy {
-
-    private final LoadBalancer loadBalancer;
-    private final MetricsCollector metricsCollector;
-
-    @Override
-    public List<CollectTask> shard(CollectTask task, int shardCount) {
-        try {
-            // 1. 获取系统负载信息
-            SystemLoadInfo loadInfo = getSystemLoadInfo();
-
-            // 2. 动态调整分片数量
-            int actualShardCount = adjustShardCount(shardCount, loadInfo);
-
-            // 3. 计算每片大小
-            DataSizeInfo sizeInfo = getDataSizeInfo(task);
-            int shardSize = calculateShardSize(sizeInfo, actualShardCount);
-
-            // 4. 创建分片任务
-            return createShardTasks(task, sizeInfo, shardSize, actualShardCount);
-
-        } catch (Exception e) {
-            log.error("Dynamic sharding failed", e);
-            throw new ShardingException("Dynamic sharding failed: " + e.getMessage());
-        }
-    }
-
-    private int adjustShardCount(int shardCount, SystemLoadInfo loadInfo) {
-        // 根据系统负载调整分片数
-        if (loadInfo.getCpuUsage() > 80 || loadInfo.getMemoryUsage() > 80) {
-            return Math.max(1, shardCount / 2);
-        }
-
-        if (loadInfo.getCpuUsage() < 30 && loadInfo.getMemoryUsage() < 30) {
-            return Math.min(shardCount * 2, getMaxShardCount());
-        }
-
-        return shardCount;
-    }
-
-    private int calculateShardSize(DataSizeInfo sizeInfo, int shardCount) {
-        // 根据数据特征计算合适的分片大小
-        int baseSize = 1000; // 基础分片大小
-
-        // 根据数据复杂度调整
-        if (sizeInfo.getComplexity() == DataComplexity.HIGH) {
-            baseSize = 500;
-        } else if (sizeInfo.getComplexity() == DataComplexity.LOW) {
-            baseSize = 2000;
-        }
-
-        // 根据系统性能调整
-        SystemPerformance performance = loadBalancer.getSystemPerformance();
-        double performanceFactor = calculatePerformanceFactor(performance);
-
-        return (int) (baseSize * performanceFactor);
-    }
-}
-
-```
-
-## FailureRecoveryManager.java
-
-```java
-package com.study.collect.core.strategy;
-
-import com.study.collect.domain.entity.task.CollectTask;
-import com.study.collect.domain.repository.task.TaskRepository;
-import io.micrometer.core.instrument.Timer;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.ibatis.executor.ErrorContext;
-import org.springframework.boot.diagnostics.FailureAnalysis;
-import org.springframework.stereotype.Component;
-
-import javax.lang.model.type.ErrorType;
-import java.util.List;
-import java.util.Map;
-
-/**
- * 故障恢复管理器
- */
-@Slf4j
-@Component
-@RequiredArgsConstructor
-public class FailureRecoveryManager {
-
-    private final NodeManager nodeManager;
-    private final TaskRepository taskRepository;
-    private final ShardRepository shardRepository;
-    private final LoadBalancer loadBalancer;
-    private final MetricsCollector metricsCollector;
-
-    /**
-     * 处理节点故障
-     */
-    public void handleNodeFailure(NodeInfo failedNode) {
-        String nodeId = failedNode.getId();
-        log.warn("Handling node failure: {}", nodeId);
-        Timer.Sample timer = metricsCollector.startTimer("node_failure_recovery");
-
-        try {
-            // 1. 标记节点故障
-            markNodeFailure(failedNode);
-
-            // 2. 获取受影响任务
-            List<CollectTask> affectedTasks =
-                    taskRepository.findTasksByNodeId(nodeId);
-
-            // 3. 迁移任务
-            migrateTasks(affectedTasks);
-
-            // 4. 更新统计信息
-            updateFailureStats(failedNode);
-
-        } catch (Exception e) {
-            log.error("Handle node failure failed: {}", nodeId, e);
-            throw new RecoveryException(
-                    "Failed to handle node failure: " + e.getMessage());
-        } finally {
-            metricsCollector.stopTimer(timer);
-        }
-    }
-
-    /**
-     * 处理任务执行异常
-     */
-    public void handleTaskFailure(CollectTask task, Exception error) {
-        String taskId = task.getId();
-        log.warn("Handling task failure: {}", taskId);
-
-        try {
-            // 1. 分析故障原因
-            FailureAnalysis analysis = analyzeFailure(task, error);
-
-            // 2. 选择恢复策略
-            RecoveryStrategy strategy = selectRecoveryStrategy(analysis);
-
-            // 3. 执行恢复
-            executeRecovery(task, strategy);
-
-            // 4. 验证恢复结果
-            verifyRecovery(task);
-
-        } catch (Exception e) {
-            log.error("Handle task failure failed: {}", taskId, e);
-            handleRecoveryFailure(task, e);
-        }
-    }
-
-    /**
-     * 分析故障原因
-     */
-    private FailureAnalysis analyzeFailure(CollectTask task, Exception error) {
-        // 1. 获取错误上下文
-        ErrorContext errorContext = buildErrorContext(task, error);
-
-        // 2. 分类错误
-        ErrorType errorType = classifyError(error);
-
-        // 3. 收集诊断信息
-        Map<String, Object> diagnostics = collectDiagnostics(task);
-
-        // 4. 分析影响范围
-        ImpactAnalysis impact = analyzeImpact(task);
-
-        return FailureAnalysis.builder()
-                .taskId(task.getId())
-                .errorType(errorType)
-                .errorContext(errorContext)
-                .diagnostics(diagnostics)
-                .impact(impact)
-                .build();
-    }
-
-    /**
-     * 选择恢复策略
-     */
-    private RecoveryStrategy selectRecoveryStrategy(FailureAnalysis analysis) {
-        switch (analysis.getErrorType()) {
-            case NODE_FAILURE:
-                return new NodeFailureRecoveryStrategy();
-            case NETWORK_ERROR:
-                return new NetworkErrorRecoveryStrategy();
-            case DATA_ERROR:
-                return new DataErrorRecoveryStrategy();
-            case TIMEOUT:
-                return new TimeoutRecoveryStrategy();
-            default:
-                return new DefaultRecoveryStrategy();
-        }
-    }
-
-    /**
-     * 执行恢复策略
-     */
-    private void executeRecovery(CollectTask task, RecoveryStrategy strategy) {
-        String taskId = task.getId();
-        log.info("Executing recovery for task: {}", taskId);
-
-        try {
-            // 1. 准备恢复
-            RecoveryContext context = prepareRecovery(task);
-
-            // 2. 执行恢复步骤
-            strategy.recover(context);
-
-            // 3. 更新任务状态
-            updateTaskStatus(task, TaskStatus.RECOVERED);
-
-            // 4. 记录恢复日志
-            logRecovery(task, context);
-
-        } catch (Exception e) {
-            log.error("Recovery execution failed: {}", taskId, e);
-            throw new RecoveryException("Recovery failed: " + e.getMessage());
-        }
-    }
-
-    /**
-     * 处理恢复失败
-     */
-    private void handleRecoveryFailure(CollectTask task, Exception error) {
-        String taskId = task.getId();
-        log.error("Recovery failed for task: {}", taskId, error);
-
-        try {
-            // 1. 更新任务状态
-            updateTaskStatus(task, TaskStatus.RECOVERY_FAILED);
-
-            // 2. 记录失败信息
-            logRecoveryFailure(task, error);
-
-            // 3. 发送告警
-            sendRecoveryAlert(task, error);
-
-            // 4. 触发人工介入
-            triggerManualIntervention(task);
-
-        } catch (Exception e) {
-            log.error("Handle recovery failure failed: {}", taskId, e);
-        }
-    }
-}
-```
-
-## FaultToleranceChain.java
-
-```java
-package com.study.collect.core.strategy;
-
-import lombok.extern.slf4j.Slf4j;
-
-/**
- * 容错链
- */
-@Slf4j
-public class FaultToleranceChain<T> {
-
-    private CircuitBreaker circuitBreaker;
-    private Retry retry;
-    private Bulkhead bulkhead;
-    private Fallback<T> fallback;
-    private Supplier<T> operation;
-
-    /**
-     * 执行容错链
-     */
-    public T execute() {
-        try {
-            // 1. 检查熔断器状态
-            if (circuitBreaker != null &&
-                    !circuitBreaker.isCallPermitted()) {
-                return executeFallback(
-                        new CircuitBreakerOpenException());
-            }
-
-            // 2. 执行带重试的操作
-            return executeWithRetry();
-
-        } catch (Exception e) {
-            // 3. 处理异常
-            return handleExecutionException(e);
-        }
-    }
-
-    /**
-     * 执行带重试的操作
-     */
-    private T executeWithRetry() throws Exception {
-        if (retry != null) {
-            return retry.executeSupplier(() ->
-                    executeWithBulkhead());
-        }
-        return executeWithBulkhead();
-    }
-
-    /**
-     * 执行带隔板的操作
-     */
-    private T executeWithBulkhead() throws Exception {
-        if (bulkhead != null) {
-            return bulkhead.executeSupplier(() ->
-                    executeOperation());
-        }
-        return executeOperation();
-    }
-
-    /**
-     * 执行实际操作
-     */
-    private T executeOperation() {
-        try {
-            T result = operation.get();
-            if (circuitBreaker != null) {
-                circuitBreaker.onSuccess();
-            }
-            return result;
-        } catch (Exception e) {
-            if (circuitBreaker != null) {
-                circuitBreaker.onError();
-            }
-            throw e;
-        }
-    }
-
-    /**
-     * 执行降级策略
-     */
-    private T executeFallback(Exception e) {
-        if (fallback != null) {
-            return fallback.execute(e);
-        }
-        throw new FaultToleranceException(
-                "No fallback available", e);
-    }
-
-    /**
-     * 处理执行异常
-     */
-    private T handleExecutionException(Exception e) {
-        log.error("Execution failed in fault tolerance chain", e);
-        return executeFallback(e);
-    }
-}
-```
-
-## FaultToleranceManager.java
-
-```java
-package com.study.collect.core.strategy;
-
-import io.micrometer.core.instrument.Timer;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-
-/**
- * 系统容错管理器
- */
-@Slf4j
-@Component
-@RequiredArgsConstructor
-public class FaultToleranceManager {
-
-    private final CircuitBreakerRegistry circuitBreakerRegistry;
-    private final RetryRegistry retryRegistry;
-    private final BulkheadRegistry bulkheadRegistry;
-    private final FallbackRegistry fallbackRegistry;
-    private final MetricsCollector metricsCollector;
-
-    /**
-     * 执行带容错的操作
-     */
-    public <T> T executeWithFaultTolerance(
-            String operationName,
-            Supplier<T> operation,
-            FaultToleranceConfig config) {
-
-        Timer.Sample timer = metricsCollector.startTimer(
-                "fault_tolerance_execution");
-
-        try {
-            // 1. 创建容错链
-            FaultToleranceChain<T> chain = buildFaultToleranceChain(
-                    operationName,
-                    operation,
-                    config
-            );
-
-            // 2. 执行操作
-            return chain.execute();
-
-        } catch (Exception e) {
-            log.error("Operation failed with fault tolerance: {}",
-                    operationName, e);
-            throw e;
-        } finally {
-            metricsCollector.stopTimer(timer);
-        }
-    }
-
-    /**
-     * 构建容错链
-     */
-    private <T> FaultToleranceChain<T> buildFaultToleranceChain(
-            String operationName,
-            Supplier<T> operation,
-            FaultToleranceConfig config) {
-
-        FaultToleranceChain<T> chain = new FaultToleranceChain<>();
-
-        // 1. 添加熔断器
-        if (config.isCircuitBreakerEnabled()) {
-            CircuitBreaker breaker = getOrCreateCircuitBreaker(
-                    operationName,
-                    config.getCircuitBreakerConfig()
-            );
-            chain.addCircuitBreaker(breaker);
-        }
-
-        // 2. 添加重试策略
-        if (config.isRetryEnabled()) {
-            Retry retry = getOrCreateRetry(
-                    operationName,
-                    config.getRetryConfig()
-            );
-            chain.addRetry(retry);
-        }
-
-        // 3. 添加隔板模式
-        if (config.isBulkheadEnabled()) {
-            Bulkhead bulkhead = getOrCreateBulkhead(
-                    operationName,
-                    config.getBulkheadConfig()
-            );
-            chain.addBulkhead(bulkhead);
-        }
-
-        // 4. 添加降级策略
-        if (config.isFallbackEnabled()) {
-            Fallback<T> fallback = getOrCreateFallback(
-                    operationName,
-                    config.getFallbackConfig()
-            );
-            chain.addFallback(fallback);
-        }
-
-        // 5. 设置操作
-        chain.setOperation(operation);
-
-        return chain;
-    }
-
-    /**
-     * 获取或创建熔断器
-     */
-    private CircuitBreaker getOrCreateCircuitBreaker(
-            String name,
-            CircuitBreakerConfig config) {
-        return circuitBreakerRegistry.circuitBreaker(name, config);
-    }
-
-    /**
-     * 获取或创建重试策略
-     */
-    private Retry getOrCreateRetry(
-            String name,
-            RetryConfig config) {
-        return retryRegistry.retry(name, config);
-    }
-
-    /**
-     * 获取或创建隔板
-     */
-    private Bulkhead getOrCreateBulkhead(
-            String name,
-            BulkheadConfig config) {
-        return bulkheadRegistry.bulkhead(name, config);
-    }
-
-    /**
-     * 获取或创建降级策略
-     */
-    private <T> Fallback<T> getOrCreateFallback(
-            String name,
-            FallbackConfig config) {
-        return fallbackRegistry.fallback(name, config);
-    }
-}
-```
-
-## MetricsOptimizationManager.java
-
-```java
-package com.study.collect.core.strategy;
-
-import com.google.common.collect.Lists;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Component;
-
-import java.util.DoubleSummaryStatistics;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
-
-/**
- * 监控指标优化管理器
- */
-@Slf4j
-@Component
-@RequiredArgsConstructor
-public class MetricsOptimizationManager {
-
-    private final MetricRegistry metricRegistry;
-    private final MetricsPersistenceManager persistenceManager;
-    private final MetricsAggregator aggregator;
-    private final EventBus eventBus;
-
-    // 本地指标缓冲区
-    private final Buffer<MetricPoint> metricBuffer = new RingBuffer<>(10000);
-
-    /**
-     * 记录指标
-     */
-    public void recordMetric(String name, double value, Map<String, String> tags) {
-        try {
-            // 1. 创建指标点
-            MetricPoint point = MetricPoint.builder()
-                    .name(name)
-                    .value(value)
-                    .tags(tags)
-                    .timestamp(System.currentTimeMillis())
-                    .build();
-
-            // 2. 写入缓冲区
-            boolean success = metricBuffer.offer(point);
-            if (!success) {
-                handleBufferOverflow(point);
-            }
-
-            // 3. 检查是否需要刷新
-            if (shouldFlush()) {
-                flushMetrics();
-            }
-
-        } catch (Exception e) {
-            log.error("Record metric failed: {}", name, e);
-        }
-    }
-
-    /**
-     * 刷新指标
-     */
-    @Scheduled(fixedDelay = 10000) // 10秒
-    public void flushMetrics() {
-        if (metricBuffer.isEmpty()) {
-            return;
-        }
-
-        try {
-            // 1. 获取缓冲区数据
-            List<MetricPoint> points = drainBuffer();
-
-            // 2. 预聚合
-            List<MetricPoint> aggregated = preAggregate(points);
-
-            // 3. 批量持久化
-            persistMetrics(aggregated);
-
-            // 4. 发布指标事件
-            publishMetricsEvent(aggregated);
-
-        } catch (Exception e) {
-            log.error("Flush metrics failed", e);
-        }
-    }
-
-    /**
-     * 指标聚合
-     */
-    private List<MetricPoint> preAggregate(List<MetricPoint> points) {
-        // 1. 按时间窗口分组
-        Map<TimeWindow, List<MetricPoint>> windowedPoints =
-                groupByTimeWindow(points);
-
-        // 2. 聚合每个窗口的数据
-        return windowedPoints.entrySet().stream()
-                .map(entry -> aggregateWindow(entry.getKey(), entry.getValue()))
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * 聚合时间窗口数据
-     */
-    private MetricPoint aggregateWindow(TimeWindow window,
-                                        List<MetricPoint> points) {
-        // 1. 计算基础统计量
-        DoubleSummaryStatistics stats = points.stream()
-                .mapToDouble(MetricPoint::getValue)
-                .summaryStatistics();
-
-        // 2. 创建聚合点
-        return MetricPoint.builder()
-                .name(points.get(0).getName())
-                .timestamp(window.getStartTime())
-                .value(stats.getAverage())
-                .count(stats.getCount())
-                .min(stats.getMin())
-                .max(stats.getMax())
-                .sum(stats.getSum())
-                .build();
-    }
-
-    /**
-     * 批量持久化指标
-     */
-    private void persistMetrics(List<MetricPoint> points) {
-        // 1. 分片处理
-        List<List<MetricPoint>> batches =
-                Lists.partition(points, 1000);
-
-        // 2. 并行持久化
-        CompletableFuture<?>[] futures = batches.stream()
-                .map(batch -> CompletableFuture.runAsync(() ->
-                        persistenceManager.saveBatch(batch)))
-                .toArray(CompletableFuture[]::new);
-
-        // 3. 等待完成
-        try {
-            CompletableFuture.allOf(futures).get(30, TimeUnit.SECONDS);
-        } catch (Exception e) {
-            log.error("Persist metrics failed", e);
-            throw new MetricsException("Persist metrics failed", e);
-        }
-    }
-
-    /**
-     * 指标数据压缩
-     */
-    @Scheduled(cron = "0 0 2 * * ?") // 每天凌晨2点执行
-    public void compressMetrics() {
-        log.info("Starting metrics compression");
-
-        try {
-            // 1. 获取需要压缩的数据
-            List<TimeRange> ranges = getCompressionRanges();
-
-            // 2. 并行压缩
-            for (TimeRange range : ranges) {
-                compressTimeRange(range);
-            }
-
-            // 3. 清理原始数据
-            cleanupRawMetrics(ranges);
-
-        } catch (Exception e) {
-            log.error("Compress metrics failed", e);
-        }
-    }
-
-    /**
-     * 压缩时间范围数据
-     */
-    private void compressTimeRange(TimeRange range) {
-        try {
-            // 1. 加载原始数据
-            List<MetricPoint> rawPoints =
-                    persistenceManager.loadMetrics(range);
-
-            // 2. 按指标名称分组
-            Map<String, List<MetricPoint>> pointsByMetric =
-                    groupByMetricName(rawPoints);
-
-            // 3. 压缩每个指标的数据
-            List<CompressedMetric> compressed = pointsByMetric.entrySet()
-                    .stream()
-                    .map(entry -> compressMetricPoints(
-                            entry.getKey(),
-                            entry.getValue(),
-                            range))
-                    .collect(Collectors.toList());
-
-            // 4. 保存压缩数据
-            persistenceManager.saveCompressedMetrics(compressed);
-
-        } catch (Exception e) {
-            log.error("Compress time range failed: {}", range, e);
-            throw new MetricsException(
-                    "Failed to compress time range: " + e.getMessage());
-        }
-    }
-
-    /**
-     * 压缩指标数据点
-     */
-    private CompressedMetric compressMetricPoints(
-            String metricName,
-            List<MetricPoint> points,
-            TimeRange range) {
-
-        // 1. 计算统计值
-        DoubleSummaryStatistics stats = points.stream()
-                .mapToDouble(MetricPoint::getValue)
-                .summaryStatistics();
-
-        // 2. 计算百分位数
-        double[] percentiles = calculatePercentiles(points);
-
-        // 3. 创建压缩指标
-        return CompressedMetric.builder()
-                .metricName(metricName)
-                .timeRange(range)
-                .count(stats.getCount())
-                .sum(stats.getSum())
-                .min(stats.getMin())
-                .max(stats.getMax())
-                .mean(stats.getAverage())
-                .percentiles(percentiles)
-                .build();
-    }
-
-    /**
-     * 处理缓冲区溢出
-     */
-    private void handleBufferOverflow(MetricPoint point) {
-        // 1. 记录溢出事件
-        log.warn("Metric buffer overflow for: {}", point.getName());
-
-        // 2. 发布告警事件
-        eventBus.post(MetricBufferOverflowEvent.builder()
-                .metricName(point.getName())
-                .timestamp(System.currentTimeMillis())
-                .build());
-
-        // 3. 更新溢出计数器
-        metricRegistry.counter("metric.buffer.overflow").inc();
-    }
-}
-```
-
-## MultiLevelCacheManager.java
-
-```java
-package com.study.collect.core.strategy;
-
-import io.micrometer.core.instrument.Timer;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.caffeine.CaffeineCacheManager;
-import org.springframework.context.event.EventListener;
-import org.springframework.data.redis.cache.RedisCacheWriter;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Component;
-
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-
-/**
- * 多级缓存管理器
- */
-@Slf4j
-@Component
-@RequiredArgsConstructor
-public class MultiLevelCacheManager {
-
-    private final RedisTemplate<String, Object> redisTemplate;
-    private final RedisCacheWriter cacheWriter;
-    private final CaffeineCacheManager localCacheManager;
-    private final MetricsCollector metricsCollector;
-
-    // 本地缓存配置
-    private final Cache<String, Object> localCache = Caffeine.newBuilder()
-            .maximumSize(10_000)
-            .expireAfterWrite(5, TimeUnit.MINUTES)
-            .recordStats()
-            .build();
-
-    /**
-     * 获取缓存数据
-     */
-    @SuppressWarnings("unchecked")
-    public <T> T get(String key, Class<T> type) {
-        Timer.Sample timer = metricsCollector.startTimer("cache_get");
-        try {
-            // 1. 从本地缓存获取
-            Object localValue = localCache.getIfPresent(key);
-            if (localValue != null) {
-                metricsCollector.incrementCounter("cache_hit_local");
-                return (T) localValue;
-            }
-
-            // 2. 从Redis获取
-            Object redisValue = redisTemplate.opsForValue().get(key);
-            if (redisValue != null) {
-                metricsCollector.incrementCounter("cache_hit_redis");
-                // 回填本地缓存
-                localCache.put(key, redisValue);
-                return (T) redisValue;
-            }
-
-            // 3. 缓存未命中
-            metricsCollector.incrementCounter("cache_miss");
-            return null;
-
-        } catch (Exception e) {
-            log.error("Cache get failed: {}", key, e);
-            throw new CacheException("Cache get failed: " + e.getMessage());
-        } finally {
-            metricsCollector.stopTimer(timer);
-        }
-    }
-
-    /**
-     * 设置缓存数据
-     */
-    public void set(String key, Object value, long expireSeconds) {
-        Timer.Sample timer = metricsCollector.startTimer("cache_set");
-        try {
-            // 1. 设置Redis缓存
-            redisTemplate.opsForValue().set(
-                    key,
-                    value,
-                    expireSeconds,
-                    TimeUnit.SECONDS
-            );
-
-            // 2. 更新本地缓存
-            localCache.put(key, value);
-
-        } catch (Exception e) {
-            log.error("Cache set failed: {}", key, e);
-            throw new CacheException("Cache set failed: " + e.getMessage());
-        } finally {
-            metricsCollector.stopTimer(timer);
-        }
-    }
-
-    /**
-     * 缓存预热
-     */
-    public void warmup(String region) {
-        log.info("Starting cache warmup for region: {}", region);
-        Timer.Sample timer = metricsCollector.startTimer("cache_warmup");
-
-        try {
-            // 1. 获取预热配置
-            WarmupConfig config = getWarmupConfig(region);
-
-            // 2. 加载数据
-            List<WarmupData> dataList = loadWarmupData(config);
-
-            // 3. 并行预热
-            warmupParallel(dataList);
-
-            // 4. 验证预热结果
-            verifyWarmup(region);
-
-        } catch (Exception e) {
-            log.error("Cache warmup failed: {}", region, e);
-            throw new CacheException("Cache warmup failed: " + e.getMessage());
-        } finally {
-            metricsCollector.stopTimer(timer);
-        }
-    }
-
-    /**
-     * 并行预热
-     */
-    private void warmupParallel(List<WarmupData> dataList) {
-        CompletableFuture<?>[] futures = dataList.stream()
-                .map(data -> CompletableFuture.runAsync(() -> {
-                    try {
-                        warmupSingle(data);
-                    } catch (Exception e) {
-                        log.error("Warmup data failed: {}", data.getKey(), e);
-                    }
-                }))
-                .toArray(CompletableFuture[]::new);
-
-        try {
-            CompletableFuture.allOf(futures).get(5, TimeUnit.MINUTES);
-        } catch (Exception e) {
-            log.error("Parallel warmup failed", e);
-            throw new CacheException("Parallel warmup failed", e);
-        }
-    }
-
-    /**
-     * 缓存失效
-     */
-    public void invalidate(String key, InvalidateOptions options) {
-        log.info("Invalidating cache: {}", key);
-        Timer.Sample timer = metricsCollector.startTimer("cache_invalidate");
-
-        try {
-            // 1. 清除本地缓存
-            localCache.invalidate(key);
-
-            // 2. 清除Redis缓存
-            redisTemplate.delete(key);
-
-            // 3. 广播失效消息
-            if (options.isBroadcast()) {
-                broadcastInvalidation(key);
-            }
-
-            // 4. 处理级联失效
-            if (options.isCascade()) {
-                invalidateCascade(key);
-            }
-
-        } catch (Exception e) {
-            log.error("Cache invalidate failed: {}", key, e);
-            throw new CacheException("Cache invalidate failed: " + e.getMessage());
-        } finally {
-            metricsCollector.stopTimer(timer);
-        }
-    }
-
-    /**
-     * 处理缓存失效事件
-     */
-    @EventListener(CacheInvalidateEvent.class)
-    public void handleInvalidation(CacheInvalidateEvent event) {
-        try {
-            // 1. 验证事件
-            if (!isValidInvalidateEvent(event)) {
-                return;
-            }
-
-            // 2. 清除本地缓存
-            localCache.invalidate(event.getKey());
-
-            // 3. 记录失效日志
-            logInvalidation(event);
-
-        } catch (Exception e) {
-            log.error("Handle invalidation failed", e);
-        }
-    }
-
-    /**
-     * 清理过期缓存
-     */
-    @Scheduled(fixedDelay = 300000) // 5分钟
-    public void cleanup() {
-        log.info("Starting cache cleanup");
-        Timer.Sample timer = metricsCollector.startTimer("cache_cleanup");
-
-        try {
-            // 1. 清理本地缓存
-            localCache.cleanUp();
-
-            // 2. 清理Redis过期键
-            cleanupRedis();
-
-            // 3. 更新统计信息
-            updateCacheStats();
-
-        } catch (Exception e) {
-            log.error("Cache cleanup failed", e);
-        } finally {
-            metricsCollector.stopTimer(timer);
-        }
-    }
-}
-
-```
-
-## PerformanceOptimizationManager.java
-
-```java
-package com.study.collect.core.strategy;
-
-import com.google.common.cache.CacheStats;
-import io.micrometer.core.instrument.Timer;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Map;
-import java.util.Objects;
-import java.util.stream.Collectors;
-
-/**
- * 性能优化管理器
- */
-@Slf4j
-@Component
-@RequiredArgsConstructor
-public class PerformanceOptimizationManager {
-
-    private final ResourceMonitor resourceMonitor;
-    private final ThreadPoolManager threadPoolManager;
-    private final ConnectionPoolManager connectionPoolManager;
-    private final CacheManager cacheManager;
-    private final MetricsCollector metricsCollector;
-
-    /**
-     * 执行性能优化
-     */
-    public OptimizationResult optimize() {
-        Timer.Sample timer = metricsCollector.startTimer("performance_optimization");
-
-        try {
-            // 1. 收集性能指标
-            PerformanceMetrics metrics = collectPerformanceMetrics();
-
-            // 2. 分析性能瓶颈
-            List<BottleneckAnalysis> bottlenecks = analyzeBottlenecks(metrics);
-
-            // 3. 生成优化建议
-            List<OptimizationSuggestion> suggestions = generateSuggestions(bottlenecks);
-
-            // 4. 应用优化
-            return applyOptimizations(suggestions);
-
-        } catch (Exception e) {
-            log.error("Performance optimization failed", e);
-            throw new OptimizationException("Optimization failed: " + e.getMessage());
-        } finally {
-            metricsCollector.stopTimer(timer);
-        }
-    }
-
-    /**
-     * 收集性能指标
-     */
-    private PerformanceMetrics collectPerformanceMetrics() {
-        // 1. 收集CPU使用率
-        double cpuUsage = resourceMonitor.getCpuUsage();
-
-        // 2. 收集内存使用情况
-        MemoryStats memoryStats = resourceMonitor.getMemoryStats();
-
-        // 3. 收集线程池状态
-        Map<String, ThreadPoolStats> threadPoolStats =
-                threadPoolManager.getPoolStats();
-
-        // 4. 收集连接池状态
-        Map<String, ConnectionPoolStats> connectionPoolStats =
-                connectionPoolManager.getPoolStats();
-
-        // 5. 收集缓存统计
-        CacheStats cacheStats = cacheManager.getCacheStats();
-
-        return PerformanceMetrics.builder()
-                .cpuUsage(cpuUsage)
-                .memoryStats(memoryStats)
-                .threadPoolStats(threadPoolStats)
-                .connectionPoolStats(connectionPoolStats)
-                .cacheStats(cacheStats)
-                .timestamp(LocalDateTime.now())
-                .build();
-    }
-
-    /**
-     * 分析性能瓶颈
-     */
-    private List<BottleneckAnalysis> analyzeBottlenecks(PerformanceMetrics metrics) {
-        List<BottleneckAnalysis> bottlenecks = new ArrayList<>();
-
-        // 1. 分析CPU瓶颈
-        if (metrics.getCpuUsage() > 80) {
-            bottlenecks.add(analyzeCpuBottleneck(metrics));
-        }
-
-        // 2. 分析内存瓶颈
-        if (metrics.getMemoryStats().getUsageRatio() > 0.85) {
-            bottlenecks.add(analyzeMemoryBottleneck(metrics));
-        }
-
-        // 3. 分析线程池瓶颈
-        bottlenecks.addAll(analyzeThreadPoolBottlenecks(metrics));
-
-        // 4. 分析连接池瓶颈
-        bottlenecks.addAll(analyzeConnectionPoolBottlenecks(metrics));
-
-        // 5. 分析缓存瓶颈
-        if (metrics.getCacheStats().getHitRate() < 0.6) {
-            bottlenecks.add(analyzeCacheBottleneck(metrics));
-        }
-
-        return bottlenecks;
-    }
-
-    /**
-     * 生成优化建议
-     */
-    private List<OptimizationSuggestion> generateSuggestions(
-            List<BottleneckAnalysis> bottlenecks) {
-        return bottlenecks.stream()
-                .map(this::createOptimizationSuggestion)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * 创建优化建议
-     */
-    private OptimizationSuggestion createOptimizationSuggestion(
-            BottleneckAnalysis bottleneck) {
-        switch (bottleneck.getType()) {
-            case CPU:
-                return createCpuOptimizationSuggestion(bottleneck);
-            case MEMORY:
-                return createMemoryOptimizationSuggestion(bottleneck);
-            case THREAD_POOL:
-                return createThreadPoolOptimizationSuggestion(bottleneck);
-            case CONNECTION_POOL:
-                return createConnectionPoolOptimizationSuggestion(bottleneck);
-            case CACHE:
-                return createCacheOptimizationSuggestion(bottleneck);
-            default:
-                return null;
-        }
-    }
-
-    /**
-     * 线程池优化
-     */
-    private OptimizationSuggestion createThreadPoolOptimizationSuggestion(
-            BottleneckAnalysis bottleneck) {
-        ThreadPoolStats stats = (ThreadPoolStats) bottleneck.getStats();
-
-        // 1. 计算理想线程数
-        int idealThreads = calculateIdealThreadCount(stats);
-
-        // 2. 计算队列大小
-        int idealQueueSize = calculateIdealQueueSize(stats);
-
-        return OptimizationSuggestion.builder()
-                .type(OptimizationType.THREAD_POOL)
-                .target(stats.getPoolName())
-                .changes(Map.of(
-                        "corePoolSize", idealThreads,
-                        "maxPoolSize", idealThreads * 2,
-                        "queueSize", idealQueueSize
-                ))
-                .priority(calculatePriority(bottleneck))
-                .description("Adjust thread pool configuration to optimize performance")
-                .build();
-    }
-
-    /**
-     * 计算理想线程数
-     */
-    private int calculateIdealThreadCount(ThreadPoolStats stats) {
-        // 基于Little's Law计算
-        double avgTaskArrivalRate = stats.getTaskArrivalRate();
-        double avgProcessingTime = stats.getAvgProcessingTime();
-
-        // N = λ * W
-        int idealThreads = (int) Math.ceil(
-                avgTaskArrivalRate * avgProcessingTime / 1000);
-
-        // 考虑CPU核心数
-        int availableCores = Runtime.getRuntime().availableProcessors();
-
-        // 返回合理范围内的线程数
-        return Math.min(Math.max(idealThreads, 1), availableCores * 2);
-    }
-
-    /**
-     * 应用优化建议
-     */
-    private void applyThreadPoolOptimization(
-            OptimizationSuggestion suggestion) {
-        String poolName = suggestion.getTarget();
-        Map<String, Object> changes = suggestion.getChanges();
-
-        try {
-            // 1. 获取线程池
-            ThreadPoolExecutor executor =
-                    threadPoolManager.getThreadPool(poolName);
-
-            // 2. 应用新配置
-            executor.setCorePoolSize(
-                    (int) changes.get("corePoolSize"));
-            executor.setMaximumPoolSize(
-                    (int) changes.get("maxPoolSize"));
-
-            // 3. 更新队列
-            if (executor.getQueue() instanceof ResizableBlockingQueue) {
-                ((ResizableBlockingQueue<?>) executor.getQueue())
-                        .setCapacity((int) changes.get("queueSize"));
-            }
-
-            // 4. 记录变更
-            logOptimizationChange(suggestion);
-
-        } catch (Exception e) {
-            log.error("Apply thread pool optimization failed: {}",
-                    poolName, e);
-            throw new OptimizationException(
-                    "Failed to apply thread pool optimization", e);
-        }
-    }
-}
-```
-
-## RangeShardingStrategy.java
-
-```java
-package com.study.collect.core.strategy;
-
-import com.study.collect.domain.entity.task.CollectTask;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.BeanUtils;
-
-import java.util.*;
-
-/**
- * 范围分片策略实现
- */
-@Slf4j
-public class RangeShardingStrategy implements ShardingStrategy {
-
-    @Override
-    public List<CollectTask> shard(CollectTask task, int shardCount) {
-        if (shardCount <= 1) {
-            return Collections.singletonList(task);
-        }
-
-        try {
-            // 1. 获取范围信息
-            long startNum = Long.parseLong(task.getParams()
-                    .getOrDefault("rangeStart", "0").toString());
-            long endNum = Long.parseLong(task.getParams()
-                    .getOrDefault("rangeEnd", "0").toString());
-
-            // 2. 计算每片大小
-            long totalSize = endNum - startNum + 1;
-            long shardSize = totalSize / shardCount;
-
-            // 3. 创建分片任务
-            List<CollectTask> shardTasks = new ArrayList<>();
-            for (int i = 0; i < shardCount; i++) {
-                long shardStart = startNum + i * shardSize;
-                long shardEnd = (i == shardCount - 1) ? endNum
-                        : shardStart + shardSize - 1;
-
-                CollectTask shardTask = createShardTask(task, i, shardStart, shardEnd);
-                shardTasks.add(shardTask);
-            }
-
-            return shardTasks;
-
-        } catch (Exception e) {
-            log.error("Range sharding failed", e);
-            throw new ShardingException("Range sharding failed: " + e.getMessage());
-        }
-    }
-
-    private CollectTask createShardTask(CollectTask task, int shardIndex,
-                                        long start, long end) {
-
-        CollectTask shardTask = new CollectTask();
-        BeanUtils.copyProperties(task, shardTask);
-
-        // 设置分片特有属性
-        shardTask.setId(UUID.randomUUID().toString());
-        shardTask.setParentTaskId(task.getId());
-        shardTask.setShardIndex(shardIndex);
-
-        // 更新分片参数
-        Map<String, Object> params = new HashMap<>(task.getParams());
-        params.put("rangeStart", start);
-        params.put("rangeEnd", end);
-        shardTask.setParams(params);
-
-        return shardTask;
-    }
-}
-```
-
-## ResourceManager.java
-
-```java
-package com.study.collect.core.strategy;
-
-import io.micrometer.core.instrument.Timer;
-import jakarta.annotation.PostConstruct;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Component;
-
-import java.util.UUID;
-
-/**
- * 资源管理器
- */
-@Slf4j
-@Component
-@RequiredArgsConstructor
-public class ResourceManager {
-
-    private final ThreadPoolManager threadPoolManager;
-    private final ConnectionPoolManager connectionPoolManager;
-    private final MemoryManager memoryManager;
-    private final ResourceMonitor resourceMonitor;
-    private final MetricsCollector metricsCollector;
-
-    /**
-     * 初始化资源池
-     */
-    @PostConstruct
-    public void init() {
-        try {
-            // 1. 初始化线程池
-            initializeThreadPools();
-
-            // 2. 初始化连接池
-            initializeConnectionPools();
-
-            // 3. 启动资源监控
-            startResourceMonitoring();
-
-        } catch (Exception e) {
-            log.error("Resource manager initialization failed", e);
-            throw new ResourceInitializationException(
-                    "Failed to initialize resources", e);
-        }
-    }
-
-    /**
-     * 资源分配请求
-     */
-    public ResourceAllocationResult allocateResource(
-            ResourceRequest request) {
-        String requestId = UUID.randomUUID().toString();
-        Timer.Sample timer = metricsCollector.startTimer("resource_allocation");
-
-        try {
-            // 1. 验证资源请求
-            validateResourceRequest(request);
-
-            // 2. 检查资源可用性
-            if (!checkResourceAvailability(request)) {
-                return ResourceAllocationResult.failed(
-                        "Insufficient resources");
-            }
-
-            // 3. 分配资源
-            Resource resource = doAllocateResource(request);
-
-            // 4. 记录分配
-            recordResourceAllocation(resource, request);
-
-            return ResourceAllocationResult.success(resource);
-
-        } catch (Exception e) {
-            log.error("Resource allocation failed: {}",
-                    requestId, e);
-            return ResourceAllocationResult.error(e.getMessage());
-        } finally {
-            metricsCollector.stopTimer(timer);
-        }
-    }
-
-    /**
-     * 资源回收
-     */
-    public void releaseResource(Resource resource) {
-        try {
-            // 1. 验证资源状态
-            if (!isResourceValid(resource)) {
-                log.warn("Invalid resource for release: {}",
-                        resource.getId());
-                return;
-            }
-
-            // 2. 执行资源回收
-            doReleaseResource(resource);
-
-            // 3. 更新资源状态
-            updateResourceStatus(resource, ResourceStatus.RELEASED);
-
-            // 4. 记录回收
-            recordResourceRelease(resource);
-
-        } catch (Exception e) {
-            log.error("Resource release failed: {}",
-                    resource.getId(), e);
-            throw new ResourceReleaseException(
-                    "Failed to release resource", e);
-        }
-    }
-
-    /**
-     * 资源扩容
-     */
-    private void expandResources(ResourceType type, int amount) {
-        log.info("Expanding resources: type={}, amount={}",
-                type, amount);
-
-        try {
-            switch (type) {
-                case THREAD:
-                    expandThreadPool(amount);
-                    break;
-                case CONNECTION:
-                    expandConnectionPool(amount);
-                    break;
-                case MEMORY:
-                    expandMemoryPool(amount);
-                    break;
-                default:
-                    throw new IllegalArgumentException(
-                            "Unsupported resource type: " + type);
-            }
-
-            // 记录扩容事件
-            recordResourceExpansion(type, amount);
-
-        } catch (Exception e) {
-            log.error("Resource expansion failed", e);
-            throw new ResourceExpansionException(
-                    "Failed to expand resources", e);
-        }
-    }
-
-    /**
-     * 资源收缩
-     */
-    private void shrinkResources(ResourceType type, int amount) {
-        log.info("Shrinking resources: type={}, amount={}",
-                type, amount);
-
-        try {
-            switch (type) {
-                case THREAD:
-                    shrinkThreadPool(amount);
-                    break;
-                case CONNECTION:
-                    shrinkConnectionPool(amount);
-                    break;
-                case MEMORY:
-                    shrinkMemoryPool(amount);
-                    break;
-                default:
-                    throw new IllegalArgumentException(
-                            "Unsupported resource type: " + type);
-            }
-
-            // 记录收缩事件
-            recordResourceShrink(type, amount);
-
-        } catch (Exception e) {
-            log.error("Resource shrink failed", e);
-            throw new ResourceShrinkException(
-                    "Failed to shrink resources", e);
-        }
-    }
-
-    /**
-     * 资源调整
-     */
-    @Scheduled(fixedDelay = 60000) // 每分钟执行
-    public void adjustResources() {
-        try {
-            // 1. 收集资源使用情况
-            ResourceUsage usage = resourceMonitor.getResourceUsage();
-
-            // 2. 分析资源需求
-            ResourceDemand demand = analyzeResourceDemand(usage);
-
-            // 3. 计算调整方案
-            List<ResourceAdjustment> adjustments =
-                    calculateAdjustments(demand);
-
-            // 4. 执行调整
-            executeAdjustments(adjustments);
-
-        } catch (Exception e) {
-            log.error("Resource adjustment failed", e);
-        }
-    }
-
-    /**
-     * 分析资源需求
-     */
-    private ResourceDemand analyzeResourceDemand(ResourceUsage usage) {
-        return ResourceDemand.builder()
-                .threadDemand(analyzeThreadDemand(usage))
-                .connectionDemand(analyzeConnectionDemand(usage))
-                .memoryDemand(analyzeMemoryDemand(usage))
-                .build();
-    }
-
-    /**
-     * 分析线程需求
-     */
-    private ResourceRequirement analyzeThreadDemand(ResourceUsage usage) {
-        ThreadPoolStats stats = usage.getThreadPoolStats();
-
-        // 计算线程池利用率
-        double utilization = (double) stats.getActiveThreads() /
-                stats.getTotalThreads();
-
-        // 计算任务队列占用率
-        double queueUtilization = (double) stats.getQueueSize() /
-                stats.getQueueCapacity();
-
-        // 根据利用率确定需求
-        if (utilization > 0.8 || queueUtilization > 0.7) {
-            return ResourceRequirement.builder()
-                    .type(ResourceType.THREAD)
-                    .action(ResourceAction.EXPAND)
-                    .amount(calculateThreadExpansionAmount(stats))
-                    .priority(calculatePriority(utilization, queueUtilization))
-                    .build();
-        } else if (utilization < 0.3 && queueUtilization < 0.2) {
-            return ResourceRequirement.builder()
-                    .type(ResourceType.THREAD)
-                    .action(ResourceAction.SHRINK)
-                    .amount(calculateThreadShrinkAmount(stats))
-                    .priority(calculatePriority(utilization, queueUtilization))
-                    .build();
-        }
-
-        return ResourceRequirement.none(ResourceType.THREAD);
-    }
-}
-```
-
-## SchedulingOptimizationManager.java
-
-```java
-package com.study.collect.core.strategy;
-
-import com.study.collect.domain.repository.task.TaskRepository;
-import io.micrometer.core.instrument.Timer;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-
-import java.util.ArrayList;
-import java.util.List;
-
-/**
- * 调度优化管理器
- */
-@Slf4j
-@Component
-@RequiredArgsConstructor
-public class SchedulingOptimizationManager {
-
-    private final TaskRepository taskRepository;
-    private final NodeManager nodeManager;
-    private final LoadBalancer loadBalancer;
-    private final MetricsCollector metricsCollector;
-
-    /**
-     * 优化任务调度
-     */
-    public OptimizationResult optimizeScheduling(String groupId) {
-        Timer.Sample timer = metricsCollector.startTimer("schedule_optimization");
-
-        try {
-            // 1. 收集系统状态
-            SystemState systemState = collectSystemState(groupId);
-
-            // 2. 分析调度效率
-            SchedulingAnalysis analysis = analyzeSchedulingEfficiency(systemState);
-
-            // 3. 生成优化建议
-            List<OptimizationSuggestion> suggestions =
-                    generateOptimizations(analysis);
-
-            // 4. 应用优化
-            return applyOptimizations(suggestions);
-
-        } catch (Exception e) {
-            log.error("Scheduling optimization failed", e);
-            throw new OptimizationException(
-                    "Optimization failed: " + e.getMessage());
-        } finally {
-            metricsCollector.stopTimer(timer);
-        }
-    }
-
-    /**
-     * 分析调度效率
-     */
-    private SchedulingAnalysis analyzeSchedulingEfficiency(
-            SystemState systemState) {
-        // 1. 分析资源利用率
-        ResourceUtilization resourceUtilization =
-                analyzeResourceUtilization(systemState);
-
-        // 2. 分析任务分布
-        TaskDistribution taskDistribution =
-                analyzeTaskDistribution(systemState);
-
-        // 3. 分析性能指标
-        PerformanceMetrics performanceMetrics =
-                analyzePerformanceMetrics(systemState);
-
-        return SchedulingAnalysis.builder()
-                .resourceUtilization(resourceUtilization)
-                .taskDistribution(taskDistribution)
-                .performanceMetrics(performanceMetrics)
-                .build();
-    }
-
-    /**
-     * 生成优化建议
-     */
-    private List<OptimizationSuggestion> generateOptimizations(
-            SchedulingAnalysis analysis) {
-        List<OptimizationSuggestion> suggestions = new ArrayList<>();
-
-        // 1. 资源均衡优化
-        if (analysis.hasResourceImbalance()) {
-            suggestions.add(generateResourceBalancingSuggestion(analysis));
-        }
-
-        // 2. 任务优先级优化
-        if (analysis.hasPriorityIssues()) {
-            suggestions.add(generatePriorityOptimizationSuggestion(analysis));
-        }
-
-        // 3. 批处理优化
-        if (analysis.canBatchOptimize()) {
-            suggestions.add(generateBatchProcessingSuggestion(analysis));
-        }
-
-        // 4. 节点分配优化
-        if (analysis.needsNodeReallocation()) {
-            suggestions.add(generateNodeAllocationSuggestion(analysis));
-        }
-
-        return suggestions;
-    }
-
-    /**
-     * 应用优化建议
-     */
-    private OptimizationResult applyOptimizations(
-            List<OptimizationSuggestion> suggestions) {
-        List<OptimizationAction> actions = new ArrayList<>();
-        List<String> failures = new ArrayList<>();
-
-        for (OptimizationSuggestion suggestion : suggestions) {
-            try {
-                // 1. 验证优化建议
-                if (!validateOptimization(suggestion)) {
-                    continue;
-                }
-
-                // 2. 执行优化
-                OptimizationAction action =
-                        executeOptimization(suggestion);
-                actions.add(action);
-
-                // 3. 验证优化效果
-                verifyOptimizationEffect(action);
-
-            } catch (Exception e) {
-                log.error("Apply optimization failed", e);
-                failures.add(suggestion.getId());
-            }
-        }
-
-        return OptimizationResult.builder()
-                .success(!actions.isEmpty())
-                .actions(actions)
-                .failures(failures)
-                .build();
-    }
-}
-```
-
-## SecurityManager.java
-
-```java
-package com.study.collect.core.strategy;
-
-import io.micrometer.core.instrument.Timer;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.redisson.config.Credentials;
-import org.springframework.boot.actuate.audit.AuditEvent;
-import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Component;
-
-import java.time.LocalDateTime;
-import java.util.Set;
-import java.util.UUID;
-
-/**
- * 安全管理器
- */
-@Slf4j
-@Component
-@RequiredArgsConstructor
-public class SecurityManager {
-
-    private final AuthenticationManager authenticationManager;
-    private final AuthorizationManager authorizationManager;
-    private final EncryptionManager encryptionManager;
-    private final AuditLogger auditLogger;
-    private final SecurityMonitor securityMonitor;
-
-    /**
-     * 检查访问权限
-     */
-    public AccessResult checkAccess(AccessRequest request) {
-        String requestId = UUID.randomUUID().toString();
-        Timer.Sample timer = metricsCollector.startTimer("access_check");
-
-        try {
-            // 1. 身份认证
-            AuthenticationResult authResult =
-                    authenticate(request);
-            if (!authResult.isSuccess()) {
-                return AccessResult.denied(
-                        "Authentication failed: " + authResult.getReason());
-            }
-
-            // 2. 权限检查
-            AuthorizationResult authzResult =
-                    authorize(request, authResult.getPrincipal());
-            if (!authzResult.isSuccess()) {
-                return AccessResult.denied(
-                        "Authorization failed: " + authzResult.getReason());
-            }
-
-            // 3. 记录审计日志
-            logAccessAttempt(request, authResult, authzResult);
-
-            return AccessResult.granted();
-
-        } catch (Exception e) {
-            log.error("Access check failed: {}", requestId, e);
-            return AccessResult.error(e.getMessage());
-        } finally {
-            metricsCollector.stopTimer(timer);
-        }
-    }
-
-    /**
-     * 身份认证
-     */
-    private AuthenticationResult authenticate(AccessRequest request) {
-        try {
-            // 1. 验证凭证
-            Credentials credentials = request.getCredentials();
-            Principal principal = authenticationManager
-                    .authenticate(credentials);
-
-            // 2. 检查账户状态
-            if (!isAccountActive(principal)) {
-                return AuthenticationResult.failed("Account is not active");
-            }
-
-            // 3. 验证多因素认证
-            if (requiresMfa(request) &&
-                    !validateMfa(request, principal)) {
-                return AuthenticationResult.failed("MFA validation failed");
-            }
-
-            return AuthenticationResult.success(principal);
-
-        } catch (Exception e) {
-            log.error("Authentication failed", e);
-            throw new SecurityException("Authentication failed", e);
-        }
-    }
-
-    /**
-     * 权限检查
-     */
-    private AuthorizationResult authorize(
-            AccessRequest request, Principal principal) {
-        try {
-            // 1. 获取用户角色
-            Set<String> roles = principal.getRoles();
-
-            // 2. 获取资源权限
-            ResourcePermission permission =
-                    request.getResourcePermission();
-
-            // 3. 检查权限
-            boolean hasPermission = authorizationManager
-                    .checkPermission(roles, permission);
-
-            if (!hasPermission) {
-                return AuthorizationResult.denied(
-                        "Insufficient permissions");
-            }
-
-            return AuthorizationResult.granted();
-
-        } catch (Exception e) {
-            log.error("Authorization failed", e);
-            throw new SecurityException("Authorization failed", e);
-        }
-    }
-
-    /**
-     * 加密敏感数据
-     */
-    public EncryptionResult encryptSensitiveData(
-            String data, EncryptionConfig config) {
-        try {
-            // 1. 生成加密密钥
-            EncryptionKey key = encryptionManager
-                    .generateKey(config.getKeySize());
-
-            // 2. 加密数据
-            byte[] encrypted = encryptionManager
-                    .encrypt(data.getBytes(), key);
-
-            // 3. 保存密钥
-            String keyId = saveEncryptionKey(key);
-
-            return EncryptionResult.success(encrypted, keyId);
-
-        } catch (Exception e) {
-            log.error("Encryption failed", e);
-            throw new SecurityException("Encryption failed", e);
-        }
-    }
-
-    /**
-     * 记录审计日志
-     */
-    private void logAccessAttempt(
-            AccessRequest request,
-            AuthenticationResult authResult,
-            AuthorizationResult authzResult) {
-
-        AuditEvent event = AuditEvent.builder()
-                .type(AuditEventType.ACCESS_ATTEMPT)
-                .timestamp(LocalDateTime.now())
-                .principal(authResult.getPrincipal())
-                .resource(request.getResource())
-                .action(request.getAction())
-                .result(authzResult.isSuccess() ?
-                        "GRANTED" : "DENIED")
-                .reason(authzResult.getReason())
-                .clientInfo(request.getClientInfo())
-                .build();
-
-        auditLogger.log(event);
-    }
-
-    /**
-     * 检测安全威胁
-     */
-    @Scheduled(fixedDelay = 60000) // 每分钟
-    public void detectThreats() {
-        try {
-            // 1. 收集安全指标
-            SecurityMetrics metrics = securityMonitor
-                    .collectMetrics();
-
-            // 2. 分析异常行为
-            List<SecurityThreat> threats =
-                    analyzeThreats(metrics);
-
-            // 3. 处理威胁
-            handleThreats(threats);
-
-        } catch (Exception e) {
-            log.error("Threat detection failed", e);
-        }
-    }
-}
-```
-
-```
-
-## ShardDataConsistencyManager.java
-
-```java
-package com.study.collect.core.strategy;
-
-import com.study.collect.common.annotation.lock.DistributedLock;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-import org.springframework.util.CollectionUtils;
-
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
-
-/**
- * 分片数据一致性管理器
- */
-@Slf4j
-@Component
-@RequiredArgsConstructor
-public class ShardDataConsistencyManager {
-
-    private final DistributedLock distributedLock;
-    private final VersionManager versionManager;
-    private final ShardRepository shardRepository;
-    private final ConsistencyChecker consistencyChecker;
-
-    /**
-     * 检查分片数据一致性
-     */
-    public ConsistencyCheckResult checkConsistency(String taskId) {
-        String lockKey = "consistency_check:" + taskId;
-        try {
-            // 1. 获取分布式锁
-            if (!distributedLock.tryLock(lockKey, 30000)) {
-                throw new ConsistencyException("Failed to acquire lock");
-            }
-
-            try {
-                // 2. 获取所有分片
-                List<TaskShard> shards =
-                        shardRepository.findByTaskId(taskId);
-                if (CollectionUtils.isEmpty(shards)) {
-                    return ConsistencyCheckResult.empty();
-                }
-
-                // 3. 检查分片完整性
-                checkShardIntegrity(shards);
-
-                // 4. 检查数据一致性
-                return checkShardDataConsistency(shards);
-
-            } finally {
-                distributedLock.unlock(lockKey);
-            }
-        } catch (Exception e) {
-            log.error("Check consistency failed: {}", taskId, e);
-            throw new ConsistencyException(
-                    "Check consistency failed: " + e.getMessage());
-        }
-    }
-
-    /**
-     * 修复数据不一致
-     */
-    public void repair(String taskId, ConsistencyCheckResult result) {
-        String lockKey = "consistency_repair:" + taskId;
-        try {
-            // 1. 获取分布式锁
-            if (!distributedLock.tryLock(lockKey, 30000)) {
-                throw new ConsistencyException("Failed to acquire lock");
-            }
-
-            try {
-                // 2. 验证修复必要性
-                if (!needsRepair(result)) {
-                    return;
-                }
-
-                // 3. 执行修复
-                repairInconsistencies(taskId, result);
-
-                // 4. 验证修复结果
-                verifyRepairResult(taskId);
-
-            } finally {
-                distributedLock.unlock(lockKey);
-            }
-        } catch (Exception e) {
-            log.error("Repair data failed: {}", taskId, e);
-            throw new ConsistencyException(
-                    "Repair data failed: " + e.getMessage());
-        }
-    }
-
-    /**
-     * 检查分片完整性
-     */
-    private void checkShardIntegrity(List<TaskShard> shards) {
-        // 1. 检查分片数量
-        int expectedCount = shards.get(0).getTotalShards();
-        if (shards.size() != expectedCount) {
-            throw new ConsistencyException(
-                    "Shard count mismatch: " + shards.size() +
-                            " vs " + expectedCount);
-        }
-
-        // 2. 检查分片连续性
-        Set<Integer> indexes = shards.stream()
-                .map(TaskShard::getShardIndex)
-                .collect(Collectors.toSet());
-
-        for (int i = 0; i < expectedCount; i++) {
-            if (!indexes.contains(i)) {
-                throw new ConsistencyException(
-                        "Missing shard: " + i);
-            }
-        }
-
-        // 3. 检查分片状态
-        List<TaskShard> invalidShards = shards.stream()
-                .filter(s -> !isValidShardStatus(s.getStatus()))
-                .collect(Collectors.toList());
-
-        if (!invalidShards.isEmpty()) {
-            throw new ConsistencyException(
-                    "Invalid shard status: " +
-                            invalidShards.stream()
-                                    .map(TaskShard::getId)
-                                    .collect(Collectors.joining(",")));
-        }
-    }
-
-    /**
-     * 检查分片数据一致性
-     */
-    private ConsistencyCheckResult checkShardDataConsistency(
-            List<TaskShard> shards) {
-        // 1. 创建检查上下文
-        ConsistencyCheckContext context =
-                createCheckContext(shards);
-
-        // 2. 检查数据版本
-        checkDataVersions(shards, context);
-
-        // 3. 检查数据完整性
-        checkDataIntegrity(shards, context);
-
-        // 4. 检查数据一致性
-        checkDataConsistency(shards, context);
-
-        // 5. 构建检查结果
-        return buildCheckResult(context);
-    }
-
-    /**
-     * 检查数据版本
-     */
-    private void checkDataVersions(List<TaskShard> shards,
-                                   ConsistencyCheckContext context) {
-        // 1. 获取所有分片版本
-        Map<String, Long> versions = new HashMap<>();
-        for (TaskShard shard : shards) {
-            versions.put(shard.getId(),
-                    versionManager.getVersion(shard.getId()));
-        }
-
-        // 2. 检查版本一致性
-        long baseVersion = versions.values().iterator().next();
-        List<String> inconsistentShards = versions.entrySet().stream()
-                .filter(e -> !e.getValue().equals(baseVersion))
-                .map(Map.Entry::getKey)
-                .collect(Collectors.toList());
-
-        if (!inconsistentShards.isEmpty()) {
-            context.addVersionInconsistency(
-                    baseVersion, versions, inconsistentShards);
-        }
-    }
-
-    /**
-     * 修复数据不一致
-     */
-    private void repairInconsistencies(String taskId,
-                                       ConsistencyCheckResult result) {
-        // 1. 获取需要修复的分片
-        List<String> shardsToRepair =
-                result.getInconsistentShards();
-
-        // 2. 获取基准分片
-        TaskShard baselineShard =
-                getBaselineShard(taskId, result);
-
-        // 3. 执行修复
-        for (String shardId : shardsToRepair) {
-            try {
-                repairShard(shardId, baselineShard);
-            } catch (Exception e) {
-                log.error("Repair shard failed: {}", shardId, e);
-                // 继续修复其他分片
-            }
-        }
-    }
-}
-```
-
-## ShardingStrategy.java
-
-```java
-package com.study.collect.core.strategy;
-
-/**
- * 任务分片策略接口
- */
-public interface ShardingStrategy {
-    /**
-     * 分片任务
-     * @return 返回分片后的子任务列表
-     */
-    List<CollectTask> shard(CollectTask task, int shardCount);
-}
-
-
-```
-
-## ShardingStrategyManager.java
-
-```java
-package com.study.collect.core.strategy;
-
-import com.study.collect.domain.entity.task.CollectTask;
-import io.micrometer.core.instrument.Timer;
-import jakarta.annotation.PostConstruct;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
-/**
- * 任务分片策略管理器
- */
-@Slf4j
-@Component
-@RequiredArgsConstructor
-public class ShardingStrategyManager {
-
-    private final LoadBalancer loadBalancer;
-    private final MetricsCollector metricsCollector;
-
-    private final Map<String, ShardingStrategy> strategies = new ConcurrentHashMap<>();
-
-    @PostConstruct
-    public void init() {
-        // 注册默认策略
-        registerStrategy("RANGE", new RangeShardingStrategy());
-        registerStrategy("HASH", new HashShardingStrategy());
-        registerStrategy("DYNAMIC", new DynamicShardingStrategy());
-    }
-
-    /**
-     * 执行任务分片
-     */
-    public List<CollectTask> shard(CollectTask task) {
-        Timer.Sample timer = metricsCollector.startTimer("task_sharding");
-        try {
-            // 1. 获取分片策略
-            ShardingStrategy strategy = getStrategy(task);
-
-            // 2. 计算分片数量
-            int shardCount = calculateShardCount(task);
-
-            // 3. 执行分片
-            return strategy.shard(task, shardCount);
-
-        } finally {
-            metricsCollector.stopTimer(timer);
-        }
-    }
-
-    private ShardingStrategy getStrategy(CollectTask task) {
-        // 根据任务类型和参数选择策略
-        if (task.getParams().containsKey("shardingStrategy")) {
-            String strategyName = task.getParams().get("shardingStrategy").toString();
-            return strategies.getOrDefault(strategyName,
-                    strategies.get("RANGE")); // 默认使用范围分片
-        }
-        return strategies.get("RANGE");
-    }
-
-    private int calculateShardCount(CollectTask task) {
-        // 1. 获取系统配置的最大分片数
-        int maxShards = getMaxShardCount();
-
-        // 2. 获取可用节点数
-        int availableNodes = loadBalancer.getAvailableNodes().size();
-
-        // 3. 根据数据量计算建议分片数
-        int suggestedShards = calculateSuggestedShards(task);
-
-        // 4. 取三者最小值
-        return Math.min(Math.min(maxShards, availableNodes), suggestedShards);
-    }
-
-    private int calculateSuggestedShards(CollectTask task) {
-        // 根据数据量计算建议分片数
-        long dataSize = getDataSize(task);
-        int shardSize = getShardSize(task);
-
-        if (dataSize <= 0 || shardSize <= 0) {
-            return 1;
-        }
-
-        return (int) Math.ceil((double) dataSize / shardSize);
-    }
-}
-
-
-```
-
-## ShardTaskMonitorManager.java
-
-```java
-package com.study.collect.core.strategy;
-
-import com.study.collect.common.enums.collect.TaskStatus;
-import com.study.collect.domain.entity.task.CollectTask;
-import com.study.collect.domain.repository.task.TaskRepository;
-import com.study.collect.infrastructure.monitor.alert.AlertManager;
-import com.study.collect.infrastructure.monitor.metrics.collector.SystemMetrics;
-import com.study.collect.infrastructure.monitor.metrics.collector.TaskMetrics;
-import jakarta.annotation.PostConstruct;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-
-import java.time.Duration;
-import java.util.List;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-
-/**
- * 分片任务监控管理器
- */
-@Slf4j
-@Component
-@RequiredArgsConstructor
-public class ShardTaskMonitorManager {
-
-    private final MetricsCollector metricsCollector;
-    private final AlertManager alertManager;
-    private final HealthChecker healthChecker;
-    private final TaskRepository taskRepository;
-
-    // 监控线程池
-    private final ScheduledExecutorService scheduler =
-            Executors.newScheduledThreadPool(3);
-
-    @PostConstruct
-    public void init() {
-        // 启动监控任务
-        startMonitoring();
-    }
-
-    /**
-     * 启动监控
-     */
-    private void startMonitoring() {
-        // 1. 任务执行监控
-        scheduler.scheduleAtFixedRate(
-                this::monitorTaskExecution,
-                0, 30, TimeUnit.SECONDS
-        );
-
-        // 2. 系统资源监控
-        scheduler.scheduleAtFixedRate(
-                this::monitorSystemResources,
-                0, 60, TimeUnit.SECONDS
-        );
-
-        // 3. 异常监控
-        scheduler.scheduleAtFixedRate(
-                this::monitorAnomalies,
-                0, 120, TimeUnit.SECONDS
-        );
-    }
-
-    /**
-     * 监控任务执行
-     */
-    private void monitorTaskExecution() {
-        try {
-            // 1. 收集任务执行指标
-            TaskMetrics metrics = collectTaskMetrics();
-
-            // 2. 检查执行异常
-            checkTaskExecution(metrics);
-
-            // 3. 更新监控指标
-            updateTaskMetrics(metrics);
-
-            // 4. 处理告警
-            handleTaskAlerts(metrics);
-
-        } catch (Exception e) {
-            log.error("Monitor task execution failed", e);
-        }
-    }
-
-    /**
-     * 收集任务执行指标
-     */
-    private TaskMetrics collectTaskMetrics() {
-        // 1. 获取最近任务
-        List<CollectTask> recentTasks =
-                taskRepository.findRecentTasks(Duration.ofMinutes(5));
-
-        // 2. 计算执行指标
-        return TaskMetrics.builder()
-                .totalTasks(recentTasks.size())
-                .successCount(countTasksByStatus(recentTasks, TaskStatus.SUCCESS))
-                .failureCount(countTasksByStatus(recentTasks, TaskStatus.FAILED))
-                .averageExecutionTime(calculateAverageExecutionTime(recentTasks))
-                .maxExecutionTime(calculateMaxExecutionTime(recentTasks))
-                .taskQueueSize(taskRepository.getQueueSize())
-                .activeShards(countActiveShards(recentTasks))
-                .build();
-    }
-
-    /**
-     * 检查任务执行异常
-     */
-    private void checkTaskExecution(TaskMetrics metrics) {
-        // 1. 检查失败率
-        double failureRate = calculateFailureRate(
-                metrics.getSuccessCount(),
-                metrics.getFailureCount()
-        );
-
-        if (failureRate > 0.2) { // 失败率超过20%
-            alertManager.sendAlert(Alert.builder()
-                    .level(AlertLevel.WARNING)
-                    .type("HIGH_FAILURE_RATE")
-                    .message("Task failure rate too high: " +
-                            String.format("%.2f%%", failureRate * 100))
-                    .metrics(metrics)
-                    .build()
-            );
-        }
-
-        // 2. 检查执行时间
-        if (metrics.getMaxExecutionTime() > 300000) { // 超过5分钟
-            alertManager.sendAlert(Alert.builder()
-                    .level(AlertLevel.WARNING)
-                    .type("LONG_EXECUTION_TIME")
-                    .message("Task execution time too long: " +
-                            metrics.getMaxExecutionTime() + "ms")
-                    .metrics(metrics)
-                    .build()
-            );
-        }
-
-        // 3. 检查队列积压
-        if (metrics.getTaskQueueSize() > 1000) {
-            alertManager.sendAlert(Alert.builder()
-                    .level(AlertLevel.CRITICAL)
-                    .type("QUEUE_OVERFLOW")
-                    .message("Task queue size too large: " +
-                            metrics.getTaskQueueSize())
-                    .metrics(metrics)
-                    .build()
-            );
-        }
-    }
-
-    /**
-     * 监控系统资源
-     */
-    private void monitorSystemResources() {
-        try {
-            // 1. 收集系统指标
-            SystemMetrics metrics = healthChecker.checkSystem();
-
-            // 2. 更新监控指标
-            updateSystemMetrics(metrics);
-
-            // 3. 检查资源告警
-            checkResourceAlerts(metrics);
-
-        } catch (Exception e) {
-            log.error("Monitor system resources failed", e);
-        }
-    }
-
-    /**
-     * 检查资源告警
-     */
-    private void checkResourceAlerts(SystemMetrics metrics) {
-        // 1. 检查CPU使用率
-        if (metrics.getCpuUsage() > 80) {
-            alertManager.sendAlert(Alert.builder()
-                    .level(AlertLevel.WARNING)
-                    .type("HIGH_CPU_USAGE")
-                    .message("CPU usage too high: " +
-                            metrics.getCpuUsage() + "%")
-                    .metrics(metrics)
-                    .build()
-            );
-        }
-
-        // 2. 检查内存使用率
-        if (metrics.getMemoryUsage() > 85) {
-            alertManager.sendAlert(Alert.builder()
-                    .level(AlertLevel.WARNING)
-                    .type("HIGH_MEMORY_USAGE")
-                    .message("Memory usage too high: " +
-                            metrics.getMemoryUsage() + "%")
-                    .metrics(metrics)
-                    .build()
-            );
-        }
-
-        // 3. 检查磁盘使用率
-        if (metrics.getDiskUsage() > 90) {
-            alertManager.sendAlert(Alert.builder()
-                    .level(AlertLevel.CRITICAL)
-                    .type("HIGH_DISK_USAGE")
-                    .message("Disk usage too high: " +
-                            metrics.getDiskUsage() + "%")
-                    .metrics(metrics)
-                    .build()
-            );
-        }
-    }
-
-    /**
-     * 更新监控指标
-     */
-    private void updateTaskMetrics(TaskMetrics metrics) {
-        // 更新Prometheus指标
-        metricsCollector.gauge("task_total", metrics.getTotalTasks());
-        metricsCollector.gauge("task_success", metrics.getSuccessCount());
-        metricsCollector.gauge("task_failure", metrics.getFailureCount());
-        metricsCollector.gauge("task_avg_time",
-                metrics.getAverageExecutionTime());
-        metricsCollector.gauge("task_max_time",
-                metrics.getMaxExecutionTime());
-        metricsCollector.gauge("task_queue_size",
-                metrics.getTaskQueueSize());
-        metricsCollector.gauge("task_active_shards",
-                metrics.getActiveShards());
-    }
-
-    /**
-     * 更新系统指标
-     */
-    private void updateSystemMetrics(SystemMetrics metrics) {
-        metricsCollector.gauge("system_cpu_usage", metrics.getCpuUsage());
-        metricsCollector.gauge("system_memory_usage",
-                metrics.getMemoryUsage());
-        metricsCollector.gauge("system_disk_usage", metrics.getDiskUsage());
-        metricsCollector.gauge("system_network_io",
-                metrics.getNetworkIO());
-        metricsCollector.gauge("system_load_average",
-                metrics.getLoadAverage());
-    }
-}
-
-
-```
-
-## TaskCompensationManager.java
-
-```java
-package com.study.collect.core.strategy;
-
-import com.study.collect.common.annotation.lock.DistributedLock;
-import com.study.collect.domain.entity.task.CollectTask;
-import com.study.collect.domain.repository.task.TaskRepository;
-import io.micrometer.core.instrument.Timer;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-
-import java.time.LocalDateTime;
-
-/**
- * 任务补偿管理器
- */
-@Slf4j
-@Component
-@RequiredArgsConstructor
-public class TaskCompensationManager {
-
-    private final TaskRepository taskRepository;
-    private final ShardRepository shardRepository;
-    private final CompensationLogRepository compensationLogRepository;
-    private final DistributedLock distributedLock;
-    private final MetricsCollector metricsCollector;
-
-    /**
-     * 执行补偿
-     */
-    public CompensationResult compensate(String taskId) {
-        String lockKey = "compensation:lock:" + taskId;
-        Timer.Sample timer = metricsCollector.startTimer("task_compensation");
-
-        try {
-            // 1. 获取补偿锁
-            if (!distributedLock.tryLock(lockKey, 30000)) {
-                throw new CompensationException("Failed to acquire compensation lock");
-            }
-
-            try {
-                // 2. 检查补偿必要性
-                if (!needsCompensation(taskId)) {
-                    return CompensationResult.notNeeded();
-                }
-
-                // 3. 创建补偿计划
-                CompensationPlan plan = createCompensationPlan(taskId);
-
-                // 4. 执行补偿
-                return executeCompensation(plan);
-
-            } finally {
-                distributedLock.unlock(lockKey);
-            }
-        } catch (Exception e) {
-            log.error("Task compensation failed: {}", taskId, e);
-            throw new CompensationException("Compensation failed: " + e.getMessage());
-        } finally {
-            metricsCollector.stopTimer(timer);
-        }
-    }
-
-    /**
-     * 检查补偿必要性
-     */
-    private boolean needsCompensation(String taskId) {
-        // 1. 获取任务信息
-        CollectTask task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new TaskNotFoundException(taskId));
-
-        // 2. 检查任务状态
-        if (!isCompensableStatus(task.getStatus())) {
-            return false;
-        }
-
-        // 3. 检查数据完整性
-        DataIntegrityResult integrity = checkDataIntegrity(task);
-        if (integrity.isComplete()) {
-            return false;
-        }
-
-        // 4. 检查补偿次数
-        return checkCompensationAttempts(task);
-    }
-
-    /**
-     * 创建补偿计划
-     */
-    private CompensationPlan createCompensationPlan(String taskId) {
-        // 1. 获取任务信息
-        CollectTask task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new TaskNotFoundException(taskId));
-
-        // 2. 分析缺失数据
-        List<DataRange> missingRanges = analyzeMissingData(task);
-
-        // 3. 规划补偿步骤
-        List<CompensationStep> steps = planCompensationSteps(missingRanges);
-
-        return CompensationPlan.builder()
-                .taskId(taskId)
-                .steps(steps)
-                .startTime(LocalDateTime.now())
-                .timeout(calculateTimeout(steps))
-                .build();
-    }
-
-    /**
-     * 执行补偿计划
-     */
-    private CompensationResult executeCompensation(CompensationPlan plan) {
-        String taskId = plan.getTaskId();
-        CompensationContext context = new CompensationContext(plan);
-
-        try {
-            // 1. 初始化补偿
-            initializeCompensation(context);
-
-            // 2. 执行补偿步骤
-            for (CompensationStep step : plan.getSteps()) {
-                executeCompensationStep(step, context);
-                if (context.isAborted()) {
-                    break;
-                }
-            }
-
-            // 3. 验证补偿结果
-            verifyCompensationResult(context);
-
-            // 4. 提交补偿
-            return commitCompensation(context);
-
-        } catch (Exception e) {
-            // 5. 处理补偿失败
-            handleCompensationFailure(context, e);
-            throw e;
-        } finally {
-            // 6. 清理资源
-            cleanupCompensation(context);
-        }
-    }
-
-    /**
-     * 执行补偿步骤
-     */
-    private void executeCompensationStep(CompensationStep step, CompensationContext context) {
-        String stepId = step.getId();
-        log.info("Executing compensation step: {}", stepId);
-
-        try {
-            // 1. 准备步骤执行
-            prepareStepExecution(step, context);
-
-            // 2. 执行补偿逻辑
-            step.execute(context);
-
-            // 3. 验证步骤结果
-            verifyStepResult(step, context);
-
-            // 4. 记录执行日志
-            logStepExecution(step, context);
-
-        } catch (Exception e) {
-            log.error("Compensation step failed: {}", stepId, e);
-            handleStepFailure(step, context, e);
-        }
-    }
-
-    /**
-     * 提交补偿
-     */
-    private CompensationResult commitCompensation(CompensationContext context) {
-        String taskId = context.getTaskId();
-        log.info("Committing compensation for task: {}", taskId);
-
-        try {
-            // 1. 保存补偿数据
-            saveCompensationData(context);
-
-            // 2. 更新任务状态
-            updateTaskAfterCompensation(context);
-
-            // 3. 发送补偿完成事件
-            publishCompensationEvent(context);
-
-            return buildCompensationResult(context);
-
-        } catch (Exception e) {
-            log.error("Commit compensation failed: {}", taskId, e);
-            throw new CompensationException("Failed to commit compensation", e);
-        }
-    }
-
-    /**
-     * 处理补偿失败
-     */
-    private void handleCompensationFailure(CompensationContext context, Exception error) {
-        String taskId = context.getTaskId();
-        log.error("Handling compensation failure for task: {}", taskId, error);
-
-        try {
-            // 1. 回滚已完成的步骤
-            rollbackCompensation(context);
-
-            // 2. 更新任务状态
-            updateTaskStatus(taskId, TaskStatus.COMPENSATION_FAILED);
-
-            // 3. 记录失败信息
-            logCompensationFailure(context, error);
-
-            // 4. 发送告警
-            sendCompensationAlert(context, error);
-
-        } catch (Exception e) {
-            log.error("Handle compensation failure failed: {}", taskId, e);
-        }
-    }
-}
-
-```
-
-## ConsistentHash.java
-
-```java
-package com.study.collect.core.strategy.balance;
-
-// 一致性哈希
-public class ConsistentHash {
-}
-
-```
-
-## LoadBalanceStrategy.java
-
-```java
-package com.study.collect.core.strategy.balance;
-
-// 负载均衡策略
-public class LoadBalanceStrategy {
-}
-
-```
-
-## RandomBalance.java
-
-```java
-package com.study.collect.core.strategy.balance;
-
-// 随机负载均衡
-public class RandomBalance {
-}
-
-```
-
-## RoundRobinStrategy.java
-
-```java
-package com.study.collect.core.strategy.balance;
-
-import com.study.collect.core.scheduler.strategy.DispatchStrategy;
-import com.study.collect.domain.entity.task.CollectTask;
-import org.springframework.stereotype.Component;
-import org.springframework.util.CollectionUtils;
-
-import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
-
-/**
- * 轮询分发策略
- */
-@Component
-public class RoundRobinStrategy implements DispatchStrategy {
-
-    private final AtomicInteger counter = new AtomicInteger(0);
-
-    @Override
-    public String selectNode(List<String> nodes, CollectTask task) {
-        if (CollectionUtils.isEmpty(nodes)) {
-            return null;
-        }
-        int index = counter.getAndIncrement() % nodes.size();
-        return nodes.get(index);
-    }
-}
-
-```
-
-## DedupStrategy.java
-
-```java
-package com.study.collect.core.strategy.dedup;
-
-// 策略接口
-public class DedupStrategy {
-}
-
-```
-
-## ExponentialRetryStrategy.java
-
-```java
-package com.study.collect.core.strategy.dedup;
-
-import com.study.collect.domain.entity.task.CollectTask;
-import org.springframework.stereotype.Component;
-
-/**
- * 指数退避重试策略
- */
-@Component
-public class ExponentialRetryStrategy implements RetryStrategy {
-
-    private static final long INITIAL_DELAY = 1000; // 初始1秒
-    private static final long MAX_DELAY = 60 * 1000; // 最大1分钟
-
-    @Override
-    public boolean shouldRetry(CollectTask task, Exception e) {
-        // 超过最大重试次数
-        if (task.getRetryTimes() >= task.getMaxRetryTimes()) {
-            return false;
-        }
-
-        // 只重试特定异常
-        return e instanceof CollectException || e instanceof ProcessException;
-    }
-
-    @Override
-    public long getRetryDelay(CollectTask task) {
-        // 计算指数退避延迟
-        long delay = INITIAL_DELAY * (1L << task.getRetryTimes());
-        return Math.min(delay, MAX_DELAY);
-    }
-}
-
-```
-
-## RedisDedupStrategy.java
-
-```java
-package com.study.collect.core.strategy.dedup;
-
-// Redis去重策略
-
-import lombok.RequiredArgsConstructor;
-
-import java.util.concurrent.TimeUnit;
-
-/**
- * Redis去重策略
- */
-@Component
-@RequiredArgsConstructor
-public class RedisDedupStrategy implements DedupStrategy {
-
-    private final RedisTemplate<String, String> redisTemplate;
-    private static final String DEDUP_KEY_PREFIX = "dedup:";
-    private static final long EXPIRE_TIME = 24 * 60 * 60; // 24小时过期
-
-    @Override
-    public boolean isDuplicate(String key) {
-        String dedupKey = DEDUP_KEY_PREFIX + key;
-        return Boolean.TRUE.equals(redisTemplate.hasKey(dedupKey));
-    }
-
-    @Override
-    public void markProcessed(String key) {
-        String dedupKey = DEDUP_KEY_PREFIX + key;
-        redisTemplate.opsForValue().set(dedupKey, "1", EXPIRE_TIME, TimeUnit.SECONDS);
-    }
-}
-```
-
-## RetryStrategy.java
-
-```java
-package com.study.collect.core.strategy.dedup;
-
-/**
- * 重试策略接口
- */
-public interface RetryStrategy {
-    /**
-     * 是否需要重试
-     */
-    boolean shouldRetry(CollectTask task, Exception e);
-
-    /**
-     * 计算重试延迟时间
-     */
-    long getRetryDelay(CollectTask task);
-}
-```
-
-## SimpleDedupStrategy.java
-
-```java
-package com.study.collect.core.strategy.dedup;
-
-// 简单去重策略
-public class SimpleDedupStrategy {
-}
-
-```
-
-## DynamicPriority.java
-
-```java
-package com.study.collect.core.strategy.priority;
-
-// 动态优先级
-public class DynamicPriority {
-}
-
-```
-
-## PriorityStrategy.java
-
-```java
-package com.study.collect.core.strategy.priority;
-
-// 优先级策略
-public class PriorityStrategy {
-}
-
-```
-
-## SimplePriority.java
-
-```java
-package com.study.collect.core.strategy.priority;
-
-// 简单优先级
-public class SimplePriority {
-}
-
-```
-
-## HashRoute.java
-
-```java
-package com.study.collect.core.strategy.route;
-
-// 哈希路由
-public class HashRoute {
-}
-
-```
-
-## RouteStrategy.java
-
-```java
-package com.study.collect.core.strategy.route;
-
-// 路由策略
-public class RouteStrategy {
-}
-
-```
-
-## CollectData.java
-
-```java
-package com.study.collect.domain.entity.data;
-
-import lombok.Data;
-import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.mapping.Document;
-
-import java.time.LocalDateTime;
-
-/**
- * 采集数据实体
- */
-@Data
-@Document(collection = "collect_data")
-public class CollectData {
-    @Id
-    private String id;
-
-    /**
-     * 任务ID
-     */
-    private String taskId;
-
-    /**
-     * 数据类型
-     */
-    private String type;
-
-    /**
-     * 源数据
-     */
-    private String rawData;
-
-    /**
-     * 处理后数据
-     */
-    private String processedData;
-
-    /**
-     * 数据版本
-     */
-    private Long version;
-
-    /**
-     * 采集时间
-     */
-    private LocalDateTime collectTime;
-
-    /**
-     * 处理时间
-     */
-    private LocalDateTime processTime;
-
-    /**
-     * 创建时间
-     */
-    private LocalDateTime createTime;
-
-    /**
-     * 更新时间
-     */
-    private LocalDateTime updateTime;
-}
-```
-
-## ListData.java
-
-```java
-package com.study.collect.domain.entity.data.list;
-
-// 列表数据
-public class ListData {
-}
-
-```
-
-## ListMeta.java
-
-```java
-package com.study.collect.domain.entity.data.list;
-
-// 列表元数据
-public class ListMeta {
-}
-
-```
-
-## CollectStats.java
-
-```java
-package com.study.collect.domain.entity.data.stats;
-
-// 收集统计
-public class CollectStats {
-}
-
-```
-
-## DataStats.java
-
-```java
-package com.study.collect.domain.entity.data.stats;
-
-// 数据统计
-public class DataStats {
-}
-
-```
-
-## TreeMeta.java
-
-```java
-package com.study.collect.domain.entity.data.tree;
-
-// 树元数据
-public class TreeMeta {
-}
-
-```
-
-## TreeNode.java
-
-```java
-package com.study.collect.domain.entity.data.tree;
-
-// 树节点
-
-import lombok.Data;
-import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.mapping.Document;
-
-import java.time.LocalDateTime;
-import java.util.Map;
-
-/**
- * 树节点实体
- */
-@Data
-@Document(collection = "tree_nodes")
-public class TreeNode {
-    @Id
-    private String id;
-
-    /**
-     * 父节点ID
-     */
-    private String parentId;
-
-    /**
-     * 节点路径
-     */
-    private String path;
-
-    /**
-     * 节点类型
-     */
-    private String type;
-
-    /**
-     * 节点名称
-     */
-    private String name;
-
-    /**
-     * 节点数据
-     */
-    private Map<String, Object> data;
-
-    /**
-     * 是否叶子节点
-     */
-    private Boolean leaf;
-
-    /**
-     * 节点层级
-     */
-    private Integer level;
-
-    /**
-     * 排序序号
-     */
-    private Integer orderNum;
-
-    /**
-     * 创建时间
-     */
-    private LocalDateTime createTime;
-
-    /**
-     * 更新时间
-     */
-    private LocalDateTime updateTime;
-}
-```
-
-## SyncConfig.java
-
-```java
-package com.study.collect.domain.entity.sync;
-
-// 同步配置
-public class SyncConfig {
-}
-
-```
-
-## SyncResult.java
-
-```java
-package com.study.collect.domain.entity.sync;
-
-// 同步结果
-public class SyncResult {
-}
-
-```
-
-## SyncTask.java
-
-```java
-package com.study.collect.domain.entity.sync;
-
-// 同步任务
-public class SyncTask {
-}
-
-```
-
-## CollectTask.java
-
-```java
-package com.study.collect.domain.entity.task;
-
-// 采集任务
-
-import lombok.Data;
-import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.mapping.Document;
-
-import java.time.LocalDateTime;
-import java.util.Map;
-
-/**
- * 采集任务实体
- */
-@Data
-@Document(collection = "collect_tasks")
-public class CollectTask {
-    @Id
-    private String id;
-
-    /**
-     * 任务名称
-     */
-    private String name;
-
-    /**
-     * 任务类型
-     */
-    private String type;
-
-    /**
-     * 任务状态
-     */
-    private String status;
-
-    /**
-     * 优先级
-     */
-    private Integer priority;
-
-    /**
-     * 重试次数
-     */
-    private Integer retryTimes;
-
-    /**
-     * 最大重试次数
-     */
-    private Integer maxRetryTimes;
-
-    /**
-     * 任务参数
-     */
-    private Map<String, Object> params;
-
-    /**
-     * 开始时间
-     */
-    private LocalDateTime startTime;
-
-    /**
-     * 结束时间
-     */
-    private LocalDateTime endTime;
-
-    /**
-     * 创建时间
-     */
-    private LocalDateTime createTime;
-
-    /**
-     * 更新时间
-     */
-    private LocalDateTime updateTime;
-}
-
-
-```
-
-## SubTask.java
-
-```java
-package com.study.collect.domain.entity.task;
-
-// 子任务
-public class SubTask {
-}
-
-```
-
-## TaskConfig.java
-
-```java
-package com.study.collect.domain.entity.task;
-
-// 任务配置
-public class TaskConfig {
-}
-
-```
-
-## TaskContext.java
-
-```java
-package com.study.collect.domain.entity.task;
-
-// 任务上下文
-public class TaskContext {
-}
-
-```
-
-## TaskResult.java
-
-```java
-package com.study.collect.domain.entity.task;
-
-// 任务结果
-public class TaskResult {
-}
-
-```
-
-## TaskStats.java
-
-```java
-package com.study.collect.domain.entity.task;
-
-// 任务统计
-
-import lombok.Data;
-import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.mapping.Document;
-
-import java.time.LocalDateTime;
-
-/**
- * 任务统计实体
- */
-@Data
-@Document(collection = "task_stats")
-public class TaskStats {
-    @Id
-    private String id;
-
-    /**
-     * 任务ID
-     */
-    private String taskId;
-
-    /**
-     * 总数量
-     */
-    private Long totalCount;
-
-    /**
-     * 成功数量
-     */
-    private Long successCount;
-
-    /**
-     * 失败数量
-     */
-    private Long failCount;
-
-    /**
-     * 处理速度(条/秒)
-     */
-    private Double processSpeed;
-
-    /**
-     * 开始时间
-     */
-    private LocalDateTime startTime;
-
-    /**
-     * 结束时间
-     */
-    private LocalDateTime endTime;
-
-    /**
-     * 更新时间
-     */
-    private LocalDateTime updateTime;
-}
-
-```
-
-## DataVersion.java
-
-```java
-package com.study.collect.domain.entity.version;
-
-// 数据版本
-public class DataVersion {
-}
-
-```
-
-## VersionMeta.java
-
-```java
-package com.study.collect.domain.entity.version;
-
-// 版本元数据
-public class VersionMeta {
-}
-
-```
-
-## BaseRepository.java
-
-```java
-package com.study.collect.domain.repository;
-
-import java.util.List;
-import java.util.Optional;
-
-/**
- * 基础仓储接口
- */
-public interface BaseRepository<T, ID> {
-    /**
-     * 保存实体
-     */
-    T save(T entity);
-
-    /**
-     * 批量保存
-     */
-    List<T> saveAll(Iterable<T> entities);
-
-    /**
-     * 根据ID删除
-     */
-    void deleteById(ID id);
-
-    /**
-     * 根据ID查询
-     */
-    Optional<T> findById(ID id);
-
-    /**
-     * 查询所有
-     */
-    List<T> findAll();
-}
-
-
-```
-
-## CollectDataRepository.java
-
-```java
-package com.study.collect.domain.repository.data;
-
-import com.study.collect.domain.entity.data.CollectData;
-import com.study.collect.domain.repository.BaseRepository;
-
-import java.util.List;
-
-/**
- * 采集数据仓储接口
- */
-public interface CollectDataRepository extends BaseRepository<CollectData, String> {
-    /**
-     * 根据任务ID查询数据
-     */
-    List<CollectData> findByTaskId(String taskId);
-
-    /**
-     * 根据类型查询数据
-     */
-    List<CollectData> findByType(String type);
-
-    /**
-     * 根据版本查询数据
-     */
-    List<CollectData> findByVersion(Long version);
-
-    /**
-     * 批量保存数据
-     */
-    void saveBatch(List<CollectData> dataList);
-}
-```
-
-## ListRepository.java
-
-```java
-package com.study.collect.domain.repository.data;
-
-// 列表仓储
-public class ListRepository {
-}
-
-```
-
-## TreeNodeRepository.java
-
-```java
-package com.study.collect.domain.repository.data;
-
-import com.study.collect.domain.entity.data.tree.TreeNode;
-import com.study.collect.domain.repository.BaseRepository;
-
-import java.util.List;
-
-/**
- * 树节点仓储接口
- */
-public interface TreeNodeRepository extends BaseRepository<TreeNode, String> {
-    /**
-     * 查询子节点
-     */
-    List<TreeNode> findByParentId(String parentId);
-
-    /**
-     * 根据路径查询节点
-     */
-    List<TreeNode> findByPathStartingWith(String path);
-
-    /**
-     * 根据类型查询节点
-     */
-    List<TreeNode> findByType(String type);
-
-    /**
-     * 批量更新节点
-     */
-    void updateBatch(List<TreeNode> nodes);
-}
-```
-
-## TreeRepository.java
-
-```java
-package com.study.collect.domain.repository.data;
-
-// 树形结构仓库
-public class TreeRepository {
-}
-
-```
-
-## TaskRepository.java
-
-```java
-package com.study.collect.domain.repository.task;
-
-// 任务仓储
-
-import com.study.collect.domain.entity.task.CollectTask;
-import com.study.collect.domain.repository.BaseRepository;
-
-import java.time.LocalDateTime;
-import java.util.List;
-
-/**
- * 任务仓储接口
- */
-public interface TaskRepository extends BaseRepository<CollectTask, String> {
-    /**
-     * 根据状态查询任务
-     */
-    List<CollectTask> findByStatus(String status);
-
-    /**
-     * 更新任务状态
-     */
-    void updateStatus(String taskId, String status);
-
-    /**
-     * 增加重试次数
-     */
-    void incrementRetryTimes(String taskId);
-
-    /**
-     * 查询超时任务
-     */
-    List<CollectTask> findTimeoutTasks(LocalDateTime timeout);
-}
-```
-
-## TaskStatsRepository.java
-
-```java
-package com.study.collect.domain.repository.task;
-
-// 统计仓储
-
-import com.study.collect.domain.entity.task.TaskStats;
-import com.study.collect.domain.repository.BaseRepository;
-import java.util.Optional;
-
-/**
- * 任务统计仓储接口
- */
-public interface TaskStatsRepository extends BaseRepository<TaskStats, String> {
-    /**
-     * 根据任务ID查询统计
-     */
-    Optional<TaskStats> findByTaskId(String taskId);
-
-    /**
-     * 更新统计数据
-     */
-    void updateStats(TaskStats stats);
-
-    /**
-     * 增加成功计数
-     */
-    void incrementSuccessCount(String taskId);
-
-    /**
-     * 增加失败计数
-     */
-    void incrementFailCount(String taskId);
-}
-
-```
-
-## VersionRepository.java
-
-```java
-package com.study.collect.domain.repository.version;
-
-// 版本仓库
-public class VersionRepository {
-}
-
-```
-
-## CollectDomainService.java
-
-```java
-package com.study.collect.domain.service.collect;
-
-// 采集领域服务
-public class CollectDomainService {
-}
-
-```
-
-## StatsQueryService.java
-
-```java
-package com.study.collect.domain.service.collect;
-
-// 统计查询服务
-public class StatsQueryService {
-}
-
-```
-
-## TaskManageService.java
-
-```java
-package com.study.collect.domain.service.collect;
-
-// 任务管理服务
-import com.study.collect.common.enums.collect.TaskStatus;
-import com.study.collect.common.exception.collect.TaskException;
-import com.study.collect.core.engine.CollectEngine;
-import com.study.collect.domain.entity.task.CollectTask;
-import com.study.collect.domain.entity.task.TaskStats;
-import com.study.collect.domain.repository.task.TaskRepository;
-import com.study.collect.domain.repository.task.TaskStatsRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.time.Duration;
-import java.time.LocalDateTime;
-import java.util.UUID;
-
-/**
- * 任务管理服务实现
- */
-@Slf4j
-@Service
-@RequiredArgsConstructor
-public class TaskManageService {
-
-    private final TaskRepository taskRepository;
-    private final TaskStatsRepository statsRepository;
-    private final CollectEngine collectEngine;
-    private final MetricsCollector metricsCollector;
-
-    /**
-     * 提交任务
-     */
-    @Transactional
-    public String submitTask(CollectTask task) {
-        try {
-            // 1. 校验任务
-            validateTask(task);
-
-            // 2. 初始化任务
-            initTask(task);
-
-            // 3. 保存任务
-            taskRepository.save(task);
-
-            // 4. 创建统计记录
-            createTaskStats(task);
-
-            // 5. 提交到引擎
-            collectEngine.submit(task);
-
-            return task.getId();
-        } catch (Exception e) {
-            log.error("Submit task failed", e);
-            throw new TaskException("Submit task failed: " + e.getMessage());
-        }
+    protected void preProcess(T param) {
+        // 默认空实现
     }
 
     /**
-     * 停止任务
+     * 执行采集
      */
-    @Transactional
-    public void stopTask(String taskId) {
-        try {
-            // 1. 检查任务状态
-            CollectTask task = getTask(taskId);
-            if (task.getStatus().equals(TaskStatus.FINISHED.name()) ||
-                    task.getStatus().equals(TaskStatus.CANCELED.name())) {
-                throw new TaskException("Task already finished or canceled");
-            }
-
-            // 2. 更新任务状态
-            task.setStatus(TaskStatus.CANCELED.name());
-            task.setEndTime(LocalDateTime.now());
-            taskRepository.save(task);
+    protected abstract R doCollect(T param);
 
-            // 3. 通知引擎停止
-            collectEngine.stop(taskId);
-
-            // 4. 更新统计
-            updateTaskStats(task);
-
-        } catch (Exception e) {
-            log.error("Stop task failed", e);
-            throw new TaskException("Stop task failed: " + e.getMessage());
-        }
-    }
-
     /**
-     * 重试任务
+     * 后置处理
      */
-    @Transactional
-    public void retryTask(String taskId) {
-        try {
-            // 1. 检查任务状态
-            CollectTask task = getTask(taskId);
-            if (!task.getStatus().equals(TaskStatus.FAILED.name())) {
-                throw new TaskException("Only failed tasks can be retried");
-            }
-
-            // 2. 检查重试次数
-            if (task.getRetryTimes() >= task.getMaxRetryTimes()) {
-                throw new TaskException("Exceeded max retry times");
-            }
-
-            // 3. 更新任务状态
-            task.setStatus(TaskStatus.WAITING.name());
-            task.setRetryTimes(task.getRetryTimes() + 1);
-            task.setStartTime(null);
-            task.setEndTime(null);
-            taskRepository.save(task);
-
-            // 4. 重新提交到引擎
-            collectEngine.submit(task);
-
-        } catch (Exception e) {
-            log.error("Retry task failed", e);
-            throw new TaskException("Retry task failed: " + e.getMessage());
-        }
-    }
-
-    private void validateTask(CollectTask task) {
-        if (task.getMaxRetryTimes() == null) {
-            task.setMaxRetryTimes(3);
-        }
-        if (task.getPriority() == null) {
-            task.setPriority(0);
-        }
-        // 其他校验规则...
-    }
-
-    private void initTask(CollectTask task) {
-        task.setId(UUID.randomUUID().toString());
-        task.setStatus(TaskStatus.WAITING.name());
-        task.setRetryTimes(0);
-        task.setCreateTime(LocalDateTime.now());
-    }
-
-    private void createTaskStats(CollectTask task) {
-        TaskStats stats = TaskStats.builder()
-                .taskId(task.getId())
-                .totalCount(0L)
-                .successCount(0L)
-                .failCount(0L)
-                .startTime(LocalDateTime.now())
-                .build();
-        statsRepository.save(stats);
-    }
-
-    private void updateTaskStats(CollectTask task) {
-        TaskStats stats = statsRepository.findByTaskId(task.getId())
-                .orElseThrow(() -> new TaskException("Task stats not found"));
-
-        stats.setEndTime(LocalDateTime.now());
-        stats.setProcessSpeed(calculateProcessSpeed(stats));
-        statsRepository.save(stats);
-    }
-
-    private double calculateProcessSpeed(TaskStats stats) {
-        if (stats.getStartTime() == null || stats.getEndTime() == null) {
-            return 0.0;
-        }
-        long seconds = Duration.between(stats.getStartTime(), stats.getEndTime()).getSeconds();
-        return seconds == 0 ? 0.0 : (double) stats.getTotalCount() / seconds;
+    protected void postProcess(R result) {
+        // 默认空实现
     }
 }
-
 ```
 
-## DataQueryService.java
+## ICollector.java
 
 ```java
-package com.study.collect.domain.service.data;
-
-// 数据查询服务
-
-import com.study.collect.common.model.result.PageResult;
-import com.study.collect.domain.entity.data.CollectData;
-import com.study.collect.domain.repository.data.CollectDataRepository;
-import com.study.collect.domain.repository.data.TreeNodeRepository;
-import com.study.collect.model.request.query.DataQueryRequest;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.mongodb.core.query.Criteria;
-import org.springframework.data.mongodb.core.query.Query;
-import org.springframework.stereotype.Service;
-import org.springframework.util.CollectionUtils;
-import org.springframework.util.StringUtils;
-
-import java.util.List;
+package com.study.collect.core.collector;
 
-/**
- * 数据查询服务实现
- */
-@Slf4j
-@Service
-@RequiredArgsConstructor
-public class DataQueryService {
-
-    private final CollectDataRepository dataRepository;
-    private final TreeNodeRepository treeRepository;
-    private final CacheManager cacheManager;
-
+public interface ICollector<T, R> {
     /**
-     * 分页查询数据
+     * 执行采集
      */
-    public PageResult<CollectData> queryByPage(DataQueryRequest request) {
-        try {
-            // 1. 构建查询条件
-            Query query = buildQuery(request);
-
-            // 2. 查询总数
-            long total = dataRepository.count(query);
-            if (total == 0) {
-                return PageResult.empty();
-            }
-
-            // 3. 分页查询
-            query.skip((request.getPageNum() - 1) * request.getPageSize())
-                    .limit(request.getPageSize());
-            List<CollectData> list = dataRepository.find(query);
+    R collect(T param);
 
-            // 4. 构建结果
-            return PageResult.<CollectData>builder()
-                    .pageNum(request.getPageNum())
-                    .pageSize(request.getPageSize())
-                    .total(total)
-                    .list(list)
-                    .build();
-
-        } catch (Exception e) {
-            log.error("Query data failed", e);
-            throw new DataQueryException("Query data failed: " + e.getMessage());
-        }
-    }
-
     /**
-     * 树形数据查询
+     * 获取采集器类型
      */
-    public TreeResult<TreeNode> queryTreeData(String rootId) {
-        try {
-            // 1. 获取根节点
-            TreeNode root = getTreeNode(rootId);
-            if (root == null) {
-                return null;
-            }
-
-            // 2. 递归查询子节点
-            buildChildrenTree(root);
-
-            // 3. 构建树形结果
-            return buildTreeResult(root);
-
-        } catch (Exception e) {
-            log.error("Query tree data failed", e);
-            throw new DataQueryException("Query tree data failed: " + e.getMessage());
-        }
-    }
-
-    private Query buildQuery(DataQueryRequest request) {
-        Criteria criteria = new Criteria();
-
-        if (StringUtils.hasText(request.getTaskId())) {
-            criteria.and("taskId").is(request.getTaskId());
-        }
-        if (StringUtils.hasText(request.getType())) {
-            criteria.and("type").is(request.getType());
-        }
-        if (request.getStartTime() != null) {
-            criteria.and("collectTime").gte(request.getStartTime());
-        }
-        if (request.getEndTime() != null) {
-            criteria.and("collectTime").lte(request.getEndTime());
-        }
-
-        return Query.query(criteria);
-    }
-
-    private TreeNode getTreeNode(String nodeId) {
-        // 1. 尝试从缓存获取
-        TreeNode node = cacheManager.get("tree:node:" + nodeId, TreeNode.class);
-        if (node != null) {
-            return node;
-        }
-
-        // 2. 从数据库查询
-        node = treeRepository.findById(nodeId).orElse(null);
-        if (node != null) {
-            cacheManager.set("tree:node:" + nodeId, node, 1800); // 30分钟缓存
-        }
-
-        return node;
-    }
-
-    private void buildChildrenTree(TreeNode parent) {
-        // 1. 查询直接子节点
-        List<TreeNode> children = treeRepository.findByParentId(parent.getId());
-        if (CollectionUtils.isEmpty(children)) {
-            return;
-        }
-
-        // 2. 递归处理每个子节点
-        children.forEach(child -> {
-            child.setLevel(parent.getLevel() + 1);
-            buildChildrenTree(child);
-        });
-
-        // 3. 设置子节点列表
-        parent.setChildren(children);
-        parent.setLeaf(false);
-    }
-}
-
-```
-
-## ListDataService.java
-
-```java
-package com.study.collect.domain.service.data;
-
-// 列表数据服务
-public class ListDataService {
-}
-
-```
-
-## TreeDataService.java
-
-```java
-package com.study.collect.domain.service.data;
-
-// 树形数据服务
-public class TreeDataService {
-}
-
-```
-
-## DataSyncService.java
-
-```java
-package com.study.collect.domain.service.sync;
-
-// 数据同步服务
-public class DataSyncService {
+    String getType();
 }
 
 ```
 
-## SyncTaskService.java
+## CollectAutoConfiguration.java
 
 ```java
-package com.study.collect.domain.service.sync;
-
-//
-public class SyncTaskService {
-}
-
-```
-
-## VersionService.java
+package com.study.collect.core.config;
 
-```java
-package com.study.collect.domain.service.version;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 
-// 版本服务
-public class VersionService {
+@Configuration
+@ComponentScan("com.study.collect.core")
+@Import({RedisConfiguration.class, RabbitConfiguration.class})
+public class CollectAutoConfiguration {
+// 核心配置
 }
-
 ```
 
-## RedisConfig.java
+## RabbitConfiguration.java
 
 ```java
-package com.study.collect.infrastructure.config.cache;
-
-// Redis配置
+package com.study.collect.core.config;
 
-import lombok.Data;
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.cache.CacheManager;
-import org.springframework.cache.annotation.EnableCaching;
+import org.springframework.amqp.core.Queue;
+import org.springframework.amqp.rabbit.connection.ConnectionFactory;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.data.redis.cache.RedisCacheConfiguration;
-import org.springframework.data.redis.cache.RedisCacheManager;
+
+@Configuration
+public class RabbitConfiguration {
+
+    @Bean
+    public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory) {
+        RabbitTemplate template = new RabbitTemplate(connectionFactory);
+        template.setMessageConverter(new Jackson2JsonMessageConverter());
+        return template;
+    }
+
+    @Bean
+    public Queue taskQueue() {
+        return new Queue("collect.task.queue", true);
+    }
+
+    @Bean
+    public Queue resultQueue() {
+        return new Queue("collect.result.queue", true);
+    }
+}
+```
+
+## RedisConfiguration.java
+
+```java
+package com.study.collect.core.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
-import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
-import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
-import java.time.Duration;
-
-/**
- * Redis配置
- */
 @Configuration
-@EnableCaching
-public class RedisConfig {
-
-    @Bean
-    @ConfigurationProperties(prefix = "spring.redis")
-    public RedisProperties redisProperties() {
-        return new RedisProperties();
-    }
-
-    @Bean
-    public RedisConnectionFactory redisConnectionFactory(RedisProperties properties) {
-        LettuceConnectionFactory factory = new LettuceConnectionFactory();
-        factory.setHostName(properties.getHost());
-        factory.setPort(properties.getPort());
-        factory.setPassword(properties.getPassword());
-        factory.setDatabase(properties.getDatabase());
-        factory.setTimeout(properties.getTimeout());
-        return factory;
-    }
+public class RedisConfiguration {
 
     @Bean
     public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory connectionFactory) {
         RedisTemplate<String, Object> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
 
-        // 设置key的序列化方式
+        // 配置序列化器
         template.setKeySerializer(new StringRedisSerializer());
+        template.setValueSerializer(new Jackson2JsonRedisSerializer<>(Object.class));
         template.setHashKeySerializer(new StringRedisSerializer());
-
-        // 设置value的序列化方式
-        Jackson2JsonRedisSerializer<Object> serializer = new Jackson2JsonRedisSerializer<>(Object.class);
-        template.setValueSerializer(serializer);
-        template.setHashValueSerializer(serializer);
+        template.setHashValueSerializer(new Jackson2JsonRedisSerializer<>(Object.class));
 
         template.afterPropertiesSet();
         return template;
     }
-
-    @Bean
-    public CacheManager cacheManager(RedisConnectionFactory connectionFactory) {
-        RedisCacheConfiguration config = RedisCacheConfiguration.defaultCacheConfig()
-                .entryTtl(Duration.ofHours(1))
-                .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
-                .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(new GenericJackson2JsonRedisSerializer()));
-
-        return RedisCacheManager.builder(connectionFactory)
-                .cacheDefaults(config)
-                .build();
-    }
-
-    @Data
-    public static class RedisProperties {
-        private String host;
-        private Integer port;
-        private String password;
-        private Integer database;
-        private Integer timeout;
-    }
-}
-
-
-```
-
-## MongoConfig.java
-
-```java
-package com.study.collect.infrastructure.config.db;
-
-import com.mongodb.client.MongoClient;
-import com.mongodb.client.MongoClients;
-import lombok.Data;
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.data.mongodb.core.MongoTemplate;
-import org.springframework.data.mongodb.core.convert.DefaultDbRefResolver;
-import org.springframework.data.mongodb.core.convert.DefaultMongoTypeMapper;
-import org.springframework.data.mongodb.core.convert.MappingMongoConverter;
-import org.springframework.data.mongodb.core.mapping.MongoMappingContext;
-import org.springframework.data.mongodb.core.SimpleMongoClientDatabaseFactory;
-import org.springframework.data.mongodb.MongoDatabaseFactory;
-
-/**
- * MongoDB配置
- */
-@Configuration
-public class MongoConfig {
-
-    @Bean
-    @ConfigurationProperties(prefix = "spring.data.mongodb")
-    public MongoProperties mongoProperties() {
-        return new MongoProperties();
-    }
-
-    @Bean
-    public MongoClient mongoClient(MongoProperties properties) {
-        return MongoClients.create(properties.getUri());
-    }
-
-    @Bean
-    public MongoDatabaseFactory mongoDbFactory(MongoClient mongoClient, MongoProperties properties) {
-        return new SimpleMongoClientDatabaseFactory(mongoClient, properties.getDatabase());
-    }
-
-    @Bean
-    public MongoTemplate mongoTemplate(MongoDatabaseFactory mongoDbFactory) {
-        // 创建转换器
-        MappingMongoConverter converter = new MappingMongoConverter(
-                new DefaultDbRefResolver(mongoDbFactory),
-                new MongoMappingContext()
-        );
-        // 去掉_class字段
-        converter.setTypeMapper(new DefaultMongoTypeMapper(null));
-
-        return new MongoTemplate(mongoDbFactory, converter);
-    }
-
-    @Data
-    public static class MongoProperties {
-        private String uri;
-        private String database;
-        private Boolean autoIndexCreation = true;
-    }
 }
 ```
 
-## MysqlConfig.java
+## AbstractProcessor.java
 
 ```java
-package com.study.collect.infrastructure.config.db;
+package com.study.collect.core.processor;
 
-// Mysql配置
-public class MysqlConfig {
-}
+public abstract class AbstractProcessor<T> implements IProcessor<T> {
 
-```
-
-## KafkaConfig.java
-
-```java
-package com.study.collect.infrastructure.config.mq;
-
-// Kafka配置
-public class KafkaConfig {
-}
-
-```
-
-## RabbitConfig.java
-
-```java
-package com.study.collect.infrastructure.config.mq;
-
-// RabbitMQ配置
-import lombok.Data;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.amqp.core.*;
-import org.springframework.amqp.rabbit.annotation.EnableRabbit;
-import org.springframework.amqp.rabbit.connection.ConnectionFactory;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
-import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-
-/**
- * RabbitMQ配置
- */
-@Slf4j
-@Configuration
-public class RabbitConfig {
-
-    @Bean
-    @ConfigurationProperties(prefix = "spring.rabbitmq")
-    public RabbitProperties rabbitProperties() {
-        return new RabbitProperties();
-    }
-
-    @Bean
-    public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory) {
-        RabbitTemplate template = new RabbitTemplate(connectionFactory);
-        template.setMessageConverter(new Jackson2JsonMessageConverter());
-        // 消息发送确认回调
-        template.setConfirmCallback((correlationData, ack, cause) -> {
-            if (!ack) {
-                // 处理发送失败
-                log.error("Message send failed: {}", cause);
-            }
-        });
-        // 消息返回回调
-        template.setReturnsCallback(returned -> {
-            log.error("Message returned: {}", returned);
-        });
-        return template;
-    }
-
-    @Bean
-    public Queue taskQueue() {
-        return QueueBuilder.durable("collect.task.queue")
-                .withArgument("x-dead-letter-exchange", "collect.task.dlx")
-                .withArgument("x-dead-letter-routing-key", "collect.task.dlq")
-                .build();
-    }
-
-    @Bean
-    public Queue resultQueue() {
-        return QueueBuilder.durable("collect.result.queue")
-                .withArgument("x-dead-letter-exchange", "collect.result.dlx")
-                .withArgument("x-dead-letter-routing-key", "collect.result.dlq")
-                .build();
-    }
-
-    @Bean
-    public DirectExchange taskExchange() {
-        return new DirectExchange("collect.task");
-    }
-
-    @Bean
-    public DirectExchange resultExchange() {
-        return new DirectExchange("collect.result");
-    }
-
-    @Bean
-    public Binding taskBinding() {
-        return BindingBuilder.bind(taskQueue())
-                .to(taskExchange())
-                .with("collect.task");
-    }
-
-    @Bean
-    public Binding resultBinding() {
-        return BindingBuilder.bind(resultQueue())
-                .to(resultExchange())
-                .with("collect.result");
-    }
-
-    @Data
-    public static class RabbitProperties {
-        private String host;
-        private Integer port;
-        private String username;
-        private String password;
-        private String virtualHost;
-    }
-}
-//
-///**
-// * 消息队列配置
-// */
-//@Configuration
-//@EnableRabbit
-//public class RabbitConfig {
-//
-//    @Bean
-//    public Queue taskQueue() {
-//        return QueueBuilder.durable("collect.task.queue")
-//                .withArgument("x-dead-letter-exchange", "collect.task.dlx")
-//                .withArgument("x-dead-letter-routing-key", "collect.task.dlq")
-//                .withArgument("x-message-ttl", 3600000) // 1小时过期
-//                .build();
-//    }
-//
-//    @Bean
-//    public Queue resultQueue() {
-//        return QueueBuilder.durable("collect.result.queue")
-//                .withArgument("x-dead-letter-exchange", "collect.result.dlx")
-//                .withArgument("x-dead-letter-routing-key", "collect.result.dlq")
-//                .build();
-//    }
-//
-//    @Bean
-//    public DirectExchange taskExchange() {
-//        return new DirectExchange("collect.task");
-//    }
-//
-//    @Bean
-//    public DirectExchange resultExchange() {
-//        return new DirectExchange("collect.result");
-//    }
-//
-//    @Bean
-//    public Binding taskBinding(Queue taskQueue, DirectExchange taskExchange) {
-//        return BindingBuilder.bind(taskQueue)
-//                .to(taskExchange)
-//                .with("collect.task");
-//    }
-//
-//    @Bean
-//    public Binding resultBinding(Queue resultQueue, DirectExchange resultExchange) {
-//        return BindingBuilder.bind(resultQueue)
-//                .to(resultExchange)
-//                .with("collect.result");
-//    }
-//}
-
-
-```
-
-## ThreadPoolConfig.java
-
-```java
-package com.study.collect.infrastructure.config.thread;
-
-// 线程池配置
-import jodd.util.concurrent.ThreadFactoryBuilder;
-import lombok.Data;
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-
-import java.util.concurrent.*;
-
-/**
- * 线程池配置
- */
-@Configuration
-public class ThreadPoolConfig {
-
-    @Bean
-    @ConfigurationProperties(prefix = "collect.thread-pool")
-    public ThreadPoolProperties threadPoolProperties() {
-        return new ThreadPoolProperties();
-    }
-
-    @Bean
-    public ExecutorService taskExecutor(ThreadPoolProperties properties) {
-        return new ThreadPoolExecutor(
-                properties.getCorePoolSize(),
-                properties.getMaxPoolSize(),
-                properties.getKeepAliveTime(),
-                TimeUnit.SECONDS,
-                new LinkedBlockingQueue<>(properties.getQueueCapacity()),
-                new ThreadFactoryBuilder()
-                        .setNameFormat("task-pool-%d")
-                        .setDaemon(true)
-                        .build(),
-                new ThreadPoolExecutor.CallerRunsPolicy()
-        );
-    }
-
-    @Bean
-    public ScheduledExecutorService scheduledExecutor() {
-        return new ScheduledThreadPoolExecutor(
-                1,
-                new ThreadFactoryBuilder()
-                        .setNameFormat("scheduler-%d")
-                        .setDaemon(true)
-                        .build()
-        );
-    }
-
-    @Data
-    public static class ThreadPoolProperties {
-        private int corePoolSize = 10;
-        private int maxPoolSize = 20;
-        private int queueCapacity = 200;
-        private int keepAliveTime = 60;
-    }
-}
-
-```
-
-## LockAspect.java
-
-```java
-package com.study.collect.infrastructure.lock.aspect;
-
-// 锁切面
-
-import com.study.collect.common.annotation.lock.DistributedLock;
-import com.study.collect.common.exception.sync.LockException;
-import com.study.collect.infrastructure.lock.impl.RedisDistributedLock;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.aspectj.lang.ProceedingJoinPoint;
-import org.aspectj.lang.annotation.Around;
-import org.aspectj.lang.annotation.Aspect;
-import org.springframework.stereotype.Component;
-
-import java.util.UUID;
-
-/**
- * 分布式锁切面
- */
-@Aspect
-@Component
-@RequiredArgsConstructor
-@Slf4j
-public class DistributedLockAspect {
-
-    private final RedisDistributedLock lock;
-
-    @Around("@annotation(distributedLock)")
-    public Object around(ProceedingJoinPoint point, DistributedLock distributedLock) throws Throwable {
-        String key = distributedLock.key();
-        String value = UUID.randomUUID().toString();
-
+    @Override
+    public T process(T data) {
         try {
-            // 获取锁
-            boolean acquired = lock.lock(key, value, distributedLock.timeout());
-            if (!acquired) {
-                throw new LockException("Failed to acquire lock: " + key);
-            }
+            // 1. 前置处理
+            preProcess(data);
 
-            // 执行业务逻辑
-            return point.proceed();
-        } finally {
-            // 释放锁
-            lock.unlock(key, value);
-        }
-    }
-}
-```
+            // 2. 执行处理
+            T result = doProcess(data);
 
-## RedisDistributedLock.java
+            // 3. 后置处理
+            postProcess(result);
 
-```java
-package com.study.collect.infrastructure.lock.impl;
-
-// Redis分布式锁
-import com.study.collect.common.exception.sync.LockException;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.script.DefaultRedisScript;
-import org.springframework.stereotype.Component;
-
-import java.time.Duration;
-import java.util.Collections;
-import java.util.concurrent.TimeUnit;
-
-/**
- * Redis分布式锁实现
- */
-@Slf4j
-@Component
-@RequiredArgsConstructor
-public class RedisDistributedLock {
-
-    private final RedisTemplate<String, Object> redisTemplate;
-    private static final String LOCK_PREFIX = "lock:";
-    private static final long DEFAULT_TIMEOUT = 30000; // 30秒
-
-    // 释放锁的Lua脚本
-    private static final DefaultRedisScript<Long> RELEASE_LOCK_SCRIPT = new DefaultRedisScript<>(
-            "if redis.call('get', KEYS[1]) == ARGV[1] then " +
-                    "return redis.call('del', KEYS[1]) " +
-                    "else " +
-                    "return 0 " +
-                    "end",
-            Long.class
-    );
-
-    /**
-     * 获取锁
-     */
-    public boolean lock(String key, String value, long timeout) {
-        String lockKey = LOCK_PREFIX + key;
-        long startTime = System.currentTimeMillis();
-
-        try {
-            while (System.currentTimeMillis() - startTime < timeout) {
-                Boolean success = redisTemplate.opsForValue()
-                        .setIfAbsent(lockKey, value, timeout, TimeUnit.MILLISECONDS);
-
-                if (Boolean.TRUE.equals(success)) {
-                    return true;
-                }
-
-                // 短暂休眠避免频繁重试
-                Thread.sleep(100);
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new LockException("Acquire lock interrupted");
-        } catch (Exception e) {
-            throw new LockException("Acquire lock failed: " + e.getMessage());
-        }
-
-        return false;
-    }
-
-    /**
-     * 释放锁
-     */
-    public boolean unlock(String key, String value) {
-        String lockKey = LOCK_PREFIX + key;
-        try {
-            Long result = redisTemplate.execute(
-                    RELEASE_LOCK_SCRIPT,
-                    Collections.singletonList(lockKey),
-                    value
-            );
-            return Long.valueOf(1).equals(result);
-        } catch (Exception e) {
-            throw new LockException("Release lock failed: " + e.getMessage());
-        }
-    }
-
-    /**
-     * 续期锁
-     */
-    public boolean renewLock(String key, String value, long timeout) {
-        String lockKey = LOCK_PREFIX + key;
-        try {
-            Boolean success = redisTemplate.opsForValue()
-                    .setIfPresent(lockKey, value, timeout, TimeUnit.MILLISECONDS);
-            return Boolean.TRUE.equals(success);
-        } catch (Exception e) {
-            throw new LockException("Renew lock failed: " + e.getMessage());
-        }
-    }
-}
-
-```
-
-## ZkLock.java
-
-```java
-package com.study.collect.infrastructure.lock.impl;
-
-// zk锁
-public class ZkLock {
-}
-
-```
-
-## AlertAggregator.java
-
-```java
-package com.study.collect.infrastructure.monitor.alert;
-
-import com.study.collect.common.annotation.monitor.Alert;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.stream.Collectors;
-
-/**
- * 告警聚合器(续)
- */
-@Slf4j
-@Component
-public class AlertAggregator {
-
-    private List<Alert> aggregateAlerts() {
-        // 1. 按规则分组
-        Map<String, List<Alert>> alertsByRule = alertQueue.stream()
-                .collect(Collectors.groupingBy(Alert::getRuleId));
-
-        // 2. 对每组告警进行聚合
-        return alertsByRule.entrySet().stream()
-                .map(this::aggregateRuleAlerts)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toList());
-    }
-
-    private Alert aggregateRuleAlerts(Map.Entry<String, List<Alert>> entry) {
-        List<Alert> alerts = entry.getValue();
-        if (alerts.isEmpty()) {
-            return null;
-        }
-
-        // 1. 获取第一个告警作为模板
-        Alert template = alerts.get(0);
-
-        // 2. 聚合相同规则的告警
-        return Alert.builder()
-                .ruleId(template.getRuleId())
-                .name(template.getName())
-                .level(template.getLevel())
-                .metric(template.getMetric())
-                .count(alerts.size())
-                .firstTime(alerts.stream()
-                        .map(Alert::getCreateTime)
-                        .min(LocalDateTime::compareTo)
-                        .orElse(null))
-                .lastTime(alerts.stream()
-                        .map(Alert::getCreateTime)
-                        .max(LocalDateTime::compareTo)
-                        .orElse(null))
-                .message(buildAggregatedMessage(alerts))
-                .build();
-    }
-
-    private String buildAggregatedMessage(List<Alert> alerts) {
-        if (alerts.size() == 1) {
-            return alerts.get(0).getMessage();
-        }
-
-        return String.format("%s (Occurred %d times in last %d minutes)",
-                alerts.get(0).getMessage(),
-                alerts.size(),
-                WINDOW_SIZE.toMinutes());
-    }
-}
-
-```
-
-## AlertManager.java
-
-```java
-package com.study.collect.infrastructure.monitor.alert;
-
-// 告警管理器
-
-import com.study.collect.common.annotation.monitor.Alert;
-import com.study.collect.common.enums.AlertLevel;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Component;
-import org.springframework.util.CollectionUtils;
-
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.UUID;
-import java.util.stream.Collectors;
-
-/**
- * 告警管理器
- */
-@Slf4j
-@Component
-@RequiredArgsConstructor
-public class AlertManager {
-
-    private final AlertRuleRepository ruleRepository;
-    private final AlertNotifier notifier;
-    private final MetricsCollector metricsCollector;
-    private final AlertAggregator aggregator;
-
-    /**
-     * 定时检查告警
-     */
-    @Scheduled(fixedRate = 60000) // 每分钟检查
-    public void checkAlerts() {
-        try {
-            // 1. 获取所有告警规则
-            List<AlertRule> rules = ruleRepository.findAllEnabled();
-
-            // 2. 检查每个规则
-            rules.forEach(this::checkRule);
-
-            // 3. 聚合告警
-            List<Alert> alerts = aggregator.aggregate();
-
-            // 4. 发送告警
-            sendAlerts(alerts);
-
-        } catch (Exception e) {
-            log.error("Check alerts failed", e);
-        }
-    }
-
-    private void checkRule(AlertRule rule) {
-        try {
-            // 1. 获取指标值
-            double value = metricsCollector.getMetricValue(rule.getMetric());
-
-            // 2. 检查是否触发
-            if (isTriggered(rule, value)) {
-                // 3. 创建告警
-                Alert alert = createAlert(rule, value);
-
-                // 4. 添加到聚合器
-                aggregator.add(alert);
-            }
-        } catch (Exception e) {
-            log.error("Check rule failed: {}", rule.getName(), e);
-        }
-    }
-
-    private boolean isTriggered(AlertRule rule, double value) {
-        switch (rule.getOperator()) {
-            case GREATER_THAN:
-                return value > rule.getThreshold();
-            case LESS_THAN:
-                return value < rule.getThreshold();
-            case EQUALS:
-                return Math.abs(value - rule.getThreshold()) < 0.0001;
-            default:
-                return false;
-        }
-    }
-
-    private Alert createAlert(AlertRule rule, double value) {
-        return Alert.builder()
-                .id(UUID.randomUUID().toString())
-                .ruleId(rule.getId())
-                .name(rule.getName())
-                .level(rule.getLevel())
-                .metric(rule.getMetric())
-                .value(value)
-                .threshold(rule.getThreshold())
-                .message(buildAlertMessage(rule, value))
-                .createTime(LocalDateTime.now())
-                .build();
-    }
-
-    private void sendAlerts(List<Alert> alerts) {
-        if (CollectionUtils.isEmpty(alerts)) {
-            return;
-        }
-
-        // 1. 按级别分组
-        Map<AlertLevel, List<Alert>> alertsByLevel = alerts.stream()
-                .collect(Collectors.groupingBy(Alert::getLevel));
-
-        // 2. 发送不同级别的告警
-        alertsByLevel.forEach((level, levelAlerts) -> {
-            try {
-                switch (level) {
-                    case CRITICAL:
-                        notifier.sendUrgent(levelAlerts);
-                        break;
-                    case WARNING:
-                        notifier.sendWarning(levelAlerts);
-                        break;
-                    case INFO:
-                        notifier.sendInfo(levelAlerts);
-                        break;
-                }
-            } catch (Exception e) {
-                log.error("Send alerts failed, level: {}", level, e);
-            }
-        });
-    }
-}
-//
-///**
-// * 告警管理器
-// */
-//@Slf4j
-//@Component
-//@RequiredArgsConstructor
-//public class AlertManager {
-//
-//    private final AlertNotifier alertNotifier;
-//    private final AlertRepository alertRepository;
-//    private final AlertAggregator alertAggregator;
-//
-//    /**
-//     * 发送告警
-//     */
-//    public void sendAlert(Alert alert) {
-//        try {
-//            // 1. 保存告警记录
-//            alertRepository.save(alert);
-//
-//            // 2. 聚合告警
-//            List<Alert> aggregatedAlerts =
-//                    alertAggregator.aggregate(alert);
-//
-//            // 3. 发送通知
-//            if (!aggregatedAlerts.isEmpty()) {
-//                sendNotification(aggregatedAlerts);
-//            }
-//
-//        } catch (Exception e) {
-//            log.error("Send alert failed", e);
-//        }
-//    }
-//
-//    /**
-//     * 发送告警通知
-//     */
-//    private void sendNotification(List<Alert> alerts) {
-//        // 1. 构建通知内容
-//        AlertNotification notification = buildNotification(alerts);
-//
-//        // 2. 根据级别发送
-//        if (isUrgent(alerts)) {
-//            alertNotifier.sendUrgent(notification);
-//        } else {
-//            alertNotifier.sendNormal(notification);
-//        }
-//    }
-//}
-```
-
-## AlertNotifier.java
-
-```java
-package com.study.collect.infrastructure.monitor.alert;
-
-// 告警通知器
-
-import com.study.collect.common.annotation.monitor.Alert;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-
-/**
- * 告警通知器
- */
-@Slf4j
-@Component
-@RequiredArgsConstructor
-public class AlertNotifier {
-
-    private final DingTalkClient dingTalkClient;
-    private final EmailSender emailSender;
-    private final AlertRepository alertRepository;
-
-    /**
-     * 发送紧急告警
-     */
-    public void sendUrgent(List<Alert> alerts) {
-        // 1. 保存告警记录
-        saveAlerts(alerts);
-
-        // 2. 发送钉钉通知
-        sendDingTalkNotification(alerts, true);
-
-        // 3. 发送邮件通知
-        sendEmailNotification(alerts, true);
-    }
-
-    /**
-     * 发送警告级别告警
-     */
-    public void sendWarning(List<Alert> alerts) {
-        // 1. 保存告警记录
-        saveAlerts(alerts);
-
-        // 2. 发送钉钉通知
-        sendDingTalkNotification(alerts, false);
-
-        // 3. 发送邮件通知
-        sendEmailNotification(alerts, false);
-    }
-
-    /**
-     * 发送信息级别告警
-     */
-    public void sendInfo(List<Alert> alerts) {
-        // 1. 保存告警记录
-        saveAlerts(alerts);
-
-        // 2. 只发送钉钉通知
-        sendDingTalkNotification(alerts, false);
-    }
-
-    private void saveAlerts(List<Alert> alerts) {
-        try {
-            alertRepository.saveAll(alerts);
-        } catch (Exception e) {
-            log.error("Save alerts failed", e);
-        }
-    }
-
-    private void sendDingTalkNotification(List<Alert> alerts, boolean isUrgent) {
-        try {
-            String message = buildDingTalkMessage(alerts, isUrgent);
-            DingTalkMessage dtMessage = DingTalkMessage.builder()
-                    .title("系统告警通知")
-                    .text(message)
-                    .isAtAll(isUrgent)
-                    .build();
-
-            dingTalkClient.send(dtMessage);
-        } catch (Exception e) {
-            log.error("Send DingTalk notification failed", e);
-        }
-    }
-
-    private void sendEmailNotification(List<Alert> alerts, boolean isUrgent) {
-        try {
-            String subject = isUrgent ? "【紧急】系统告警通知" : "系统告警通知";
-            String content = buildEmailContent(alerts);
-
-            EmailMessage email = EmailMessage.builder()
-                    .subject(subject)
-                    .content(content)
-                    .to(getAlertReceivers(isUrgent))
-                    .build();
-
-            emailSender.send(email);
-        } catch (Exception e) {
-            log.error("Send email notification failed", e);
-        }
-    }
-
-    private String buildDingTalkMessage(List<Alert> alerts, boolean isUrgent) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("### ").append(isUrgent ? "【紧急】" : "").append("系统告警通知\n\n");
-
-        alerts.forEach(alert -> {
-            sb.append("- **").append(alert.getName()).append("**\n");
-            sb.append("  - 级别: ").append(alert.getLevel()).append("\n");
-            sb.append("  - 指标: ").append(alert.getMetric()).append("\n");
-            sb.append("  - 详情: ").append(alert.getMessage()).append("\n");
-            sb.append("  - 时间: ").append(formatDateTime(alert.getCreateTime())).append("\n\n");
-        });
-
-        return sb.toString();
-    }
-
-    private String buildEmailContent(List<Alert> alerts) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("<h2>系统告警通知</h2>");
-        sb.append("<table border='1' cellspacing='0' cellpadding='5'>");
-        sb.append("<tr><th>告警名称</th><th>级别</th><th>指标</th><th>详情</th><th>时间</th></tr>");
-
-        alerts.forEach(alert -> {
-            sb.append("<tr>");
-            sb.append("<td>").append(alert.getName()).append("</td>");
-            sb.append("<td>").append(alert.getLevel()).append("</td>");
-            sb.append("<td>").append(alert.getMetric()).append("</td>");
-            sb.append("<td>").append(alert.getMessage()).append("</td>");
-            sb.append("<td>").append(formatDateTime(alert.getCreateTime())).append("</td>");
-            sb.append("</tr>");
-        });
-
-        sb.append("</table>");
-        return sb.toString();
-    }
-
-    private List<String> getAlertReceivers(boolean isUrgent) {
-        return isUrgent ?
-                Arrays.asList("ops@company.com", "leader@company.com") :
-                Collections.singletonList("ops@company.com");
-    }
-}
-```
-
-## MonitoringAspect.java
-
-```java
-package com.study.collect.infrastructure.monitor.metrics;
-
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.aspectj.lang.ProceedingJoinPoint;
-import org.springframework.stereotype.Component;
-
-/**
- * 监控切面
- */
-@Aspect
-@Component
-@RequiredArgsConstructor
-@Slf4j
-public class MonitoringAspect {
-
-    private final MetricsCollector metricsCollector;
-
-    @Around("@annotation(monitoring)")
-    public Object around(ProceedingJoinPoint point, Monitoring monitoring) throws Throwable {
-        Timer.Sample sample = metricsCollector.startTimer();
-        try {
-            Object result = point.proceed();
-            metricsCollector.incrementSuccessCount();
             return result;
         } catch (Exception e) {
-            metricsCollector.incrementFailureCount();
-            throw e;
-        } finally {
-            metricsCollector.stopTimer(sample);
+            throw new ProcessException("Process failed: " + e.getMessage());
         }
     }
-}
 
-```
-
-## DataMetrics.java
-
-```java
-package com.study.collect.infrastructure.monitor.metrics.collector;
-
-// 数据指标
-public class DataMetrics {
-}
-
-```
-
-## MetricsCollector.java
-
-```java
-package com.study.collect.infrastructure.monitor.metrics.collector;
-
-import io.micrometer.core.instrument.*;
-import lombok.RequiredArgsConstructor;
-import org.apache.tomcat.util.threads.TaskQueue;
-import org.springframework.stereotype.Component;
-
-/**
- * 基础监控指标收集器
- */
-@Component
-@RequiredArgsConstructor
-public class MetricsCollector {
-
-    private final MeterRegistry registry;
-
-    // 任务计数器
-    private final Counter taskCounter = Counter.builder("collect.task.total")
-            .description("Total number of collect tasks")
-            .register(registry);
-
-    // 成功任务计数器
-    private final Counter successCounter = Counter.builder("collect.task.success")
-            .description("Number of successful collect tasks")
-            .register(registry);
-
-    // 失败任务计数器
-    private final Counter failureCounter = Counter.builder("collect.task.failure")
-            .description("Number of failed collect tasks")
-            .register(registry);
-
-    // 任务处理时间
-    private final Timer processTimer = Timer.builder("collect.task.process.time")
-            .description("Task processing time")
-            .register(registry);
-
-    // 任务队列大小
-    private final Gauge queueSize;
-
-    public MetricsCollector(MeterRegistry registry, TaskQueue taskQueue) {
-        this.registry = registry;
-        this.queueSize = Gauge.builder("collect.task.queue.size", taskQueue::size)
-                .description("Current task queue size")
-                .register(registry);
+    protected void preProcess(T data) {
+        // 默认空实现
     }
 
-    public void incrementTaskCount() {
-        taskCounter.increment();
-    }
+    protected abstract T doProcess(T data);
 
-    public void incrementSuccessCount() {
-        successCounter.increment();
-    }
-
-    public void incrementFailureCount() {
-        failureCounter.increment();
-    }
-
-    public Timer.Sample startTimer() {
-        return Timer.start(registry);
-    }
-
-    public void stopTimer(Timer.Sample sample) {
-        sample.stop(processTimer);
+    protected void postProcess(T result) {
+        // 默认空实现
     }
 }
 
 ```
 
-## SystemMetrics.java
+## IProcessor.java
 
 ```java
-package com.study.collect.infrastructure.monitor.metrics.collector;
 
-// 系统指标
-public class SystemMetrics {
-}
+package com.study.collect.core.processor;
 
-```
-
-## TaskMetrics.java
-
-```java
-package com.study.collect.infrastructure.monitor.metrics.collector;
-
-// 任务指标
-import io.micrometer.core.instrument.*;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
-
-import java.util.concurrent.TimeUnit;
-
-/**
- * 任务指标收集器
- */
-@Component
-@RequiredArgsConstructor
-public class TaskMetrics {
-
-    private final MeterRegistry registry;
-
-    // 任务计数器
-    private final Counter totalTaskCounter;
-    private final Counter successTaskCounter;
-    private final Counter failedTaskCounter;
-
-    // 任务执行时间
-    private final Timer taskExecutionTimer;
-
-    // 任务队列大小
-    private final Gauge taskQueueSize;
-
-    // 处理速率
-    private final Gauge processRate;
-
-    public TaskMetrics(MeterRegistry registry) {
-        this.registry = registry;
-
-        // 初始化计数器
-        this.totalTaskCounter = Counter.builder("collect.task.total")
-                .description("Total number of tasks")
-                .register(registry);
-
-        this.successTaskCounter = Counter.builder("collect.task.success")
-                .description("Number of successful tasks")
-                .register(registry);
-
-        this.failedTaskCounter = Counter.builder("collect.task.failed")
-                .description("Number of failed tasks")
-                .register(registry);
-
-        // 初始化定时器
-        this.taskExecutionTimer = Timer.builder("collect.task.execution")
-                .description("Task execution time")
-                .register(registry);
-
-        // 初始化仪表
-        this.taskQueueSize = Gauge.builder("collect.task.queue.size",
-                        taskQueue,
-                        q -> q.size())
-                .description("Current task queue size")
-                .register(registry);
-
-        this.processRate = Gauge.builder("collect.task.process.rate",
-                        this::calculateProcessRate)
-                .description("Task processing rate per minute")
-                .register(registry);
-    }
+public interface IProcessor<T> {
+    /**
+     * 处理数据
+     */
+    T process(T data);
 
     /**
-     * 记录任务执行
+     * 获取处理器类型
      */
-    public void recordTaskExecution(long timeMs, boolean success) {
-        totalTaskCounter.increment();
-        taskExecutionTimer.record(timeMs, TimeUnit.MILLISECONDS);
-
-        if (success) {
-            successTaskCounter.increment();
-        } else {
-            failedTaskCounter.increment();
-        }
-    }
+    String getType();
 
     /**
-     * 计算处理速率
+     * 获取处理顺序
      */
-    private double calculateProcessRate() {
-        long total = totalTaskCounter.count();
-        long timeWindow = 60_000; // 1分钟
-        return total / (timeWindow / 1000.0);
-    }
+    int getOrder();
+}
+
+```
+
+## IRepository.java
+
+```java
+package com.study.collect.core.repository;
+
+public interface IRepository<T, ID> {
+    /**
+     * 保存数据
+     */
+    T save(T entity);
 
     /**
-     * 获取成功率
+     * 根据ID查询
      */
-    public double getSuccessRate() {
-        long total = totalTaskCounter.count();
-        long success = successTaskCounter.count();
-        return total == 0 ? 1.0 : (double) success / total;
-    }
-}
-
-```
-
-## MetricsReporter.java
-
-```java
-package com.study.collect.infrastructure.monitor.metrics.reporter;
-
-// 指标上报器
-public class MetricsReporter {
-}
-
-```
-
-## PrometheusReporter.java
-
-```java
-package com.study.collect.infrastructure.monitor.metrics.reporter;
-
-// Prometheus上报
-public class PrometheusReporter {
-}
-
-```
-
-## TraceContext.java
-
-```java
-package com.study.collect.infrastructure.monitor.trace;
-
-// 追踪上下文
-public class TraceContext {
-}
-
-```
-
-## TraceManager.java
-
-```java
-package com.study.collect.infrastructure.monitor.trace;
-
-// 追踪管理器
-public class TraceManager {
-}
-
-```
-
-## ExchangeConfig.java
-
-```java
-package com.study.collect.infrastructure.mq.config;
-
-// 交换机配置
-public class ExchangeConfig {
-}
-
-```
-
-## QueueConfig.java
-
-```java
-package com.study.collect.infrastructure.mq.config;
-
-// 队列配置
-public class QueueConfig {
-}
-
-```
-
-## MessageConsumer.java
-
-```java
-package com.study.collect.infrastructure.mq.consumer;
-
-import com.mysql.cj.protocol.Message;
-import com.rabbitmq.client.Channel;
-import com.study.collect.domain.entity.task.CollectTask;
-import com.study.collect.model.response.collect.CollectResult;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.amqp.rabbit.annotation.RabbitListener;
-import org.springframework.retry.support.RetryTemplate;
-import org.springframework.stereotype.Component;
-
-import java.io.IOException;
-
-/**
- * 消息消费者
- */
-@Slf4j
-@Component
-@RequiredArgsConstructor
-public class MessageConsumer {
-
-    private final CollectTaskService taskService;
-    private final RetryTemplate retryTemplate;
+    T findById(ID id);
 
     /**
-     * 消费任务消息
+     * 删除数据
      */
-    @RabbitListener(queues = "#{taskQueue.name}")
-    public void consumeTask(CollectTask task, Channel channel, Message message) {
-        String taskId = task.getId();
-        log.info("Receive task message: {}", taskId);
-
-        try {
-            // 使用重试模板执行
-            retryTemplate.execute(context -> {
-                taskService.processTask(task);
-                return null;
-            });
-
-            // 确认消息
-            channel.basicAck(message.getMessageProperties().getDeliveryTag(), false);
-            log.info("Process task success: {}", taskId);
-
-        } catch (Exception e) {
-            log.error("Process task failed: {}", taskId, e);
-            handleTaskError(channel, message, e);
-        }
-    }
-    /**
-     * 消费结果消息
-     */
-    @RabbitListener(queues = "#{resultQueue.name}")
-    public void consumeResult(CollectResult result, Channel channel, Message message) {
-        String taskId = result.getTaskId();
-        log.info("Receive result message: {}", taskId);
-
-        try {
-            taskService.processResult(result);
-            channel.basicAck(message.getMessageProperties().getDeliveryTag(), false);
-            log.info("Process result success: {}", taskId);
-
-        } catch (Exception e) {
-            log.error("Process result failed: {}", taskId, e);
-            handleResultError(channel, message, e);
-        }
-    }
-
-    /**
-     * 处理任务错误
-     */
-    private void handleTaskError(Channel channel, Message message, Exception e) throws IOException {
-        if (message.getMessageProperties().getRedelivered()) {
-            // 多次重试失败，放入死信队列
-            channel.basicReject(message.getMessageProperties().getDeliveryTag(), false);
-        } else {
-            // 重新入队
-            channel.basicNack(message.getMessageProperties().getDeliveryTag(), false, true);
-        }
-    }
-
-    /**
-     * 处理结果错误
-     */
-    private void handleResultError(Channel channel, Message message, Exception e) throws IOException {
-        // 结果处理失败直接丢弃
-        channel.basicReject(message.getMessageProperties().getDeliveryTag(), false);
-    }
+    void delete(ID id);
 }
 ```
 
-## ResultConsumer.java
+## pom.xml
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.study</groupId>
+        <artifactId>platform-collect</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>collect-starter</artifactId>
+
+    <dependencies>
+        <!-- 业务模块依赖 -->
+        <dependency>
+            <groupId>com.study</groupId>
+            <artifactId>business-enterprise</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.study</groupId>
+            <artifactId>business-finance</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.study</groupId>
+            <artifactId>business-medical</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- Spring Boot Starters -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!-- Documentation -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>2.3.0</version>
+        </dependency>
+
+        <!-- Monitoring -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+
+        <!-- Logging -->
+        <dependency>
+            <groupId>net.logstash.logback</groupId>
+            <artifactId>logstash-logback-encoder</artifactId>
+            <version>7.4</version>
+        </dependency>
+
+        <!-- Test -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <mainClass>com.study.collect.CollectApplication</mainClass>
+                    <excludes>
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>
+```
+
+## CollectApplication.java
 
 ```java
-package com.study.collect.infrastructure.mq.consumer;
+package com.study.collect;
 
-// 结果消费者
-public class ResultConsumer {
-}
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
-```
-
-## TaskConsumer.java
-
-```java
-package com.study.collect.infrastructure.mq.consumer;
-
-// 任务消费者
-public class TaskConsumer {
-}
-
-```
-
-## CollectMessage.java
-
-```java
-package com.study.collect.infrastructure.mq.message;
-
-// 采集消息
-public class CollectMessage {
-}
-
-```
-
-## SyncMessage.java
-
-```java
-package com.study.collect.infrastructure.mq.message;
-
-// 同步消息
-public class SyncMessage {
-}
-
-```
-
-## MessageProducer.java
-
-```java
-package com.study.collect.infrastructure.mq.producer;
-
-import com.study.collect.common.exception.collect.CollectException;
-import com.study.collect.domain.entity.task.CollectTask;
-import com.study.collect.model.response.collect.CollectResult;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.amqp.core.Message;
-import org.springframework.amqp.core.MessageDeliveryMode;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
-import org.springframework.stereotype.Component;
-
-/**
- * 消息生产者
- */
-@Slf4j
-@Component
-@RequiredArgsConstructor
-public class MessageProducer {
-
-    private final RabbitTemplate rabbitTemplate;
-    private static final String TASK_EXCHANGE = "collect.task";
-    private static final String RESULT_EXCHANGE = "collect.result";
-
-    /**
-     * 发送任务消息
-     */
-    public void sendTask(CollectTask task) {
-        try {
-            rabbitTemplate.convertAndSend(TASK_EXCHANGE, "collect.task", task, message -> {
-                message.getMessageProperties().setDeliveryMode(MessageDeliveryMode.PERSISTENT);
-                message.getMessageProperties().setExpiration("3600000"); // 1小时过期
-                return message;
-            });
-            log.info("Send task message success: {}", task.getId());
-        } catch (Exception e) {
-            log.error("Send task message failed", e);
-            throw new CollectException("Send task message failed: " + e.getMessage());
-        }
-    }
-
-    /**
-     * 发送结果消息
-     */
-    public void sendResult(CollectResult result) {
-        try {
-            rabbitTemplate.convertAndSend(RESULT_EXCHANGE, "collect.result", result, message -> {
-                message.getMessageProperties().setDeliveryMode(MessageDeliveryMode.PERSISTENT);
-                return message;
-            });
-            log.info("Send result message success: {}", result.getTaskId());
-        } catch (Exception e) {
-            log.error("Send result message failed", e);
-            throw new CollectException("Send result message failed: " + e.getMessage());
-        }
+@SpringBootApplication
+@EnableScheduling
+public class CollectApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(CollectApplication.class, args);
     }
 }
-```
-
-## ResultProducer.java
-
-```java
-package com.study.collect.infrastructure.mq.producer;
-
-// 结果生产者
-public class ResultProducer {
-}
-
-```
-
-## TaskProducer.java
-
-```java
-package com.study.collect.infrastructure.mq.producer;
-
-// 任务生产者
-public class TaskProducer {
-}
-
-```
-
-## KeyGenerator.java
-
-```java
-package com.study.collect.infrastructure.persistent.cache.key;
-
-public class KeyGenerator {
-}
-
-```
-
-## CacheManager.java
-
-```java
-package com.study.collect.infrastructure.persistent.cache.manager;
-
-import com.study.collect.common.utils.common.JsonUtils;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.stereotype.Component;
-
-import java.util.concurrent.TimeUnit;
-
-/**
- * 缓存管理器
- */
-@Slf4j
-@Component
-@RequiredArgsConstructor
-public class CacheManager {
-
-    private final RedisTemplate<String, Object> redisTemplate;
-    private static final long DEFAULT_TIMEOUT = 3600; // 1小时
-
-    /**
-     * 设置缓存
-     */
-    public void set(String key, Object value) {
-        set(key, value, DEFAULT_TIMEOUT);
-    }
-
-    /**
-     * 设置缓存带过期时间
-     */
-    public void set(String key, Object value, long timeout) {
-        try {
-            if (value instanceof String) {
-                redisTemplate.opsForValue().set(key, value, timeout, TimeUnit.SECONDS);
-            } else {
-                String jsonValue = JsonUtils.toJson(value);
-                redisTemplate.opsForValue().set(key, jsonValue, timeout, TimeUnit.SECONDS);
-            }
-        } catch (Exception e) {
-            log.error("Set cache failed, key: {}", key, e);
-        }
-    }
-
-    /**
-     * 获取缓存
-     */
-    public <T> T get(String key, Class<T> clazz) {
-        try {
-            Object value = redisTemplate.opsForValue().get(key);
-            if (value == null) {
-                return null;
-            }
-            if (value instanceof String) {
-                return JsonUtils.fromJson((String) value, clazz);
-            }
-            return (T) value;
-        } catch (Exception e) {
-            log.error("Get cache failed, key: {}", key, e);
-            return null;
-        }
-    }
-
-    /**
-     * 删除缓存
-     */
-    public void delete(String key) {
-        try {
-            redisTemplate.delete(key);
-        } catch (Exception e) {
-            log.error("Delete cache failed, key: {}", key, e);
-        }
-    }
-
-    /**
-     * 设置过期时间
-     */
-    public boolean expire(String key, long timeout) {
-        try {
-            return Boolean.TRUE.equals(redisTemplate.expire(key, timeout, TimeUnit.SECONDS));
-        } catch (Exception e) {
-            log.error("Set expire failed, key: {}", key, e);
-            return false;
-        }
-    }
-
-    /**
-     * 是否存在key
-     */
-    public boolean hasKey(String key) {
-        try {
-            return Boolean.TRUE.equals(redisTemplate.hasKey(key));
-        } catch (Exception e) {
-            log.error("Check key failed, key: {}", key, e);
-            return false;
-        }
-    }
-
-    /**
-     * 原子递增
-     */
-    public long increment(String key, long delta) {
-        try {
-            return redisTemplate.opsForValue().increment(key, delta);
-        } catch (Exception e) {
-            log.error("Increment failed, key: {}", key, e);
-            return 0;
-        }
-    }
-}
-```
-
-## BaseCacheRepository.java
-
-```java
-package com.study.collect.infrastructure.persistent.cache.repository;
-
-import com.study.collect.common.utils.common.JsonUtils;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.stereotype.Repository;
-
-import java.util.concurrent.TimeUnit;
-
-/**
- * 基础缓存仓储
- */
-@Repository
-public class BaseCacheRepository {
-
-    public BaseCacheRepository(RedisTemplate<String, Object> redisTemplate) {
-        this.redisTemplate = redisTemplate;
-    }
-
-    private final RedisTemplate<String, Object> redisTemplate;
-
-    protected void set(String key, Object value) {
-        redisTemplate.opsForValue().set(key, value);
-    }
-
-    protected void set(String key, Object value, long timeout, TimeUnit unit) {
-        redisTemplate.opsForValue().set(key, value, timeout, unit);
-    }
-
-    protected <T> T get(String key, Class<T> clazz) {
-        Object value = redisTemplate.opsForValue().get(key);
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof String) {
-            return JsonUtils.fromJson((String) value, clazz);
-        }
-        return (T) value;
-    }
-
-    protected void delete(String key) {
-        redisTemplate.delete(key);
-    }
-
-    protected Boolean hasKey(String key) {
-        return redisTemplate.hasKey(key);
-    }
-
-    protected Long increment(String key) {
-        return redisTemplate.opsForValue().increment(key);
-    }
-
-    protected void expire(String key, long timeout, TimeUnit unit) {
-        redisTemplate.expire(key, timeout, unit);
-    }
-}
-```
-
-## ListCacheRepository.java
-
-```java
-package com.study.collect.infrastructure.persistent.cache.repository;
-
-// 列表缓存仓库
-public class ListCacheRepository {
-}
-
-```
-
-## TaskCacheRepository.java
-
-```java
-package com.study.collect.infrastructure.persistent.cache.repository;
-
-import com.study.collect.domain.entity.task.CollectTask;
-import lombok.RequiredArgsConstructor;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.stereotype.Repository;
-
-import java.util.concurrent.TimeUnit;
-
-/**
- * 任务缓存仓储
- */
-@Repository
-@RequiredArgsConstructor
-public class TaskCacheRepository extends BaseCacheRepository {
-
-    private static final String TASK_KEY_PREFIX = "task:";
-    private static final String TASK_COUNT_KEY = "task:count";
-    private static final long DEFAULT_EXPIRE_TIME = 24;
-
-    public void saveTask(String taskId, CollectTask task) {
-        String key = TASK_KEY_PREFIX + taskId;
-        set(key, task, DEFAULT_EXPIRE_TIME, TimeUnit.HOURS);
-        increment(TASK_COUNT_KEY);
-    }
-
-    public CollectTask getTask(String taskId) {
-        String key = TASK_KEY_PREFIX + taskId;
-        return get(key, CollectTask.class);
-    }
-
-    public void deleteTask(String taskId) {
-        String key = TASK_KEY_PREFIX + taskId;
-        delete(key);
-        increment(TASK_COUNT_KEY, -1);
-    }
-
-    public Long getTaskCount() {
-        Object value = get(TASK_COUNT_KEY, Long.class);
-        return value == null ? 0L : (Long) value;
-    }
-}
-
-```
-
-## TreeNodeCacheRepository.java
-
-```java
-package com.study.collect.infrastructure.persistent.cache.repository;
-
-// 树形缓存仓库
-
-import com.study.collect.domain.entity.data.tree.TreeNode;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-
-import java.util.List;
-
-/**
- * 树节点缓存仓储实现
- */
-@Slf4j
-@Component
-public class TreeNodeCacheRepository {
-
-    private final CacheManager cacheManager;
-    private static final String NODE_PREFIX = "node:";
-    private static final String CHILDREN_PREFIX = "children:";
-
-    public TreeNodeCacheRepository(CacheManager cacheManager) {
-        this.cacheManager = cacheManager;
-    }
-
-    /**
-     * 缓存树节点
-     */
-    public void cacheNode(TreeNode node) {
-        String key = NODE_PREFIX + node.getId();
-        cacheManager.set(key, node);
-
-        if (node.getChildren() != null && !node.getChildren().isEmpty()) {
-            String childrenKey = CHILDREN_PREFIX + node.getId();
-            cacheManager.set(childrenKey, node.getChildren());
-        }
-    }
-
-    /**
-     * 获取缓存的树节点
-     */
-    public TreeNode getNode(String nodeId) {
-        String key = NODE_PREFIX + nodeId;
-        return cacheManager.get(key, TreeNode.class);
-    }
-
-    /**
-     * 获取缓存的子节点
-     */
-    public List<TreeNode> getChildren(String nodeId) {
-        String key = CHILDREN_PREFIX + nodeId;
-        return cacheManager.get(key, List.class);
-    }
-}
-```
-
-## ListConverter.java
-
-```java
-package com.study.collect.infrastructure.persistent.mongo.converter;
-
-// 列表转换器
-public class ListConverter {
-}
-
-```
-
-## TreeConverter.java
-
-```java
-package com.study.collect.infrastructure.persistent.mongo.converter;
-
-// 树转换器
-public class TreeConverter {
-}
-
-```
-
-## ListRepositoryImpl.java
-
-```java
-package com.study.collect.infrastructure.persistent.mongo.repository;
-
-// 列表仓储实现
-public class ListRepositoryImpl {
-}
-
-```
-
-## TaskRepositoryImpl.java
-
-```java
-package com.study.collect.infrastructure.persistent.mongo.repository;
-
-import com.study.collect.domain.entity.task.CollectTask;
-import com.study.collect.domain.repository.task.TaskRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.data.mongodb.core.MongoTemplate;
-import org.springframework.data.mongodb.core.query.Criteria;
-import org.springframework.data.mongodb.core.query.Query;
-import org.springframework.data.mongodb.core.query.Update;
-import org.springframework.stereotype.Repository;
-
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
-
-/**
- * 任务仓储实现
- */
-@Repository
-@RequiredArgsConstructor
-public class TaskRepositoryImpl implements TaskRepository {
-
-    private final MongoTemplate mongoTemplate;
-
-    @Override
-    public CollectTask save(CollectTask task) {
-        return mongoTemplate.save(task);
-    }
-
-    @Override
-    public List<CollectTask> saveAll(Iterable<CollectTask> tasks) {
-        return StreamSupport.stream(tasks.spliterator(), false)
-                .map(task -> this.save(task))
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public void deleteById(String id) {
-        Query query = Query.query(Criteria.where("id").is(id));
-        mongoTemplate.remove(query, CollectTask.class);
-    }
-
-    @Override
-    public Optional<CollectTask> findById(String id) {
-        return Optional.ofNullable(mongoTemplate.findById(id, CollectTask.class));
-    }
-
-    @Override
-    public List<CollectTask> findAll() {
-        return mongoTemplate.findAll(CollectTask.class);
-    }
-
-    @Override
-    public List<CollectTask> findByStatus(String status) {
-        Query query = Query.query(Criteria.where("status").is(status));
-        return mongoTemplate.find(query, CollectTask.class);
-    }
-
-    @Override
-    public void updateStatus(String taskId, String status) {
-        Query query = Query.query(Criteria.where("id").is(taskId));
-        Update update = Update.update("status", status)
-                .set("updateTime", LocalDateTime.now());
-        mongoTemplate.updateFirst(query, update, CollectTask.class);
-    }
-
-    @Override
-    public void incrementRetryTimes(String taskId) {
-        Query query = Query.query(Criteria.where("id").is(taskId));
-        Update update = new Update().inc("retryTimes", 1)
-                .set("updateTime", LocalDateTime.now());
-        mongoTemplate.updateFirst(query, update, CollectTask.class);
-    }
-
-    @Override
-    public List<CollectTask> findTimeoutTasks(LocalDateTime timeout) {
-        Query query = Query.query(Criteria.where("status").is("RUNNING")
-                .and("startTime").lt(timeout));
-        return mongoTemplate.find(query, CollectTask.class);
-    }
-}
-```
-
-## TreeNodeRepositoryImpl.java
-
-```java
-package com.study.collect.infrastructure.persistent.mongo.repository;
-
-import com.study.collect.domain.entity.data.tree.TreeNode;
-import com.study.collect.domain.repository.data.TreeNodeRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.data.mongodb.core.MongoTemplate;
-import org.springframework.data.mongodb.core.query.Criteria;
-import org.springframework.data.mongodb.core.query.Query;
-import org.springframework.data.mongodb.core.query.Update;
-import org.springframework.stereotype.Repository;
-
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
-
-import com.mongodb.client.result.UpdateResult;
-import com.study.collect.domain.entity.data.tree.TreeNode;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.mongodb.core.MongoTemplate;
-import org.springframework.data.mongodb.core.query.Criteria;
-import org.springframework.data.mongodb.core.query.Query;
-import org.springframework.data.mongodb.core.query.Update;
-import org.springframework.stereotype.Repository;
-
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
-
-/**
- * MongoDB树节点仓储实现
- */
-@Slf4j
-@Repository
-@RequiredArgsConstructor
-public class TreeNodeRepositoryImpl implements TreeNodeRepository {
-
-    private final MongoTemplate mongoTemplate;
-
-    @Override
-    public TreeNode save(TreeNode node) {
-        if (node.getCreateTime() == null) {
-            node.setCreateTime(LocalDateTime.now());
-        }
-        node.setUpdateTime(LocalDateTime.now());
-        return mongoTemplate.save(node);
-    }
-
-    @Override
-    public List<TreeNode> saveAll(List<TreeNode> nodes) {
-        LocalDateTime now = LocalDateTime.now();
-        nodes.forEach(node -> {
-            if (node.getCreateTime() == null) {
-                node.setCreateTime(now);
-            }
-            node.setUpdateTime(now);
-        });
-        return mongoTemplate.insertAll(nodes);
-    }
-
-    @Override
-    public Optional<TreeNode> findById(String id) {
-        return Optional.ofNullable(mongoTemplate.findById(id, TreeNode.class));
-    }
-
-    @Override
-    public List<TreeNode> findByParentId(String parentId) {
-        Query query = Query.query(Criteria.where("parentId").is(parentId));
-        return mongoTemplate.find(query, TreeNode.class);
-    }
-
-    @Override
-    public List<TreeNode> findByPath(String path) {
-        Query query = Query.query(Criteria.where("path").regex("^" + path));
-        return mongoTemplate.find(query, TreeNode.class);
-    }
-
-    @Override
-    public void updateNodeData(String nodeId, Object data) {
-        Query query = Query.query(Criteria.where("id").is(nodeId));
-        Update update = new Update()
-                .set("data", data)
-                .set("updateTime", LocalDateTime.now());
-        UpdateResult result = mongoTemplate.updateFirst(query, update, TreeNode.class);
-        if (result.getModifiedCount() == 0) {
-            log.warn("No node updated for id: {}", nodeId);
-        }
-    }
-
-    @Override
-    public void deleteNode(String nodeId) {
-        // 1. 删除当前节点
-        Query nodeQuery = Query.query(Criteria.where("id").is(nodeId));
-        mongoTemplate.remove(nodeQuery, TreeNode.class);
-
-        // 2. 删除所有子节点
-        Query childrenQuery = Query.query(
-                Criteria.where("path").regex("^/.*" + nodeId + "/.*$")
-        );
-        mongoTemplate.remove(childrenQuery, TreeNode.class);
-    }
-
-    @Override
-    public void moveNode(String nodeId, String newParentId) {
-        // 1. 获取当前节点
-        Optional<TreeNode> nodeOpt = findById(nodeId);
-        if (nodeOpt.isEmpty()) {
-            return;
-        }
-        TreeNode node = nodeOpt.get();
-
-        // 2. 获取新父节点
-        Optional<TreeNode> parentOpt = findById(newParentId);
-        if (parentOpt.isEmpty()) {
-            return;
-        }
-        TreeNode parent = parentOpt.get();
-
-        // 3. 更新当前节点
-        String oldPath = node.getPath();
-        String newPath = parent.getPath() + "/" + node.getId();
-
-        Query nodeQuery = Query.query(Criteria.where("id").is(nodeId));
-        Update nodeUpdate = new Update()
-                .set("parentId", newParentId)
-                .set("path", newPath)
-                .set("updateTime", LocalDateTime.now());
-        mongoTemplate.updateFirst(nodeQuery, nodeUpdate, TreeNode.class);
-
-        // 4. 更新所有子节点的路径
-        Query childrenQuery = Query.query(
-                Criteria.where("path").regex("^" + oldPath + "/.*$")
-        );
-        mongoTemplate.find(childrenQuery, TreeNode.class).forEach(child -> {
-            String childNewPath = child.getPath().replace(oldPath, newPath);
-            Update childUpdate = new Update()
-                    .set("path", childNewPath)
-                    .set("updateTime", LocalDateTime.now());
-            mongoTemplate.updateFirst(
-                    Query.query(Criteria.where("id").is(child.getId())),
-                    childUpdate,
-                    TreeNode.class
-            );
-        });
-    }
-}
-```
-
-## TreeRepositoryImpl.java
-
-```java
-package com.study.collect.infrastructure.persistent.mongo.repository;
-
-// 树形结构仓库实现
-public class TreeRepositoryImpl {
-}
-
-```
-
-## ListTemplate.java
-
-```java
-package com.study.collect.infrastructure.persistent.mongo.template;
-
-// 列表模板
-public class ListTemplate {
-}
-
-```
-
-## TreeTemplate.java
-
-```java
-package com.study.collect.infrastructure.persistent.mongo.template;
-
-// 树形模板
-public class TreeTemplate {
-}
-
-```
-
-## DistributedTaskScheduler.java
-
-```java
-package com.study.collect.infrastructure.schedule;
-
-import com.study.collect.common.enums.collect.TaskStatus;
-import com.study.collect.core.scheduler.base.AbstractTaskScheduler;
-import com.study.collect.domain.entity.task.CollectTask;
-import com.study.collect.domain.repository.task.TaskRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-import org.springframework.util.CollectionUtils;
-
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
-
-/**
- * 分布式任务调度器
- */
-@Slf4j
-@Component("distributedScheduler")
-@RequiredArgsConstructor
-public class DistributedTaskScheduler extends AbstractTaskScheduler {
-
-    private final TaskRepository taskRepository;
-    private final LoadBalancer loadBalancer;
-    private final NodeManager nodeManager;
-    private final TaskLockManager lockManager;
-    private final MetricsCollector metricsCollector;
-
-    private final ScheduledExecutorService scheduler =
-            Executors.newScheduledThreadPool(1);
-
-    @Override
-    public void start() {
-        // 1. 注册当前节点
-        nodeManager.register();
-
-        // 2. 启动任务调度
-        scheduler.scheduleWithFixedDelay(
-                this::scheduleTasks,
-                0,
-                100,
-                TimeUnit.MILLISECONDS
-        );
-
-        // 3. 启动节点健康检查
-        scheduler.scheduleWithFixedDelay(
-                this::checkNodesHealth,
-                0,
-                30,
-                TimeUnit.SECONDS
-        );
-    }
-
-    @Override
-    public void stop() {
-        try {
-            // 1. 停止调度
-            scheduler.shutdown();
-
-            // 2. 迁移任务
-            migrateTasks();
-
-            // 3. 注销节点
-            nodeManager.unregister();
-        } catch (Exception e) {
-            log.error("Stop scheduler failed", e);
-        }
-    }
-
-    private void scheduleTasks() {
-        try {
-            // 1. 获取待执行的任务
-            List<CollectTask> tasks = taskRepository
-                    .findByStatus(TaskStatus.WAITING.name());
-
-            if (CollectionUtils.isEmpty(tasks)) {
-                return;
-            }
-
-            // 2. 获取可用节点
-            List<String> availableNodes = nodeManager.getAvailableNodes();
-            if (CollectionUtils.isEmpty(availableNodes)) {
-                return;
-            }
-
-            // 3. 分发任务
-            tasks.forEach(task -> dispatchTask(task, availableNodes));
-
-        } catch (Exception e) {
-            log.error("Schedule tasks failed", e);
-        }
-    }
-
-    private void dispatchTask(CollectTask task, List<String> nodes) {
-        try {
-            // 1. 获取任务锁
-            String lockKey = "task:lock:" + task.getId();
-            if (!lockManager.tryLock(lockKey)) {
-                return;
-            }
-
-            try {
-                // 2. 选择执行节点
-                String targetNode = loadBalancer.selectNode(nodes, task);
-                if (targetNode == null) {
-                    return;
-                }
-
-                // 3. 分配任务
-                task.setNodeId(targetNode);
-                task.setStatus(TaskStatus.ASSIGNED.name());
-                task.setAssignTime(LocalDateTime.now());
-                taskRepository.save(task);
-
-                // 4. 发送任务消息
-                sendTaskMessage(task);
-
-                // 5. 更新指标
-                metricsCollector.incrementAssignedTask(targetNode);
-
-            } finally {
-                lockManager.unlock(lockKey);
-            }
-        } catch (Exception e) {
-            log.error("Dispatch task failed: {}", task.getId(), e);
-        }
-    }
-
-    private void checkNodesHealth() {
-        try {
-            // 1. 获取所有节点
-            List<NodeInfo> nodes = nodeManager.getAllNodes();
-
-            // 2. 检查每个节点
-            nodes.forEach(node -> {
-                try {
-                    // 2.1 检查心跳
-                    if (isNodeDown(node)) {
-                        handleNodeDown(node);
-                    }
-
-                    // 2.2 检查负载
-                    if (isNodeOverloaded(node)) {
-                        handleNodeOverload(node);
-                    }
-                } catch (Exception e) {
-                    log.error("Check node health failed: {}", node.getId(), e);
-                }
-            });
-        } catch (Exception e) {
-            log.error("Check nodes health failed", e);
-        }
-    }
-
-    private void migrateTasks() {
-        try {
-            // 1. 获取当前节点的任务
-            String currentNode = nodeManager.getCurrentNodeId();
-            List<CollectTask> tasks = taskRepository
-                    .findByNodeId(currentNode);
-
-            if (CollectionUtils.isEmpty(tasks)) {
-                return;
-            }
-
-            // 2. 获取其他可用节点
-            List<String> availableNodes = nodeManager.getAvailableNodes().stream()
-                    .filter(node -> !node.equals(currentNode))
-                    .collect(Collectors.toList());
-
-            if (CollectionUtils.isEmpty(availableNodes)) {
-                log.warn("No available nodes for task migration");
-                return;
-            }
-
-            // 3. 迁移任务
-            tasks.forEach(task -> {
-                try {
-                    task.setStatus(TaskStatus.WAITING.name());
-                    task.setNodeId(null);
-                    taskRepository.save(task);
-                } catch (Exception e) {
-                    log.error("Migrate task failed: {}", task.getId(), e);
-                }
-            });
-
-        } catch (Exception e) {
-            log.error("Migrate tasks failed", e);
-        }
-    }
-}
-```
-
-## ShardTaskScheduler.java
-
-```java
-package com.study.collect.infrastructure.schedule;
-
-import com.study.collect.common.annotation.lock.DistributedLock;
-import com.study.collect.core.executor.ShardTaskExecutor;
-import com.study.collect.domain.entity.task.CollectTask;
-import com.study.collect.domain.repository.task.TaskRepository;
-import jakarta.annotation.PostConstruct;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-import org.springframework.util.CollectionUtils;
-
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
-
-/**
- * 分片任务调度器
- */
-@Slf4j
-@Component
-@RequiredArgsConstructor
-public class ShardTaskScheduler {
-
-    private final NodeManager nodeManager;
-    private final TaskRepository taskRepository;
-    private final ShardTaskExecutor shardExecutor;
-    private final LoadBalancer loadBalancer;
-    private final DistributedLock distributedLock;
-
-    private final ScheduledExecutorService scheduler =
-            Executors.newScheduledThreadPool(2);
-
-    @PostConstruct
-    public void init() {
-        // 启动调度任务
-        startScheduling();
-    }
-
-    /**
-     * 启动调度
-     */
-    private void startScheduling() {
-        // 1. 任务分发调度
-        scheduler.scheduleWithFixedDelay(
-                this::scheduleShardTasks,
-                0, 100, TimeUnit.MILLISECONDS
-        );
-
-        // 2. 节点健康检查
-        scheduler.scheduleWithFixedDelay(
-                this::checkNodeHealth,
-                0, 30, TimeUnit.SECONDS
-        );
-    }
-
-    /**
-     * 调度分片任务
-     */
-    private void scheduleShardTasks() {
-        String lockKey = "shard_task_schedule_lock";
-        try {
-            // 1. 获取调度锁
-            if (!distributedLock.tryLock(lockKey, 5000)) {
-                return;
-            }
-
-            try {
-                // 2. 获取待处理任务
-                List<CollectTask> pendingTasks =
-                        taskRepository.findPendingTasks(100);
-
-                // 3. 获取可用节点
-                List<NodeInfo> availableNodes =
-                        nodeManager.getActiveNodes();
-                if (availableNodes.isEmpty()) {
-                    log.warn("No available nodes for task scheduling");
-                    return;
-                }
-
-                // 4. 分发任务
-                distributeTasks(pendingTasks, availableNodes);
-
-            } finally {
-                distributedLock.unlock(lockKey);
-            }
-        } catch (Exception e) {
-            log.error("Schedule shard tasks failed", e);
-        }
-    }
-
-    /**
-     * 分发任务
-     */
-    private void distributeTasks(List<CollectTask> tasks,
-                                 List<NodeInfo> nodes) {
-        // 1. 计算节点负载情况
-        Map<NodeInfo, Integer> nodeTasks = calculateNodeTasks(nodes);
-
-        // 2. 按优先级排序任务
-        List<CollectTask> sortedTasks = sortTasksByPriority(tasks);
-
-        // 3. 分配任务
-        for (CollectTask task : sortedTasks) {
-            try {
-                // 选择执行节点
-                NodeInfo targetNode = selectExecutionNode(
-                        nodes, nodeTasks, task);
-                if (targetNode == null) {
-                    continue;
-                }
-
-                // 分配任务
-                assignTaskToNode(task, targetNode);
-
-                // 更新节点任务计数
-                nodeTasks.merge(targetNode, 1, Integer::sum);
-
-            } catch (Exception e) {
-                log.error("Distribute task failed: {}", task.getId(), e);
-            }
-        }
-    }
-
-    /**
-     * 选择执行节点
-     */
-    private NodeInfo selectExecutionNode(
-            List<NodeInfo> nodes,
-            Map<NodeInfo, Integer> nodeTasks,
-            CollectTask task) {
-
-        // 1. 过滤不可用节点
-        List<NodeInfo> availableNodes = nodes.stream()
-                .filter(node -> isNodeAvailable(node, task))
-                .collect(Collectors.toList());
-
-        if (availableNodes.isEmpty()) {
-            return null;
-        }
-
-        // 2. 计算节点得分
-        Map<NodeInfo, Double> nodeScores = availableNodes.stream()
-                .collect(Collectors.toMap(
-                        node -> node,
-                        node -> calculateNodeScore(node, nodeTasks.get(node), task)
-                ));
-
-        // 3. 选择最优节点
-        return nodeScores.entrySet().stream()
-                .max(Map.Entry.comparingByValue())
-                .map(Map.Entry::getKey)
-                .orElse(null);
-    }
-
-    /**
-     * 计算节点得分
-     */
-    private double calculateNodeScore(NodeInfo node,
-                                      Integer taskCount, CollectTask task) {
-        // 1. 基础分值
-        double score = 1.0;
-
-        // 2. 考虑CPU使用率
-        score *= (1 - node.getCpuUsage() / 100.0);
-
-        // 3. 考虑内存使用率
-        score *= (1 - node.getMemoryUsage() / 100.0);
-
-        // 4. 考虑任务数量
-        score *= (1 - taskCount / 100.0);
-
-        // 5. 考虑网络延迟
-        score *= (1 - node.getNetworkLatency() / 1000.0);
-
-        // 6. 考虑历史成功率
-        score *= node.getSuccessRate();
-
-        return score;
-    }
-
-    /**
-     * 检查节点健康状态
-     */
-    private void checkNodeHealth() {
-        try {
-            // 1. 获取所有节点
-            List<NodeInfo> allNodes = nodeManager.getAllNodes();
-
-            // 2. 检查每个节点
-            for (NodeInfo node : allNodes) {
-                if (!isNodeHealthy(node)) {
-                    handleUnhealthyNode(node);
-                }
-            }
-        } catch (Exception e) {
-            log.error("Check node health failed", e);
-        }
-    }
-
-    /**
-     * 处理不健康节点
-     */
-    private void handleUnhealthyNode(NodeInfo node) {
-        try {
-            log.warn("Node unhealthy: {}", node.getId());
-
-            // 1. 获取节点任务
-            List<CollectTask> nodeTasks =
-                    taskRepository.findTasksByNodeId(node.getId());
-
-            if (CollectionUtils.isEmpty(nodeTasks)) {
-                return;
-            }
-
-            // 2. 迁移任务
-            List<NodeInfo> healthyNodes = nodeManager.getActiveNodes().stream()
-                    .filter(n -> !n.getId().equals(node.getId()))
-                    .collect(Collectors.toList());
-
-            if (CollectionUtils.isEmpty(healthyNodes)) {
-                log.warn("No healthy nodes available for task migration");
-                return;
-            }
-
-            // 3. 执行迁移
-            migrateTasks(nodeTasks, healthyNodes);
-
-        } catch (Exception e) {
-            log.error("Handle unhealthy node failed: {}",
-                    node.getId(), e);
-        }
-    }
-
-    /**
-     * 迁移任务
-     */
-    private void migrateTasks(List<CollectTask> tasks,
-                              List<NodeInfo> targetNodes) {
-        for (CollectTask task : tasks) {
-            try {
-                // 1. 选择目标节点
-                NodeInfo targetNode = loadBalancer.selectNode(targetNodes);
-                if (targetNode == null) {
-                    continue;
-                }
-
-                // 2. 迁移任务
-                migrateTask(task, targetNode);
-
-            } catch (Exception e) {
-                log.error("Migrate task failed: {}", task.getId(), e);
-            }
-        }
-    }
-}
-
-```
-
-## ConsistentHashLoadBalancer.java
-
-```java
-package com.study.collect.infrastructure.schedule.elastic;
-
-import com.study.collect.core.strategy.balance.LoadBalanceStrategy;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-
-import java.nio.ByteBuffer;
-import java.util.Map;
-import java.util.TreeMap;
-
-/**
- * 一致性哈希负载均衡器
- */
-@Slf4j
-@Component
-public class ConsistentHashLoadBalancer implements LoadBalanceStrategy {
-
-    private final TreeMap<Long, String> hashRing = new TreeMap<>();
-    private final int numberOfReplicas = 160; // 虚拟节点数
-
-    /**
-     * 添加节点
-     */
-    public synchronized void addNode(String node) {
-        for (int i = 0; i < numberOfReplicas; i++) {
-            long hash = hash(node + i);
-            hashRing.put(hash, node);
-        }
-        log.info("Node added to hash ring: {}", node);
-    }
-
-    /**
-     * 移除节点
-     */
-    public synchronized void removeNode(String node) {
-        for (int i = 0; i < numberOfReplicas; i++) {
-            long hash = hash(node + i);
-            hashRing.remove(hash);
-        }
-        log.info("Node removed from hash ring: {}", node);
-    }
-
-    /**
-     * 获取负载节点
-     */
-    @Override
-    public String selectNode(String key) {
-        if (hashRing.isEmpty()) {
-            return null;
-        }
-
-        long hash = hash(key);
-        Map.Entry<Long, String> entry = hashRing.ceilingEntry(hash);
-        if (entry == null) {
-            entry = hashRing.firstEntry();
-        }
-        return entry.getValue();
-    }
-
-    /**
-     * MurmurHash算法
-     */
-    private long hash(String key) {
-        ByteBuffer buf = ByteBuffer.wrap(key.getBytes());
-        int seed = 0x1234ABCD;
-
-        long m = 0xc6a4a7935bd1e995L;
-        int r = 47;
-
-        long h = seed ^ (buf.remaining() * m);
-
-        long k;
-        while (buf.remaining() >= 8) {
-            k = buf.getLong();
-
-            k *= m;
-            k ^= k >>> r;
-            k *= m;
-
-            h ^= k;
-            h *= m;
-        }
-
-        return h;
-    }
-}
-
-```
-
-## DynamicScheduler.java
-
-```java
-package com.study.collect.infrastructure.schedule.elastic;
-
-// 动态调度器
-public class DynamicScheduler {
-}
-
-```
-
-## LoadBalancer.java
-
-```java
-package com.study.collect.infrastructure.schedule.elastic;
-
-// 负载均衡器
-public class LoadBalancer {
-}
-
-```
-
-## JobFactory.java
-
-```java
-package com.study.collect.infrastructure.schedule.quartz.config;
-
-// 任务工厂
-public class JobFactory {
-}
-
-```
-
-## QuartzConfig.java
-
-```java
-package com.study.collect.infrastructure.schedule.quartz.config;
-
-// 定时任务配置
-public class QuartzConfig {
-}
-
-```
-
-## CollectJob.java
-
-```java
-package com.study.collect.infrastructure.schedule.quartz.job;
-
-public class CollectJob {
-}
-
-```
-
-## AlertQueryRequest.java
-
-```java
-package com.study.collect.model.request.collect;
-
-import lombok.Builder;
-import lombok.Data;
-
-import java.time.LocalDateTime;
-
-/**
- * 告警查询请求
- */
-@Data
-@Builder
-public class AlertQueryRequest {
-
-    private AlertLevel level;
-
-    private LocalDateTime startTime;
-
-    private LocalDateTime endTime;
-
-    private Boolean handled;
-}
-
-```
-
-## CollectRequest.java
-
-```java
-package com.study.collect.model.request.collect;
-
-// 采集请求
-
-import lombok.AllArgsConstructor;
-
-/**
- * 采集请求
- */
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class CollectRequest {
-
-    @NotBlank(message = "任务名称不能为空")
-    private String name;
-
-    @NotBlank(message = "采集类型不能为空")
-    private String type;
-
-    @NotNull(message = "采集参数不能为空")
-    private Map<String, Object> params;
-
-    private Integer priority = 0;
-
-    private Integer maxRetryTimes = 3;
-}
-```
-
-## CompareRequest.java
-
-```java
-package com.study.collect.model.request.collect;
-
-// 对比请求
-
-import com.study.collect.common.enums.data.CompareType;
-import lombok.Builder;
-import lombok.Data;
-
-import java.util.Map;
-
-/**
- * 数据对比请求
- */
-@Data
-@Builder
-public class CompareRequest {
-
-    @NotNull(message = "源数据ID不能为空")
-    private String sourceId;
-
-    @NotNull(message = "目标数据ID不能为空")
-    private String targetId;
-
-    private CompareType compareType;
-
-    private Map<String, Object> params;
-}
-
-
-```
-
-## SyncRequest.java
-
-```java
-package com.study.collect.model.request.collect;
-
-// 同步请求
-public class SyncRequest {
-}
-
-```
-
-## DataQueryRequest.java
-
-```java
-package com.study.collect.model.request.query;
-
-// 数据查询
-
-import java.time.LocalDateTime;
-
-/**
- * 数据查询请求
- */
-@Data
-@Builder
-public class DataQueryRequest {
-
-    private String taskId;
-
-    private String type;
-
-    private LocalDateTime startTime;
-
-    private LocalDateTime endTime;
-
-    @Min(value = 1, message = "页码最小为1")
-    private Integer pageNum = 1;
-
-    @Min(value = 1, message = "每页大小最小为1")
-    @Max(value = 1000, message = "每页大小最大为1000")
-    private Integer pageSize = 10;
-}
-
-```
-
-## StatsQueryRequest.java
-
-```java
-package com.study.collect.model.request.query;
-// 统计查询
-public class StatsQueryRequest {
-}
-
-```
-
-## CollectResult.java
-
-```java
-package com.study.collect.model.response.collect;
-
-import lombok.Builder;
-import lombok.Data;
-
-import java.time.LocalDateTime;
-
-/**
- * 采集结果
- */
-@Data
-@Builder
-public class CollectResult {
-
-    private String taskId;
-
-    private Boolean success;
-
-    private String message;
-
-    private Object data;
-
-    private LocalDateTime collectTime;
-
-    public static CollectResult success(Object data) {
-        return CollectResult.builder()
-                .success(true)
-                .data(data)
-                .collectTime(LocalDateTime.now())
-                .build();
-    }
-
-    public static CollectResult error(String message) {
-        return CollectResult.builder()
-                .success(false)
-                .message(message)
-                .collectTime(LocalDateTime.now())
-                .build();
-    }
-}
-
-
-
-
-```
-
-## CollectStatsVO.java
-
-```java
-package com.study.collect.model.response.collect;
-
-// 采集统计
-public class CollectStatsVO {
-}
-
-```
-
-## CompareResult.java
-
-```java
-package com.study.collect.model.response.collect;
-
-import lombok.Builder;
-import lombok.Data;
-
-import java.time.LocalDateTime;
-import java.util.List;
-
-/**
- * 对比结果
- */
-@Data
-@Builder
-public class CompareResult {
-
-    private String sourceId;
-
-    private String targetId;
-
-    private List<Difference> differences;
-
-    private LocalDateTime compareTime;
-
-    @Data
-    @Builder
-    public static class Difference {
-        private String field;
-        private Object sourceValue;
-        private Object targetValue;
-        private String description;
-    }
-}
-
-```
-
-## DataCompareVO.java
-
-```java
-package com.study.collect.model.response.collect;
-
-// 数据对比
-public class DataCompareVO {
-}
-
-```
-
-## ListDataVO.java
-
-```java
-package com.study.collect.model.response.data;
-
-// 树形数据
-public class ListDataVO {
-}
-
-```
-
-## MetricsData.java
-
-```java
-package com.study.collect.model.response.data;
-
-import lombok.Builder;
-import lombok.Data;
-
-import java.time.LocalDateTime;
-
-/**
- * 监控指标数据
- */
-@Data
-@Builder
-public class MetricsData {
-
-    private Long taskCount;
-
-    private Long successCount;
-
-    private Long failureCount;
-
-    private Double successRate;
-
-    private Double avgProcessTime;
-
-    private Integer queueSize;
-
-    private Double systemLoad;
-
-    private Long memoryUsed;
-
-    private LocalDateTime collectTime;
-}
-```
-
-## TreeDataVO.java
-
-```java
-package com.study.collect.model.response.data;
-
-// 列表数据
-public class TreeDataVO {
-}
-
-```
-
-## application-alert.yml
-
-```yaml
-# application-alert.yml
-collect:
-  alert:
-    enabled: true
-
-    # 告警通道
-    channels:
-      dingtalk:
-        enabled: true
-        webhook: ${DINGTALK_WEBHOOK}
-        secret: ${DINGTALK_SECRET}
-      email:
-        enabled: true
-        host: smtp.company.com
-        port: 465
-        username: ${MAIL_USERNAME}
-        password: ${MAIL_PASSWORD}
-        from: alert@company.com
-        to: ops@company.com
-      sms:
-        enabled: true
-        provider: aliyun
-        access-key: ${SMS_ACCESS_KEY}
-        secret-key: ${SMS_SECRET_KEY}
-        template-code: SMS_ALERT_TEMPLATE
-        sign-name: Company
-
-    # 告警规则
-    rules:
-      # 系统级告警
-      - name: high-cpu-usage
-        metric: system.cpu.usage
-        threshold: 80
-        duration: 5m
-        severity: warning
-      - name: high-memory-usage
-        metric: system.memory.usage
-        threshold: 85
-        duration: 5m
-        severity: warning
-      - name: high-disk-usage
-        metric: system.disk.usage
-        threshold: 90
-        duration: 5m
-        severity: critical
-
-      # 业务级告警
-      - name: high-task-failure-rate
-        metric: collect.task.failure.rate
-        threshold: 10
-        duration: 15m
-        severity: warning
-      - name: large-task-queue
-        metric: collect.task.queue.size
-        threshold: 1000
-        duration: 5m
-        severity: warning
-      - name: slow-processing
-        metric: collect.task.process.time
-        threshold: 30
-        duration: 5m
-        severity: warning
-
-    # 告警聚合
-    aggregation:
-      window: 5m  # 聚合窗口
-      group-by:
-        - severity
-        - rule
-      max-alerts: 10  # 每个窗口最大告警数
-
-    # 告警抑制
-    suppression:
-      enabled: true
-      cool-down: 30m  # 相同告警抑制时间
-      max-alerts-per-hour: 50  # 每小时最大告警数
 ```
 
 ## application-dev.yml
 
 ```yaml
-# application-dev.yml
-server:
-  port: 8080
-
 spring:
-  data:
-    mongodb:
-      uri: mongodb://localhost:27017/collect_dev
-      database: collect_dev
-    redis:
-      host: localhost
-      port: 6379
-      password:
-      database: 0
+# 开发环境数据源
+datasource:
+url: jdbc:mysql://localhost:3306/collect_dev?useUnicode=true&characterEncoding=utf8
+username: dev
+password: dev123
 
-  rabbitmq:
-    host: localhost
-    port: 5672
-    username: guest
-    password: guest
-    virtual-host: /dev
+# 开发环境Redis
+redis:
+host: localhost
+port: 6379
+database: 1
 
-  datasource:
-    url: jdbc:mysql://localhost:3306/collect_dev?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
-    username: root
-    password: root
+# 开发环境MongoDB
+data:
+mongodb:
+uri: mongodb://localhost:27017/collect_dev
 
 logging:
-  level:
-    com.study.collect: DEBUG
-  file:
-    name: logs/collect-dev.log
-
-collect:
-  task:
-    retry:
-      max-attempts: 5
-      initial-interval: 1000
-  monitor:
-    metrics-interval: 30
-```
-
-## application-discovery.yml
-
-```yaml
-# application-discovery.yml
-spring:
-  cloud:
-    nacos:
-      discovery:
-        server-addr: ${NACOS_SERVER:nacos1:8848,nacos2:8848}
-        namespace: ${NACOS_NAMESPACE}
-        group: ${NACOS_GROUP:DEFAULT_GROUP}
-        cluster-name: ${CLUSTER_NAME:DEFAULT}
-        metadata:
-          version: ${APPLICATION_VERSION:1.0.0}
-          env: ${SPRING_PROFILES_ACTIVE:prod}
-        # 健康检查
-        health-check:
-          enabled: true
-          interval: 5000
-      config:
-        server-addr: ${spring.cloud.nacos.discovery.server-addr}
-        namespace: ${spring.cloud.nacos.discovery.namespace}
-        group: ${spring.cloud.nacos.discovery.group}
-        file-extension: yaml
-        # 支持共享配置
-        shared-configs:
-          - data-id: common-config.yaml
-            group: ${NACOS_GROUP:DEFAULT_GROUP}
-            refresh: true
-          - data-id: security-config.yaml
-            group: ${NACOS_GROUP:DEFAULT_GROUP}
-            refresh: true
-
-    # 服务调用配置
-    loadbalancer:
-      enabled: true
-      retry:
-        enabled: true
-      cache:
-        enabled: true
-        caffeine:
-          spec: initialCapacity=500,expireAfterWrite=5s
+level:
+com.study.collect: debug
 ```
 
 ## application-prod.yml
 
 ```yaml
-# application-prod.yml
-server:
-  port: 8082
-
 spring:
-  data:
-    mongodb:
-      uri: mongodb://mongodb1:27017,mongodb2:27017,mongodb3:27017/collect_prod?replicaSet=rs0
-      database: collect_prod
-    redis:
-      cluster:
-        nodes:
-          - redis1:6379
-          - redis2:6379
-          - redis3:6379
-        max-redirects: 3
-      password: Prod@2024
+# 生产环境数据源
+datasource:
+url: jdbc:mysql://prod-mysql:3306/collect?useUnicode=true&characterEncoding=utf8
+username: prod
+password: ${MYSQL_PASSWORD}
 
-  rabbitmq:
-    addresses: rabbitmq1:5672,rabbitmq2:5672,rabbitmq3:5672
-    username: prod
-    password: Prod@2024
-    virtual-host: /prod
-    listener:
-      simple:
-        concurrency: 10
-        max-concurrency: 30
+# 生产环境Redis集群
+redis:
+cluster:
+nodes:
+  - redis-1:6379
+  - redis-2:6379
+  - redis-3:6379
+password: ${REDIS_PASSWORD}
 
-  datasource:
-    url: jdbc:mysql://mysql-master:3306,mysql-slave1:3306,mysql-slave2:3306/collect_prod?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
-    username: prod
-    password: Prod@2024
-    hikari:
-      minimum-idle: 10
-      maximum-pool-size: 30
+# 生产环境MongoDB副本集
+data:
+mongodb:
+uri: mongodb://mongo-1:27017,mongo-2:27017,mongo-3:27017/collect?replicaSet=rs0
 
+# 生产环境RabbitMQ集群
+rabbitmq:
+addresses: rabbitmq-1:5672,rabbitmq-2:5672,rabbitmq-3:5672
+username: prod
+password: ${RABBITMQ_PASSWORD}
+
+# 生产环境日志
 logging:
-  level:
-    com.study.collect: WARN
-  file:
-    name: logs/collect-prod.log
-    max-size: 1GB
-    max-history: 60
-
-collect:
-  task:
-    queue-capacity: 50000
-    retry:
-      max-attempts: 3
-      initial-interval: 5000
-    thread-pool:
-      core-size: 20
-      max-size: 40
-      queue-capacity: 5000
-  monitor:
-    metrics-interval: 60
-    alert:
-      enabled: true
-      dingtalk:
-        webhook: https://oapi.dingtalk.com/robot/send?access_token=xxx
-      email:
-        enabled: true
-        to: ops@company.com
-
-management:
-  endpoint:
-    health:
-      show-details: when_authorized
-  endpoints:
-    web:
-      exposure:
-        include: health,info,metrics,prometheus
-      base-path: /monitor
-```
-
-## application-security.yml
-
-```yaml
-# application-security.yml
-spring:
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          issuer-uri: https://auth.company.com
-          jwk-set-uri: https://auth.company.com/.well-known/jwks.json
-
-    # CORS配置
-    cors:
-      allowed-origins:
-        - https://*.company.com
-      allowed-methods:
-        - GET
-        - POST
-        - PUT
-        - DELETE
-      allowed-headers:
-        - Authorization
-        - Content-Type
-      exposed-headers:
-        - X-Total-Count
-      allow-credentials: true
-      max-age: 1800
-
-server:
-  ssl:
-    enabled: true
-    key-store: classpath:keystore.p12
-    key-store-password: ${SSL_KEY_STORE_PASSWORD}
-    key-store-type: PKCS12
-    key-alias: platform-collect
-  http2:
-    enabled: true
-
-collect:
-  security:
-    # JWT配置
-    jwt:
-      secret-key: ${JWT_SECRET_KEY}
-      token-validity-in-seconds: 86400
-      token-validity-in-seconds-for-remember-me: 2592000
-
-    # 密码策略
-    password:
-      min-length: 8
-      require-upper: true
-      require-lower: true
-      require-digit: true
-      require-special: true
-      history-count: 5
-
-    # IP限制
-    ip-filter:
-      enabled: true
-      whitelist:
-        - 10.0.0.0/8
-        - 172.16.0.0/12
-        - 192.168.0.0/16
-      blacklist: []
-
-    # API访问限制
-    rate-limit:
-      enabled: true
-      default-limit: 100
-      period: 60
-
-    # 敏感数据加密
-    encryption:
-      enabled: true
-      algorithm: AES
-      key: ${ENCRYPTION_KEY}
-
-    # 审计日志
-    audit:
-      enabled: true
-      log-type: db # db, file, both
-```
-
-## application-test.yml
-
-```yaml
-# application-test.yml
-server:
-  port: 8081
-
-spring:
-  data:
-    mongodb:
-      uri: mongodb://mongodb-test:27017/collect_test
-      database: collect_test
-    redis:
-      host: redis-test
-      port: 6379
-      password: test123
-      database: 0
-
-  rabbitmq:
-    host: rabbitmq-test
-    port: 5672
-    username: test
-    password: test123
-    virtual-host: /test
-
-  datasource:
-    url: jdbc:mysql://mysql-test:3306/collect_test?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
-    username: test
-    password: test123
-
-logging:
-  level:
-    com.study.collect: INFO
-  file:
-    name: logs/collect-test.log
-
-collect:
-  task:
-    retry:
-      max-attempts: 3
-      initial-interval: 2000
-  monitor:
-    metrics-interval: 60
-
-```
-
-## application-tracing.yml
-
-```yaml
-# application-tracing.yml
-spring:
-  sleuth:
-    enabled: true
-    sampler:
-      probability: 1.0
-    web:
-      client:
-        enabled: true
-    async:
-      enabled: true
-    integration:
-      enabled: true
-    scheduled:
-      enabled: true
-    messaging:
-      enabled: true
-
-  zipkin:
-    enabled: true
-    base-url: http://zipkin:9411
-    service:
-      name: ${spring.application.name}
-    sender:
-      type: rabbit  # 使用RabbitMQ发送追踪数据
-    rabbitmq:
-      queue: zipkin
-    message-timeout: 5
-
-logging:
-  pattern:
-    level: "[%X{traceId}/%X{spanId}] %-5p [%t] %C{2} - %m%n"
-
-collect:
-  trace:
-    # 采样策略
-    sampler:
-      type: adaptive  # adaptive, constant, rate-limiting
-      base-rate: 100  # 基础采样率(每秒)
-      lower-bound: 10 # 最低采样率
-      target-latency: 100  # 目标延迟(ms)
-
-    # 上下文传播
-    propagation:
-      type: B3  # B3, W3C
-      enabled-headers:
-        - x-request-id
-        - x-b3-traceid
-        - x-b3-spanid
-        - x-b3-parentspanid
-        - x-b3-sampled
-
-    # 追踪数据存储
-    storage:
-      type: elasticsearch  # elasticsearch, cassandra
-      elasticsearch:
-        hosts:
-          - elasticsearch1:9200
-          - elasticsearch2:9200
-        index-prefix: trace
+level:
+root: warn
+com.study.collect: info
+file:
+name: /var/log/collect/collect.log
 ```
 
 ## application.yml
 
 ```yaml
-# application.yml
+server:
+port: 8080
+
 spring:
-  application:
-    name: platform-collect
-  profiles:
-    active: @profile.active@ # 通过Maven Profile激活不同环境
+application:
+name: platform-collect
 
-  # 公共配置
-  main:
-    allow-bean-definition-overriding: true
-    allow-circular-references: false
-  mvc:
-    throw-exception-if-no-handler-found: true
-  web:
-    resources:
-      add-mappings: false
-  jackson:
-    date-format: yyyy-MM-dd HH:mm:ss
-    time-zone: Asia/Shanghai
-    default-property-inclusion: non_null
+# 数据源配置
+datasource:
+url: jdbc:mysql://localhost:3306/collect?useUnicode=true&characterEncoding=utf8
+username: root
+password: root
+driver-class-name: com.mysql.cj.jdbc.Driver
 
-# MyBatis通用配置
-mybatis:
-  mapper-locations: classpath:mapper/*.xml
-  type-aliases-package: com.study.collect.domain.entity
-  configuration:
-    map-underscore-to-camel-case: true
-    cache-enabled: true
-    use-generated-keys: true
-    default-executor-type: REUSE
-    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
+# Redis配置
+redis:
+host: localhost
+port: 6379
+database: 0
 
-# 采集通用配置
-collect:
-  task:
-    retry:
-      enabled: true
-    thread-pool:
-      enabled: true
-  monitor:
-    enabled: true
+# MongoDB配置
+data:
+mongodb:
+uri: mongodb://localhost:27017/collect
 
-# 监控通用配置
+# RabbitMQ配置
+rabbitmq:
+host: localhost
+port: 5672
+username: guest
+password: guest
+
+# 监控端点配置
 management:
-  endpoints:
-    web:
-      base-path: /actuator
-  metrics:
-    tags:
-      application: ${spring.application.name}
-    export:
-      prometheus:
-        enabled: true
+endpoints:
+web:
+exposure:
+include: "*"
+endpoint:
+health:
+show-details: always
 
-# 日志通用配置
+# 日志配置
 logging:
-  pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n"
-    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n"
-  logback:
-    rollingpolicy:
-      clean-history-on-start: false
-      file-name-pattern: ${LOG_FILE}.%d{yyyy-MM-dd}.%i.gz
-```
-
-## init.sql
-
-```sql
-CREATE TABLE collect_data
-(
-    id           BIGINT      NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-    device_id    VARCHAR(50) NOT NULL COMMENT '设备ID',
-    device_name  VARCHAR(100) COMMENT '设备名称',
-    temperature DOUBLE COMMENT '温度',
-    humidity DOUBLE COMMENT '湿度',
-    location     VARCHAR(200) COMMENT '位置信息',
-    collect_time DATETIME    NOT NULL COMMENT '采集时间',
-    create_time  DATETIME    NOT NULL COMMENT '创建时间',
-    PRIMARY KEY (id),
-    KEY          idx_device_time (device_id, collect_time)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='数据采集表';
-```
-
-## test.http
-
-```
-# curl -X POST "http://localhost:8082/api/test/rabbitmq?message=test_message"curl -X POST "http://localhost:8082/api/test/rabbitmq?message=test_message"
-POST http://localhost:8082/api/test/rabbitmq?message=test_message
-
-###
-
-# curl -X POST "http://localhost:8082/api/test/mongodb?name=test&description=test_description"curl -X POST "http://localhost:8082/api/test/mongodb?name=test&description=test_description"
-POST http://localhost:8082/api/test/mongodb?name=test&description=test_description
-
-###
-
-# curl -X POST "http://localhost:8082/api/test/redis?key=test_key&value=test_value"curl -X POST "http://localhost:8082/api/test/redis?key=test_key&value=test_value"
-POST http://localhost:8082/api/test/redis?key=test_key&value=test_value
-
-###
-
-# curl -X POST "http://localhost:8082/api/test/mysql?name=test&description=test_description"curl -X POST "http://localhost:8082/api/test/mysql?name=test&description=test_description"
-POST http://localhost:8082/api/test/mysql?name=test&description=test_description
-
-###
-
-
-```
-
-## test.sql
-
-```sql
-CREATE TABLE test_table
-(
-    id          BIGINT AUTO_INCREMENT PRIMARY KEY,
-    name        VARCHAR(100) NOT NULL,
-    description TEXT,
-    create_time DATETIME     NOT NULL,
-    update_time DATETIME     NOT NULL,
-    INDEX       idx_create_time (create_time)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='测试表';
-```
-
-## testTree.http
-
-```
-# curl http://localhost:8082/api/test/tree/nodes
-GET http://localhost:8082/api/test/tree/nodes
-
-###
-# curl -X POST http://localhost:8082/api/tree/collect
-#-H "Content-Type: application/json"
-#-d '{
-#    "url": "http://localhost:8082/api/test/tree/nodes",
-#    "method": "GET"
-#}'
-POST http://localhost:8082/api/tree/collect
-Content-Type: application/json
-
-{
-  "url": "http://localhost:8082/api/test/tree/nodes",
-  "method": "GET"
-}
-
-###
-# curl http://localhost:8082/api/tree/result/{taskId}
-GET http://localhost:8082/api/tree/result/67561c9620a20e5161c8bc65
-
-
-
-
-
-#    1. 先调用测试API获取树状数据：
-#```bash
-#curl http://localhost:8082/api/test/tree/nodes
-#```
-#
-#2. 创建采集任务：
-#```bash
-#curl -X POST http://localhost:8082/api/tree/collect \
-#-H "Content-Type: application/json" \
-#-d '{
-#    "url": "http://localhost:8082/api/test/tree/nodes",
-#    "method": "GET"
-#}'
-#```
-```
-
-## tree.http
-
-```
-# curl -X POST http://localhost:8082/api/tree/collect
-#-H "Content-Type: application/json"
-#-d '{
-#    "url": "http://example.com/api/tree-data",
-#    "method": "GET",
-#    "headers": {
-#        "Authorization": "Bearer token123"
-#    }
-#}'
-POST http://localhost:8082/api/tree/collect
-Content-Type: application/json
-
-{
-  "url": "http://example.com/api/tree-data",
-  "method": "GET",
-  "headers": {
-    "Authorization": "Bearer token123"
-  }
-}
-
-###
-
-
-
-# curl http://localhost:8082/api/tree/result/{taskId}
-GET http://localhost:8082/api/tree/result/{taskId}
-
-# curl -X POST "http://localhost:8082/api/tree/collect?projectId=project001"
-POST http://localhost:8082/api/tree/collect?projectId=project001
-
-
-
-
-
-
-
-
-
-## 创建采集任务
-#curl -X POST http://localhost:8082/api/tree/collect \
-#-H "Content-Type: application/json" \
-#-d '{
-#    "url": "http://example.com/api/tree-data",
-#    "method": "GET",
-#    "headers": {
-#        "Authorization": "Bearer token123"
-#    }
-#}'
-
-###
-#
-#1. 通过API手动触发：
-#```bash
-## 创建采集任务
-####
-#
-## curl -X POST "http://localhost:8082/api/tree/collect?projectId=project001
-#POST http://localhost:8082/api/tree/collect?projectId=project001
-#
-####
-#
-#"
-#
-## 查看任务结果
-#curl http://localhost:8082/api/tree/result/{taskId}
-#
-#```
-#
-#2. 通过调度器自动执行：
-#```java
-#// 创建调度任务
-#JobDetail job = JobBuilder.newJob(TreeCollectJob.class)
-#    .withIdentity("treeCollect", "defaultGroup")
-#    .usingJobData("projectId", "project001")
-#    .build();
-#
-#Trigger trigger = TriggerBuilder.newTrigger()
-#    .withSchedule(CronScheduleBuilder.cronSchedule("0 0 1 * * ?"))
-#    .build();
-#
-#scheduler.scheduleJob(job, trigger);
-#```
-#
-#
-#
-
-
-# curl http://localhost:8082/api/tree/nodes/project001curl http://localhost:8082/api/tree/nodes/project001
-GET http://localhost:8082/api/tree/nodes/project001
-
-###
-
-# curl -X POST http://localhost:8082/api/tree/collect/project001curl -X POST http://localhost:8082/api/tree/collect/project001
-POST http://localhost:8082/api/tree/collect/project001
-
-###
-
-#1. 启动应用后，调用接口创建一个采集任务：
-#```bash
-#curl -X POST http://localhost:8082/api/tree/collect/project001
-#```
-#
-#2. 查看采集的树状结构：
-#```bash
-#curl http://localhost:8082/api/tree/nodes/project001
-#```
-
-
-
-
-```
-
-## TreeHttp.http
-
-```
-### Test Tree Data Requests
-# 获取测试树数据
-GET http://localhost:8082/api/test/tree/nodes
-
-### Tree Collection Requests
-### 创建树结构采集任务
-POST http://localhost:8082/api/tree/collect
-Content-Type: application/json
-
-{
-  "url": "http://localhost:8082/api/test/tree/nodes",
-  "method": "GET",
-  "headers": {
-    "Authorization": "Bearer your-token"
-  }
-}
-
-### 查看采集任务结果
-GET http://localhost:8082/api/tree/result/{{taskId}}
-
-### Tree Node Query Requests
-# 获取项目树结构
-GET http://localhost:8082/api/tree/query/project/test-project
-
-# 获取指定节点的子树
-GET http://localhost:8082/api/tree/query/node/p/test-project/root1
-
-# 按类型查询节点
-GET http://localhost:8082/api/tree/query/type/test-project/TEST_CASE
-
-# 查询直接子节点
-GET http://localhost:8082/api/tree/query/children/p/test-project/root1/baseline/cases
-
-### Tree Operation Requests
-# 获取项目节点
-GET http://localhost:8082/api/tree/nodes/test-project
-
-# 启动项目采集
-POST http://localhost:8082/api/tree/collect/test-project
-
-### Usage Examples:
-# 完整的采集流程示例:
-# 1. 先获取测试数据
-GET http://localhost:8082/api/test/tree/nodes
-
-### 2. 创建采集任务
-POST http://localhost:8082/api/tree/collect
-Content-Type: application/json
-
-{
-  "url": "http://localhost:8082/api/test/tree/nodes",
-  "method": "GET"
-}
-
-### 3. 查询采集结果
-GET http://localhost:8082/api/tree/result/675622fe1220e3449e70a20d
-
-### 4.手动执行项目采集
-POST http://localhost:8082/api/tree/collect/675623111220e3449e70a20e/execute
-
-### Advanced Queries
-### 1. 获取完整项目树
-GET http://localhost:8082/api/tree/query/project/test-project
-
-### 2. 查看特定节点的子树
-GET http://localhost:8082/api/tree/query/node/p/test-project/root1
-
-### 3. 查找特定类型的节点
-GET http://localhost:8082/api/tree/query/type/test-project/TEST_CASE
-
-### 4. 获取直接子节点
-GET http://localhost:8082/api/tree/query/children/p/test-project/root1/baseline/cases
-
-### Data Storage Info:
-##Database: MongoDB
-##Collection: tree_nodes
-```
-
-## treequery.http
-
-```
-# curl http://localhost:8082/api/tree/query/project/test-project
-GET http://localhost:8082/api/tree/query/project/test-project
-
-###
-
-# curl http://localhost:8082/api/tree/query/node/p/test-project/root1
-GET http://localhost:8082/api/tree/query/node/p/test-project/root1
-
-###
-
-# curl http://localhost:8082/api/tree/query/type/test-project/TEST_CASE
-GET http://localhost:8082/api/tree/query/type/test-project/TEST_CASE
-
-###
-# curl http://localhost:8082/api/tree/query/children/p/test-project/root1/baseline/cases
-GET http://localhost:8082/api/tree/query/children/p/test-project/root1/baseline/cases
-
-###
-
-
-#
-#
-#
-#    使用方式：
-#
-#1. 查询完整项目树：
-#```bash
-#curl http://localhost:8082/api/tree/query/project/test-project
-#```
-#
-#2. 查询特定节点子树：
-#```bash
-#curl http://localhost:8082/api/tree/query/node/p/test-project/root1
-#```
-#
-#3. 查询特定类型节点：
-#```bash
-#curl http://localhost:8082/api/tree/query/type/test-project/TEST_CASE
-#```
-#
-#4. 查询直接子节点：
-#```bash
-#curl http://localhost:8082/api/tree/query/children/p/test-project/root1/baseline/cases
-#```
-#
-#存储位置：
-#- 数据库：MongoDB
-#- 集合名：tree_nodes
-#- 连接配置：在 application.yml 中配置
-#
-#可以使用MongoDB命令行工具直接查看：
-#```javascript
-#// 连接到MongoDB
-#mongo mongodb://root:123456@192.168.80.137:27017/collect
-#
-#// 查看所有节点
-#db.tree_nodes.find()
-#
-#// 查看特定项目的节点
-#db.tree_nodes.find({"projectId": "test-project"})
-#
-#// 查看特定类型的节点
-#db.tree_nodes.find({"type": "TEST_CASE"})
-#
-#// 按路径查询
-#db.tree_nodes.find({"path": /^\/p\/test-project\/root1/})
-#```
-#
-#这样就可以通过API或直接操作MongoDB来查询树结构数据了。需要更详细的解释吗？
+level:
+com.study.collect: info
+file:
+name: logs/collect.log
 ```
 

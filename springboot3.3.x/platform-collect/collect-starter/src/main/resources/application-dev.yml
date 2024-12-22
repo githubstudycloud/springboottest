@@ -1,0 +1,21 @@
+spring:
+# 开发环境数据源
+datasource:
+url: jdbc:mysql://localhost:3306/collect_dev?useUnicode=true&characterEncoding=utf8
+username: dev
+password: dev123
+
+# 开发环境Redis
+redis:
+host: localhost
+port: 6379
+database: 1
+
+# 开发环境MongoDB
+data:
+mongodb:
+uri: mongodb://localhost:27017/collect_dev
+
+logging:
+level:
+com.study.collect: debug
