@@ -1,0 +1,45 @@
+Sub SetDropDownList()
+    Dim ws1 As Worksheet
+    Dim ws2 As Worksheet
+    Dim lastRow1 As Long
+    Dim lastRow2 As Long
+    Dim rngValidation As Range
+    Dim rngSource As Range
+    
+    '设置工作表引用
+    Set ws1 = ThisWorkbook.Sheets("Sheet1")
+    Set ws2 = ThisWorkbook.Sheets("Sheet2")
+    
+    '获取Sheet1中B列的最后一行
+    lastRow1 = ws1.Cells(ws1.Rows.Count, "B").End(xlUp).Row
+    
+    '获取Sheet2中A列的最后一行（不为空的值）
+    lastRow2 = ws2.Cells(ws2.Rows.Count, "A").End(xlUp).Row
+    
+    '设置要添加数据验证的范围（B列从第2行开始）
+    Set rngValidation = ws1.Range("B2:B" & lastRow1)
+    
+    '设置数据验证的来源范围（Sheet2的A列从第2行到最后一个非空单元格）
+    Set rngSource = ws2.Range("A2:A" & lastRow2)
+    
+    '清除现有的数据验证
+    rngValidation.Validation.Delete
+    
+    '添加新的数据验证（下拉列表）
+    With rngValidation.Validation
+        .Add Type:=xlValidateList, _
+             AlertStyle:=xlValidAlertStop, _
+             Operator:=xlBetween, _
+             Formula1:="='" & ws2.Name & "'!$A$2:$A$" & lastRow2
+        
+        '设置错误提示
+        .ErrorTitle = "选择错误"
+        .ErrorMessage = "请从下拉列表中选择一个有效的值。"
+        .ShowError = True
+        
+        '设置输入提示
+        .InputTitle = "选择提示"
+        .InputMessage = "请从下拉列表中选择一个值"
+        .ShowInput = True
+    End With
+End Sub
