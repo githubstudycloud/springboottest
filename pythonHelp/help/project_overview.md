@@ -83,7 +83,7 @@ platform-collect/
                                             ImageProcessor.java
                                             PrivacyProcessor.java
                                         repository/
-                                            FinanceRepository.java
+                                            medicalRepository.java
                                         service/
                                             MedicalService.java
                     resources/
@@ -119,19 +119,85 @@ platform-collect/
                                         Collector.java
                                         Processor.java
                                         Repository.java
+                                    cache/
+                                        CacheMetrics.java
+                                        annotation/
+                                            Cache.java
+                                            CacheEvict.java
+                                            CacheLock.java
+                                        config/
+                                            RedisConfig.java
+                                        handler/
+                                            CacheAspect.java
+                                            LockAspect.java
+                                        lock/
+                                            DistributedLock.java
+                                            RedisLock.java
+                                        manager/
+                                            CacheManager.java
+                                            RedisCacheManager.java
                                     collector/
                                         AbstractCollector.java
                                         ICollector.java
                                     config/
                                         CollectAutoConfiguration.java
+                                        MongoRepositoryConfig.java
                                         RabbitConfiguration.java
                                         RedisConfiguration.java
                                     constant/
+                                    mq/
+                                        config/
+                                            RabbitConfig.java
+                                        consumer/
+                                            ResultConsumer.java
+                                            TaskConsumer.java
+                                        message/
+                                            ResultMessage.java
+                                            TaskMessage.java
+                                        producer/
+                                            ResultProducer.java
+                                            TaskProducer.java
                                     processor/
                                         AbstractProcessor.java
                                         IProcessor.java
-                                    repository/
-                                        IRepository.java
+                                    storage/
+                                        audit/
+                                            AuditMetadata.java
+                                            EntityAuditor.java
+                                        config/
+                                            MongoConfig.java
+                                        constant/
+                                            MongoConstants.java
+                                        entity/
+                                            BaseEntity.java
+                                            VersionEntity.java
+                                        event/
+                                            DefaultEntityEventHandler.java
+                                            EntityEvent.java
+                                            EntityEventListener.java
+                                            impl/
+                                                EntityEvents.java
+                                        repository/
+                                            BaseMongoRepository.java
+                                            IRepository.java
+                                            VersionRepository.java
+                                            factory/
+                                                CustomMongoRepositoryFactory.java
+                                                CustomMongoRepositoryFactoryBean.java
+                                    task/
+                                        CollectTask.java
+                                        TaskResult.java
+                                        TaskResultHandler.java
+                                        TaskStatus.java
+                                        executor/
+                                            ParallelExecutor.java
+                                            TaskExecutor.java
+                                        scheduler/
+                                            DefaultScheduler.java
+                                            TaskScheduler.java
+                                        splitter/
+                                            DefaultTaskSplitter.java
+                                            TaskSplitter.java
                                     util/
     collect-starter/
         pom.xml
@@ -456,27 +522,60 @@ platform-collect/
 package com.study.collect.business.enterprise.collector;
 
 import com.study.collect.business.enterprise.model.Enterprise;
-import com.study.collect.business.enterprise.repository.EnterpriseRepository;
 import com.study.collect.core.annotation.Collector;
-import com.study.collect.core.collector.ICollector;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
+import com.study.collect.core.cache.annotation.Cache;
+import com.study.collect.core.cache.annotation.CacheLock;
+import com.study.collect.core.collector.AbstractCollector;
 
+//@Collector(type = "enterprise")
+//@Component
+//@RequiredArgsConstructor
+//public class EnterpriseCollector implements ICollector<String, Enterprise> {
+//
+//    private final EnterpriseRepository repository;
+//
+//    @Override
+//    public Enterprise collect(String code) {
+//        return repository.findByCode(code);
+//    }
+//
+//    @Override
+//    public String getType() {
+//        return "enterprise";
+//    }
+//}
+
+
+
+// 2. Collector - 增加缓存和分布式锁
 @Collector(type = "enterprise")
-@Component
-@RequiredArgsConstructor
-public class EnterpriseCollector implements ICollector<String, Enterprise> {
+public class EnterpriseCollector extends AbstractCollector<String, Enterprise> {
 
-    private final EnterpriseRepository repository;
+//    @Cache(key = "enterprise:#{#code}")  // 缓存注解
+//    @CacheLock(key = "lock:enterprise:#{#code}")  // 分布式锁注解
+//    public Enterprise collect(String code) {
+//        // 采集逻辑
+//        return doCollect(code);
+//    }
 
+    @Cache(key = "enterprise:#{#code}")
+    @CacheLock(key = "lock:enterprise:#{#code}")
     @Override
+//    protected Enterprise doCollect(String code) {
     public Enterprise collect(String code) {
-        return repository.findByCode(code);
+        // 1. 调用外部接口采集数据
+        Enterprise data = collectFromApi(code);
+        // 2. 设置版本号
+        data.setVersion(generateVersion());
+        return data;
     }
 
-    @Override
-    public String getType() {
-        return "enterprise";
+    private String generateVersion() {
+        return "1.0";
+    }
+
+    private Enterprise collectFromApi(String code) {
+        return new Enterprise();
     }
 }
 
@@ -507,6 +606,8 @@ import com.study.collect.common.model.Response;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/enterprise")
 @RequiredArgsConstructor
@@ -519,7 +620,20 @@ public class EnterpriseController {
         Enterprise enterprise = enterpriseService.collectAndProcess(code);
         return Response.success(enterprise);
     }
+    @GetMapping("/full")
+    public Response<List<Enterprise>> getFullData() {
+        return Response.success(enterpriseService.getFullData());
+    }
+
+    @GetMapping("/increment")
+    public Response<List<Enterprise>> getIncrementalData(
+            @RequestParam String version) {
+        return Response.success(enterpriseService.getIncrementalData(version));
+    }
 }
+
+
+// 1. Controller - 增加全量/增量接口
 ```
 
 ## Enterprise.java
@@ -544,6 +658,7 @@ public class Enterprise {
     private String phone;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
+    private String version;
 }
 ```
 
@@ -606,11 +721,21 @@ public class EnterpriseProcessor extends AbstractProcessor<Enterprise> {
 package com.study.collect.business.enterprise.repository;
 
 import com.study.collect.business.enterprise.model.Enterprise;
-import com.study.collect.core.repository.IRepository;
+import com.study.collect.core.storage.repository.IRepository;
 import org.springframework.data.mongodb.repository.MongoRepository;
+import org.springframework.data.mongodb.repository.Query;
+
+import java.util.List;
 
 public interface EnterpriseRepository extends IRepository<Enterprise, String>, MongoRepository<Enterprise, String> {
     Enterprise findByCode(String code);
+
+    // 继承基础的版本方法
+    List<Enterprise> findByVersion(String version);
+
+    @Query("")
+        // MongoDB查询
+    List<Enterprise> findIncrementalData(String version);
 }
 
 ```
@@ -624,8 +749,13 @@ import com.study.collect.business.enterprise.collector.EnterpriseCollector;
 import com.study.collect.business.enterprise.model.Enterprise;
 import com.study.collect.business.enterprise.processor.EnterpriseProcessor;
 import com.study.collect.business.enterprise.repository.EnterpriseRepository;
+import com.study.collect.core.mq.producer.TaskProducer;
 import lombok.RequiredArgsConstructor;
+import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -647,6 +777,44 @@ public class EnterpriseService {
 
         // 3. 保存数据
         return repository.save(enterprise);
+    }
+
+    @Autowired
+    private TaskProducer taskProducer;
+
+    // 大批量数据采集
+    public void batchCollect(List<String> codes) {
+        // 创建采集任务
+        CollectTask task = CollectTask.builder()
+                .type("enterprise")
+                .params(codes)
+                .build();
+
+        // 发送到消息队列
+        taskProducer.sendTask(task);
+    }
+
+    // 结果处理
+    @RabbitListener(queues = "#{taskResultQueue.name}")
+    public void handleResult(TaskResult result) {
+        // 处理采集结果
+    }
+
+    // 单条采集
+    public Enterprise collect(String code) {
+        return collector.collect(code);
+    }
+
+    // 批量采集
+    public void batchCollect(List<String> codes) {
+        CollectTask task = new CollectTask("enterprise", codes);
+        taskProducer.sendTask(task);
+    }
+
+    // 采集结果处理
+    @RabbitListener(queues = "#{taskResultQueue.name}")
+    public void handleResult(TaskResult result) {
+        // 处理采集结果
     }
 }
 
@@ -847,11 +1015,14 @@ import java.time.LocalDateTime;
 public class FinanceData {
     @Id
     private String id;
+    private String code;
     private String stockCode;
     private String stockName;
     private BigDecimal price;
     private BigDecimal volume;
     private BigDecimal amount;
+    private String status;
+    private Boolean deleted;
     private LocalDateTime tradeTime;
     private LocalDateTime createTime;
 }
@@ -933,13 +1104,25 @@ package com.study.collect.business.finance.repository;
 
 
 import com.study.collect.business.finance.model.FinanceData;
-import com.study.collect.core.repository.IRepository;
-import org.springframework.data.mongodb.repository.MongoRepository;
+import com.study.collect.core.storage.repository.IRepository;
+import org.springframework.data.mongodb.repository.Query;
 
-public interface FinanceRepository extends IRepository<FinanceData, String>, MongoRepository<FinanceData, String> {
-    FinanceData findByCode(String code);
+import java.math.BigDecimal;
+import java.util.List;
+
+public interface FinanceRepository extends IRepository<FinanceData, String> {
+
+    // 方式一：方法名约定
+    List<FinanceData> findByStockCode(String stockCode);
+
+    // 方式二：使用@Query注解
+    @Query("{'tradeDate': {$gte: ?0, $lte: ?1}}")
+    List<FinanceData> findByTradeDateBetween(String startDate, String endDate);
+
+    // 添加特定业务方法
+    @Query(value = "{'amount': {$gt: ?0}}", sort = "{'tradeDate': -1}")
+    List<FinanceData> findLargeTransactions(BigDecimal threshold);
 }
-
 ```
 
 ## FinanceService.java
@@ -954,13 +1137,16 @@ import com.study.collect.business.finance.repository.FinanceRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class FinanceService {
 
     private final FinanceCollector collector;
     private final FinanceProcessor processor;
-    private final FinanceRepository repository;
+
+    private final FinanceRepository financeRepository;
 
     public FinanceData collectStockData(String stockCode) {
         // 1. 采集数据
@@ -970,7 +1156,33 @@ public class FinanceService {
         data = processor.process(data);
 
         // 3. 保存数据
-        return repository.save(data);
+        return financeRepository.save(data);
+    }
+
+
+    // 使用基础功能
+    public FinanceData save(FinanceData data) {
+        return financeRepository.save(data);
+    }
+
+    // 使用通用方法
+    public FinanceData getByCode(String code) {
+        return financeRepository.findByCode(code);
+    }
+
+    // 使用业务方法
+    public List<FinanceData> getByStockCode(String stockCode) {
+        return financeRepository.findByStockCode(stockCode);
+    }
+
+    // 软删除
+    public void removeData(String id) {
+        financeRepository.softDelete(id);
+    }
+
+    // 状态更新
+    public void changeStatus(String id, String status) {
+        financeRepository.updateStatus(id, status);
     }
 }
 ```
@@ -1296,15 +1508,14 @@ public class PrivacyProcessor {
 
 ```
 
-## FinanceRepository.java
+## medicalRepository.java
 
 ```java
 package com.study.business.medical.repository;
 
 
 import com.study.business.medical.model.MedicalData;
-import com.study.collect.business.finance.model.FinanceData;
-import com.study.collect.core.repository.IRepository;
+import com.study.collect.core.storage.repository.IRepository;
 import org.springframework.data.mongodb.repository.MongoRepository;
 
 public interface medicalRepository extends IRepository<MedicalData, String>, MongoRepository<MedicalData, String> {
@@ -1612,6 +1823,10 @@ public class JsonUtils {
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+        </dependency>
     </dependencies>
 </project>
 ```
@@ -1697,6 +1912,511 @@ public @interface Repository {
 }
 ```
 
+## CacheMetrics.java
+
+```java
+package com.study.collect.core.cache;
+
+import com.study.collect.core.cache.manager.CacheManager;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Metrics;
+import jakarta.annotation.PostConstruct;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
+
+@Component
+@RequiredArgsConstructor
+public class CacheMetrics {
+
+    private final CacheManager cacheManager;
+    private Counter cacheHits;
+    private Counter cacheMisses;
+    private Counter cacheEvictions;
+
+    @PostConstruct
+    public void init() {
+        // 注册Prometheus指标
+        cacheHits = Counter.builder("cache_hits_total")
+                .description("Cache hits total")
+                .register(Metrics.globalRegistry);
+
+        cacheMisses = Counter.builder("cache_misses_total")
+                .description("Cache misses total")
+                .register(Metrics.globalRegistry);
+
+        cacheEvictions = Counter.builder("cache_evictions_total")
+                .description("Cache evictions total")
+                .register(Metrics.globalRegistry);
+    }
+
+    public void recordCacheHit() {
+        cacheHits.increment();
+    }
+
+    public void recordCacheMiss() {
+        cacheMisses.increment();
+    }
+
+    public void recordCacheEviction() {
+        cacheEvictions.increment();
+    }
+}
+```
+
+## Cache.java
+
+```java
+package com.study.collect.core.cache.annotation;
+
+import java.lang.annotation.*;
+import java.util.concurrent.TimeUnit;
+
+// 1. Cache注解
+@Target({ElementType.METHOD})
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+public @interface Cache {
+    String key() default "";       // 缓存key
+    String prefix() default "";    // 前缀
+    long expire() default 3600L;   // 过期时间
+    TimeUnit timeUnit() default TimeUnit.SECONDS;  // 时间单位
+}
+```
+
+## CacheEvict.java
+
+```java
+package com.study.collect.core.cache.annotation;
+
+import java.lang.annotation.*;
+
+// 1. CacheEvict注解
+@Target({ElementType.METHOD})
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+public @interface CacheEvict {
+    String key() default "";       // 缓存key
+    String prefix() default "";    // 前缀
+    boolean allEntries() default false;  // 是否清除所有
+    boolean beforeInvocation() default false; // 是否在方法执行前清除
+}
+
+```
+
+## CacheLock.java
+
+```java
+package com.study.collect.core.cache.annotation;
+
+import java.lang.annotation.*;
+import java.util.concurrent.TimeUnit;
+
+// 2. CacheLock注解
+@Target({ElementType.METHOD})
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+public @interface CacheLock {
+    String key();                 // 锁key
+    String prefix() default "";   // 前缀
+    long waitTime() default 3L;   // 等待时间
+    long leaseTime() default 10L; // 租约时间
+    TimeUnit timeUnit() default TimeUnit.SECONDS;  // 时间单位
+}
+
+```
+
+## RedisConfig.java
+
+```java
+package com.study.collect.core.cache.config;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.study.collect.core.cache.lock.DistributedLock;
+import com.study.collect.core.cache.lock.RedisLock;
+import com.study.collect.core.cache.manager.CacheManager;
+import com.study.collect.core.cache.manager.RedisCacheManager;
+import org.springframework.cache.annotation.EnableCaching;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
+import org.springframework.data.redis.serializer.StringRedisSerializer;
+
+@Configuration
+@EnableCaching
+public class RedisConfig {
+
+    @Bean
+    public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory factory) {
+        RedisTemplate<String, Object> template = new RedisTemplate<>();
+        template.setConnectionFactory(factory);
+
+        // 设置key/value序列化方式
+        template.setKeySerializer(new StringRedisSerializer());
+        template.setValueSerializer(new GenericJackson2JsonRedisSerializer());
+        template.setHashKeySerializer(new StringRedisSerializer());
+        template.setHashValueSerializer(new GenericJackson2JsonRedisSerializer());
+
+        template.afterPropertiesSet();
+        return template;
+    }
+
+    @Bean
+    public CacheManager cacheManager(RedisTemplate<String, Object> redisTemplate) {
+        return new RedisCacheManager(redisTemplate, objectMapper());
+    }
+
+    @Bean
+    public DistributedLock distributedLock(RedisTemplate<String, Object> redisTemplate) {
+        return new RedisLock(redisTemplate);
+    }
+
+    @Bean
+    public ObjectMapper objectMapper() {
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new JavaTimeModule());
+        mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        return mapper;
+    }
+}
+```
+
+## CacheAspect.java
+
+```java
+package com.study.collect.core.cache.handler;
+
+import com.study.collect.core.cache.annotation.Cache;
+import com.study.collect.core.cache.annotation.CacheEvict;
+import com.study.collect.core.cache.manager.CacheManager;
+import lombok.RequiredArgsConstructor;
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.annotation.Around;
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.reflect.MethodSignature;
+import org.springframework.expression.EvaluationContext;
+import org.springframework.expression.spel.standard.SpelExpressionParser;
+import org.springframework.expression.spel.support.StandardEvaluationContext;
+import org.springframework.stereotype.Component;
+import org.apache.commons.lang3.StringUtils;
+
+// 1. 缓存切面
+@Aspect
+@Component
+@RequiredArgsConstructor
+public class CacheAspect {
+
+    private final CacheManager cacheManager;
+    private final SpelExpressionParser parser = new SpelExpressionParser();
+
+    @Around("@annotation(cache)")
+    public Object doCache(ProceedingJoinPoint point, Cache cache) throws Throwable {
+        // 1. 解析缓存key
+        String key = parseKey(cache.prefix(), cache.key(), point);
+
+        // 2. 尝试获取缓存
+        Class<?> returnType = ((MethodSignature)point.getSignature()).getReturnType();
+        Object value = cacheManager.get(key, returnType);
+        if (value != null) {
+            return value;
+        }
+
+        // 3. 执行方法
+        value = point.proceed();
+
+        // 4. 设置缓存
+        if (value != null) {
+            cacheManager.set(key, value, cache.expire(), cache.timeUnit());
+        }
+
+        return value;
+    }
+
+    @Around("@annotation(cacheEvict)")
+    public Object doEvict(ProceedingJoinPoint point, CacheEvict cacheEvict) throws Throwable {
+        // 是否在方法执行前清除缓存
+        if (cacheEvict.beforeInvocation()) {
+            evictCache(cacheEvict, point);
+            return point.proceed();
+        }
+
+        try {
+            Object result = point.proceed();
+            evictCache(cacheEvict, point);
+            return result;
+        } catch (Throwable e) {
+            if (cacheEvict.beforeInvocation()) {
+                evictCache(cacheEvict, point);
+            }
+            throw e;
+        }
+    }
+
+    private void evictCache(CacheEvict cacheEvict, ProceedingJoinPoint point) {
+        if (cacheEvict.allEntries()) {
+            // 清除前缀下所有缓存
+            cacheManager.deleteByPrefix(cacheEvict.prefix());
+        } else {
+            // 清除指定key的缓存
+            String key = parseKey(cacheEvict.prefix(), cacheEvict.key(), point);
+            cacheManager.delete(key);
+        }
+    }
+
+    private String parseKey(String prefix, String key, ProceedingJoinPoint point) {
+        // SpEL解析key表达式
+        if (StringUtils.isEmpty(key)) {
+            return prefix;
+        }
+
+        EvaluationContext context = new StandardEvaluationContext();
+        MethodSignature signature = (MethodSignature) point.getSignature();
+        String[] paramNames = signature.getParameterNames();
+        Object[] args = point.getArgs();
+
+        for (int i = 0; i < paramNames.length; i++) {
+            context.setVariable(paramNames[i], args[i]);
+        }
+
+        String parsedKey = parser.parseExpression(key).getValue(context, String.class);
+        return StringUtils.isEmpty(prefix) ? parsedKey : prefix + ":" + parsedKey;
+    }
+}
+```
+
+## LockAspect.java
+
+```java
+package com.study.collect.core.cache.handler;
+
+import com.study.collect.core.cache.annotation.CacheLock;
+import com.study.collect.core.cache.lock.DistributedLock;
+import lombok.RequiredArgsConstructor;
+import org.apache.commons.lang3.StringUtils;
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.annotation.Around;
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.reflect.MethodSignature;
+import org.springframework.expression.EvaluationContext;
+import org.springframework.expression.spel.standard.SpelExpressionParser;
+import org.springframework.expression.spel.support.StandardEvaluationContext;
+import org.springframework.stereotype.Component;
+
+// 2. 分布式锁切面
+@Aspect
+@Component
+@RequiredArgsConstructor
+public class LockAspect {
+
+    private final DistributedLock lock;
+    private final SpelExpressionParser parser = new SpelExpressionParser();
+
+    @Around("@annotation(cacheLock)")
+    public Object doLock(ProceedingJoinPoint point, CacheLock cacheLock) throws Throwable {
+        String key = parseKey(cacheLock.prefix(), cacheLock.key(), point);
+
+        try {
+            boolean isLocked = lock.tryLock(key,
+                    cacheLock.waitTime(),
+                    cacheLock.leaseTime(),
+                    cacheLock.timeUnit());
+
+            if (!isLocked) {
+//                throw new LockException("Get lock failed: " + key);
+                throw new RuntimeException("Get lock failed: " + key);
+            }
+
+            return point.proceed();
+        } finally {
+            lock.unlock(key);
+        }
+    }
+
+    private String parseKey(String prefix, String key, ProceedingJoinPoint point) {
+        // 同CacheAspect中的解析逻辑
+        // SpEL解析key表达式
+        if (StringUtils.isEmpty(key)) {
+            return prefix;
+        }
+
+        EvaluationContext context = new StandardEvaluationContext();
+        MethodSignature signature = (MethodSignature) point.getSignature();
+        String[] paramNames = signature.getParameterNames();
+        Object[] args = point.getArgs();
+
+        for (int i = 0; i < paramNames.length; i++) {
+            context.setVariable(paramNames[i], args[i]);
+        }
+
+        String parsedKey = parser.parseExpression(key).getValue(context, String.class);
+        return StringUtils.isEmpty(prefix) ? parsedKey : prefix + ":" + parsedKey;
+    }
+}
+```
+
+## DistributedLock.java
+
+```java
+package com.study.collect.core.cache.lock;
+
+import java.util.concurrent.TimeUnit;
+
+// 4. DistributedLock接口
+public interface DistributedLock {
+    /**
+     * 获取锁
+     */
+    boolean tryLock(String key, long waitTime, long leaseTime, TimeUnit unit);
+
+    /**
+     * 释放锁
+     */
+    void unlock(String key);
+}
+```
+
+## RedisLock.java
+
+```java
+package com.study.collect.core.cache.lock;
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.stereotype.Component;
+
+import java.util.concurrent.TimeUnit;
+
+// 2. Redis分布式锁实现
+@Component
+@RequiredArgsConstructor
+public class RedisLock implements DistributedLock {
+
+    private final RedisTemplate<String, Object> redisTemplate;
+
+    @Override
+    public boolean tryLock(String key, long waitTime, long leaseTime, TimeUnit unit) {
+        try {
+            long startTime = System.currentTimeMillis();
+            long waitMillis = unit.toMillis(waitTime);
+
+            while (System.currentTimeMillis() - startTime < waitMillis) {
+                Boolean success = redisTemplate.opsForValue()
+                        .setIfAbsent(key, Thread.currentThread().getId(), leaseTime, unit);
+
+                if (Boolean.TRUE.equals(success)) {
+                    return true;
+                }
+
+                Thread.sleep(100);
+            }
+            return false;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
+    }
+
+    @Override
+    public void unlock(String key) {
+        Long threadId = (Long) redisTemplate.opsForValue().get(key);
+        if (threadId != null && threadId.equals(Thread.currentThread().getId())) {
+            redisTemplate.delete(key);
+        }
+    }
+}
+
+```
+
+## CacheManager.java
+
+```java
+package com.study.collect.core.cache.manager;
+
+import java.util.concurrent.TimeUnit;
+
+// 3. CacheManager接口
+public interface CacheManager {
+    /**
+     * 设置缓存
+     */
+    <T> void set(String key, T value, long expire, TimeUnit timeUnit);
+
+    /**
+     * 获取缓存
+     */
+    <T> T get(String key, Class<T> type);
+
+    /**
+     * 删除缓存
+     */
+    void delete(String key);
+
+    /**
+     * 清除前缀
+     */
+    void deleteByPrefix(String prefix);
+}
+```
+
+## RedisCacheManager.java
+
+```java
+package com.study.collect.core.cache.manager;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.stereotype.Component;
+
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
+
+// 1. Redis缓存管理实现
+@Component
+@RequiredArgsConstructor
+public class RedisCacheManager implements CacheManager {
+
+    private final RedisTemplate<String, Object> redisTemplate;
+    private final ObjectMapper objectMapper;
+
+    @Override
+    public <T> void set(String key, T value, long expire, TimeUnit timeUnit) {
+        redisTemplate.opsForValue().set(key, value, expire, timeUnit);
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public <T> T get(String key, Class<T> type) {
+        Object value = redisTemplate.opsForValue().get(key);
+        if (value == null) {
+            return null;
+        }
+
+        if (type.isInstance(value)) {
+            return (T) value;
+        }
+
+        return objectMapper.convertValue(value, type);
+    }
+
+    @Override
+    public void delete(String key) {
+        redisTemplate.delete(key);
+    }
+
+    @Override
+    public void deleteByPrefix(String prefix) {
+        Set<String> keys = redisTemplate.keys(prefix + "*");
+        if (keys != null && !keys.isEmpty()) {
+            redisTemplate.delete(keys);
+        }
+    }
+}
+```
+
 ## AbstractCollector.java
 
 ```java
@@ -1723,7 +2443,8 @@ public abstract class AbstractCollector<T, R> implements ICollector<T, R> {
             return result;
         } catch (Exception e) {
             log.error("Collect failed", e);
-            throw new CollectException("Collect failed: " + e.getMessage());
+//            throw new CollectException("Collect failed: " + e.getMessage());
+            throw new RuntimeException("Collect failed: " + e.getMessage());
         }
     }
 
@@ -1753,10 +2474,16 @@ public abstract class AbstractCollector<T, R> implements ICollector<T, R> {
 ```java
 package com.study.collect.core.collector;
 
+import com.study.collect.core.cache.annotation.Cache;
+import com.study.collect.core.cache.annotation.CacheLock;
+
 public interface ICollector<T, R> {
     /**
      * 执行采集
      */
+    // 采集数据
+    @Cache(prefix = "collect")              // 缓存支持
+    @CacheLock(prefix = "collect_lock")     // 分布式锁
     R collect(T param);
 
     /**
@@ -1781,6 +2508,28 @@ import org.springframework.context.annotation.Import;
 @Import({RedisConfiguration.class, RabbitConfiguration.class})
 public class CollectAutoConfiguration {
 // 核心配置
+}
+```
+
+## MongoRepositoryConfig.java
+
+```java
+package com.study.collect.core.config;
+
+import com.study.collect.core.storage.repository.factory.CustomMongoRepositoryFactoryBean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.data.mongodb.repository.config.EnableMongoRepositories;
+
+/**
+ * MongoRepository配置
+ */
+
+@Configuration
+@EnableMongoRepositories(
+        basePackages = "com.study.collect",
+        repositoryFactoryBeanClass = CustomMongoRepositoryFactoryBean.class
+)
+public class MongoRepositoryConfig {
 }
 ```
 
@@ -1850,6 +2599,260 @@ public class RedisConfiguration {
 }
 ```
 
+## RabbitConfig.java
+
+```java
+package com.study.collect.core.mq.config;
+
+import org.springframework.amqp.core.*;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+public class RabbitConfig {
+
+    @Value("${mq.task.exchange}")
+    private String taskExchange;
+
+    @Value("${mq.task.queue}")
+    private String taskQueue;
+
+    @Value("${mq.task.routing-key}")
+    private String taskRoutingKey;
+
+    @Value("${mq.result.exchange}")
+    private String resultExchange;
+
+    @Value("${mq.result.queue}")
+    private String resultQueue;
+
+    @Value("${mq.result.routing-key}")
+    private String resultRoutingKey;
+
+    // 任务交换机
+    @Bean
+    public DirectExchange taskExchange() {
+        return new DirectExchange(taskExchange);
+    }
+
+    // 任务队列
+    @Bean
+    public Queue taskQueue() {
+        return QueueBuilder.durable(taskQueue)
+                .withArgument("x-dead-letter-exchange", taskExchange + ".dlx")
+                .withArgument("x-dead-letter-routing-key", taskRoutingKey + ".dlx")
+                .build();
+    }
+
+    // 任务绑定关系
+    @Bean
+    public Binding taskBinding() {
+        return BindingBuilder.bind(taskQueue())
+                .to(taskExchange())
+                .with(taskRoutingKey);
+    }
+
+    // 结果交换机
+    @Bean
+    public DirectExchange resultExchange() {
+        return new DirectExchange(resultExchange);
+    }
+
+    // 结果队列
+    @Bean
+    public Queue resultQueue() {
+        return QueueBuilder.durable(resultQueue)
+                .withArgument("x-dead-letter-exchange", resultExchange + ".dlx")
+                .withArgument("x-dead-letter-routing-key", resultRoutingKey + ".dlx")
+                .build();
+    }
+
+    // 结果绑定关系
+    @Bean
+    public Binding resultBinding() {
+        return BindingBuilder.bind(resultQueue())
+                .to(resultExchange())
+                .with(resultRoutingKey);
+    }
+
+    // 消息转换器
+    @Bean
+    public MessageConverter jsonMessageConverter() {
+        return new Jackson2JsonMessageConverter();
+    }
+
+    // RabbitTemplate配置
+    @Bean
+    public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory) {
+        RabbitTemplate rabbitTemplate = new RabbitTemplate(connectionFactory);
+        rabbitTemplate.setMessageConverter(jsonMessageConverter());
+        return rabbitTemplate;
+    }
+}
+
+```
+
+## ResultConsumer.java
+
+```java
+package com.study.collect.core.mq.consumer;
+
+public class ResultConsumer {
+}
+
+```
+
+## TaskConsumer.java
+
+```java
+package com.study.collect.core.mq.consumer;
+
+
+import com.study.collect.core.collector.ICollector;
+import com.study.collect.core.task.CollectTask;
+import com.study.collect.core.task.TaskResult;
+import com.study.collect.core.task.TaskResultHandler;
+import com.study.collect.core.task.TaskStatus;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.stereotype.Component;
+
+import java.time.LocalDateTime;
+import java.util.Map;
+
+// 2. 任务消费者
+@Component
+@RequiredArgsConstructor
+@Slf4j
+public class TaskConsumer {
+
+    private final Map<String, ICollector> collectors;
+    private final TaskResultHandler resultHandler;
+
+    @RabbitListener(queues = "${mq.task.queue}")
+    public void handleTask(CollectTask task) {
+        try {
+            // 1. 获取对应的采集器
+            ICollector collector = collectors.get(task.getType());
+            if (collector == null) {
+                throw new IllegalArgumentException("Unknown task type: " + task.getType());
+            }
+
+            // 2. 执行采集
+            task.setStatus(TaskStatus.RUNNING);
+            Object result = collector.collect(task.getParams());
+
+            // 3. 处理结果
+            TaskResult taskResult = new TaskResult();
+            taskResult.setTaskId(task.getId());
+            taskResult.setType(task.getType());
+            taskResult.setSuccess(true);
+            taskResult.setData(result);
+            taskResult.setFinishTime(LocalDateTime.now());
+
+            resultHandler.handleResult(taskResult);
+
+        } catch (Exception e) {
+            log.error("Task execution failed: " + task.getId(), e);
+
+            // 4. 处理异常
+            TaskResult taskResult = new TaskResult();
+            taskResult.setTaskId(task.getId());
+            taskResult.setType(task.getType());
+            taskResult.setSuccess(false);
+            taskResult.setMessage(e.getMessage());
+            taskResult.setFinishTime(LocalDateTime.now());
+
+            resultHandler.handleResult(taskResult);
+        }
+    }
+```
+
+## ResultMessage.java
+
+```java
+package com.study.collect.core.mq.message;
+
+public class ResultMessage {
+}
+
+```
+
+## TaskMessage.java
+
+```java
+package com.study.collect.core.mq.message;
+
+public class TaskMessage {
+}
+
+```
+
+## ResultProducer.java
+
+```java
+package com.study.collect.core.mq.producer;
+
+public class ResultProducer {
+}
+
+```
+
+## TaskProducer.java
+
+```java
+package com.study.collect.core.mq.producer;
+
+import com.study.collect.core.task.CollectTask;
+import com.study.collect.core.task.TaskResult;
+import com.study.collect.core.task.TaskResultHandler;
+import com.study.collect.core.task.TaskStatus;
+import com.study.collect.core.task.splitter.TaskSplitter;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+// 1. 任务生产者
+@Component
+@RequiredArgsConstructor
+public class TaskProducer {
+
+    private final RabbitTemplate rabbitTemplate;
+    private final TaskSplitter taskSplitter;
+
+    @Value("${mq.task.exchange}")
+    private String taskExchange;
+
+    @Value("${mq.task.routing-key}")
+    private String taskRoutingKey;
+
+    public void sendTask(CollectTask task, int shardCount) {
+        // 1. 任务分片
+        List<CollectTask> tasks = taskSplitter.split(task, shardCount);
+
+        // 2. 发送任务
+        tasks.forEach(subTask -> {
+            rabbitTemplate.convertAndSend(taskExchange, taskRoutingKey, subTask);
+        });
+    }
+}
+
+
+}
+
+
+```
+
 ## AbstractProcessor.java
 
 ```java
@@ -1913,27 +2916,739 @@ public interface IProcessor<T> {
 
 ```
 
+## AuditMetadata.java
+
+```java
+package com.study.collect.core.storage.audit;
+
+public class AuditMetadata {
+}
+
+```
+
+## EntityAuditor.java
+
+```java
+package com.study.collect.core.storage.audit;
+
+public class EntityAuditor {
+}
+
+```
+
+## MongoConfig.java
+
+```java
+package com.study.collect.core.storage.config;
+
+public class MongoConfig {
+}
+
+```
+
+## MongoConstants.java
+
+```java
+package com.study.collect.core.storage.constant;
+
+public class MongoConstants {
+}
+
+```
+
+## BaseEntity.java
+
+```java
+package com.study.collect.core.storage.entity;
+
+import lombok.Data;
+import org.springframework.data.annotation.CreatedBy;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.LastModifiedBy;
+import org.springframework.data.annotation.LastModifiedDate;
+
+import java.io.Serializable;
+import java.time.LocalDateTime;
+
+@Data
+public abstract class BaseEntity implements Serializable {
+
+    @Id
+    protected String id;
+
+    @CreatedDate
+    protected LocalDateTime createTime;
+
+    @LastModifiedDate
+    protected LocalDateTime updateTime;
+
+    @CreatedBy
+    protected String createBy;
+
+    @LastModifiedBy
+    protected String updateBy;
+
+    protected Boolean deleted = false;
+}
+```
+
+## VersionEntity.java
+
+```java
+package com.study.collect.core.storage.entity;
+
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import org.springframework.data.annotation.Version;
+
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+
+@Data
+@EqualsAndHashCode(callSuper = true)
+public abstract class VersionEntity extends BaseEntity {
+
+    @Version
+    private Long version;
+
+    private String versionCode; // 业务版本号,用于增量同步
+
+    private LocalDateTime versionTime; // 版本时间戳
+
+    // 版本初始化
+    public void initVersion() {
+        this.version = 0L;
+        this.versionCode = generateVersionCode();
+        this.versionTime = LocalDateTime.now();
+    }
+
+    // 版本更新
+    public void upgradeVersion() {
+        this.version = this.version + 1;
+        this.versionCode = generateVersionCode();
+        this.versionTime = LocalDateTime.now();
+    }
+
+    // 生成版本号
+    private String generateVersionCode() {
+        return String.format("V%s_%d",
+                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")),
+                this.version);
+    }
+}
+```
+
+## DefaultEntityEventHandler.java
+
+```java
+package com.study.collect.core.storage.event;
+
+import com.study.collect.core.storage.entity.BaseEntity;
+import com.study.collect.core.storage.event.impl.EntityEvents;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.event.EventListener;
+import org.springframework.stereotype.Component;
+
+/**
+ * 默认实体事件处理器
+ */
+@Slf4j
+@Component
+public class DefaultEntityEventHandler {
+
+    @EventListener
+    public <T extends BaseEntity> void handleBeforeSave(EntityEvents.BeforeSaveEvent<T> event) {
+        log.debug("Entity before save: {}", event.getEntity());
+    }
+
+    @EventListener
+    public <T extends BaseEntity> void handleAfterSave(EntityEvents.AfterSaveEvent<T> event) {
+        log.debug("Entity after save: {}", event.getEntity());
+    }
+
+    @EventListener
+    public <T extends BaseEntity> void handleBeforeUpdate(EntityEvents.BeforeUpdateEvent<T> event) {
+        log.debug("Entity before update: {}", event.getEntity());
+    }
+
+    @EventListener
+    public <T extends BaseEntity> void handleAfterUpdate(EntityEvents.AfterUpdateEvent<T> event) {
+        log.debug("Entity after update: {}", event.getEntity());
+    }
+
+    @EventListener
+    public <T extends BaseEntity> void handleBeforeDelete(EntityEvents.BeforeDeleteEvent<T> event) {
+        log.debug("Entity before delete: {}", event.getEntity());
+    }
+
+    @EventListener
+    public <T extends BaseEntity> void handleAfterDelete(EntityEvents.AfterDeleteEvent<T> event) {
+        log.debug("Entity after delete: {}", event.getEntity());
+    }
+
+    @EventListener
+    public <T extends BaseEntity> void handleVersionUpgrade(EntityEvents.VersionUpgradeEvent<T> event) {
+        log.debug("Entity version upgrade: {} from {} to {}",
+                event.getEntity(), event.getOldVersion(), event.getNewVersion());
+    }
+}
+```
+
+## EntityEvent.java
+
+```java
+package com.study.collect.core.storage.event;
+
+import com.study.collect.core.storage.entity.BaseEntity;
+import lombok.Getter;
+import org.springframework.context.ApplicationEvent;
+
+/**
+ * 实体事件基类
+ */
+@Getter
+public abstract class EntityEvent<T extends BaseEntity> extends ApplicationEvent {
+
+    protected final T entity;
+
+    public EntityEvent(T entity) {
+        super(entity);
+        this.entity = entity;
+    }
+}
+```
+
+## EntityEventListener.java
+
+```java
+package com.study.collect.core.storage.event;
+
+import com.study.collect.core.storage.entity.BaseEntity;
+import com.study.collect.core.storage.entity.VersionEntity;
+import com.study.collect.core.storage.event.impl.EntityEvents;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.mongodb.core.mapping.event.AbstractMongoEventListener;
+import org.springframework.data.mongodb.core.mapping.event.BeforeConvertEvent;
+import org.springframework.data.mongodb.core.mapping.event.AfterConvertEvent;
+import org.springframework.stereotype.Component;
+
+import java.time.LocalDateTime;
+
+@Slf4j
+@Component
+public class EntityEventListener<T extends BaseEntity> extends AbstractMongoEventListener<T> {
+
+    @Autowired
+    private ApplicationEventPublisher eventPublisher;
+
+    @Override
+    public void onBeforeConvert(BeforeConvertEvent<T> event) {
+        T entity = event.getSource();
+
+        // 处理审计字段
+        LocalDateTime now = LocalDateTime.now();
+        if (entity.getCreateTime() == null) {
+            entity.setCreateTime(now);
+            entity.setUpdateTime(now);
+            // 发布保存前事件
+            eventPublisher.publishEvent(new EntityEvents.BeforeSaveEvent<>(entity));
+        } else {
+            entity.setUpdateTime(now);
+            // 发布更新前事件
+            eventPublisher.publishEvent(new EntityEvents.BeforeUpdateEvent<>(entity));
+        }
+
+        // 处理版本
+        if (entity instanceof VersionEntity versionEntity) {
+            String oldVersion = versionEntity.getVersionCode();
+            if (oldVersion == null) {
+                versionEntity.initVersion();
+            } else {
+                versionEntity.upgradeVersion();
+                // 发布版本更新事件
+                eventPublisher.publishEvent(new EntityEvents.VersionUpgradeEvent<>(
+                        entity, oldVersion, versionEntity.getVersionCode()));
+            }
+        }
+    }
+
+    @Override
+    public void onAfterConvert(AfterConvertEvent<T> event) {
+        T entity = event.getSource();
+        // 发布更新后事件
+        eventPublisher.publishEvent(new EntityEvents.AfterUpdateEvent<>(entity));
+    }
+}
+```
+
+## EntityEvents.java
+
+```java
+package com.study.collect.core.storage.event.impl;
+
+import com.study.collect.core.storage.entity.BaseEntity;
+import com.study.collect.core.storage.event.EntityEvent;
+import lombok.Getter;
+
+public class EntityEvents {
+
+    @Getter
+    public static class BeforeSaveEvent<T extends BaseEntity> extends EntityEvent<T> {
+        public BeforeSaveEvent(T entity) {
+            super(entity);
+        }
+    }
+
+    @Getter
+    public static class AfterSaveEvent<T extends BaseEntity> extends EntityEvent<T> {
+        public AfterSaveEvent(T entity) {
+            super(entity);
+        }
+    }
+
+    @Getter
+    public static class BeforeUpdateEvent<T extends BaseEntity> extends EntityEvent<T> {
+        public BeforeUpdateEvent(T entity) {
+            super(entity);
+        }
+    }
+
+    @Getter
+    public static class AfterUpdateEvent<T extends BaseEntity> extends EntityEvent<T> {
+        public AfterUpdateEvent(T entity) {
+            super(entity);
+        }
+    }
+
+    @Getter
+    public static class BeforeDeleteEvent<T extends BaseEntity> extends EntityEvent<T> {
+        public BeforeDeleteEvent(T entity) {
+            super(entity);
+        }
+    }
+
+    @Getter
+    public static class AfterDeleteEvent<T extends BaseEntity> extends EntityEvent<T> {
+        public AfterDeleteEvent(T entity) {
+            super(entity);
+        }
+    }
+
+    @Getter
+    public static class VersionUpgradeEvent<T extends BaseEntity> extends EntityEvent<T> {
+        private final String oldVersion;
+        private final String newVersion;
+
+        public VersionUpgradeEvent(T entity, String oldVersion, String newVersion) {
+            super(entity);
+            this.oldVersion = oldVersion;
+            this.newVersion = newVersion;
+        }
+    }
+}
+```
+
+## BaseMongoRepository.java
+
+```java
+package com.study.collect.core.storage.repository;
+
+import org.springframework.data.mongodb.core.MongoOperations;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.repository.query.MongoEntityInformation;
+import org.springframework.data.mongodb.repository.support.SimpleMongoRepository;
+
+import java.io.Serializable;
+import java.util.List;
+
+public class BaseMongoRepository<T, ID extends Serializable>
+        extends SimpleMongoRepository<T, ID> implements IRepository<T, ID> {
+
+    protected final MongoTemplate mongoTemplate;
+    protected final MongoEntityInformation<T, ID> entityInformation;
+
+    public BaseMongoRepository(MongoEntityInformation<T, ID> metadata,
+                               MongoOperations mongoOperations) {
+        super(metadata, mongoOperations);
+        this.mongoTemplate = (MongoTemplate) mongoOperations;
+        this.entityInformation = metadata;
+    }
+
+    @Override
+    public T findByCode(String code) {
+        Query query = new Query(Criteria.where("code").is(code));
+        return mongoTemplate.findOne(query, entityInformation.getJavaType());
+    }
+
+    @Override
+    public void updateStatus(ID id, String status) {
+
+    }
+
+    @Override
+    public long countByStatus(String status) {
+        return 0;
+    }
+
+    @Override
+    public void softDelete(ID id) {
+
+    }
+//
+//    // 其他方法实现...
+//    // 版本查询
+//    List<T> findByVersion(String version);
+//    // 增量查询
+//    List<T> findIncrementalData(String version);
+}
+```
+
 ## IRepository.java
 
 ```java
-package com.study.collect.core.repository;
+package com.study.collect.core.storage.repository;
 
-public interface IRepository<T, ID> {
+import org.springframework.data.mongodb.repository.MongoRepository;
+import org.springframework.data.repository.NoRepositoryBean;
+
+import java.io.Serializable;
+import java.util.List;
+
+@NoRepositoryBean
+public interface IRepository<T, ID extends Serializable> extends MongoRepository<T, ID> {
     /**
-     * 保存数据
+     * 根据业务编码查询
      */
-    T save(T entity);
+    T findByCode(String code);
 
     /**
-     * 根据ID查询
+     * 批量更新状态
      */
-    T findById(ID id);
+    void updateStatus(ID id, String status);
 
     /**
-     * 删除数据
+     * 统计状态数量
      */
-    void delete(ID id);
+    long countByStatus(String status);
+
+    /**
+     * 软删除
+     */
+    void softDelete(ID id);
 }
+```
+
+## VersionRepository.java
+
+```java
+package com.study.collect.core.storage.repository;
+
+public class VersionRepository {
+}
+
+```
+
+## CustomMongoRepositoryFactory.java
+
+```java
+package com.study.collect.core.storage.repository.factory;
+
+import com.study.collect.core.storage.repository.BaseMongoRepository;
+import org.springframework.data.mongodb.core.MongoOperations;
+import org.springframework.data.mongodb.repository.query.MongoEntityInformation;
+import org.springframework.data.mongodb.repository.support.MongoRepositoryFactory;
+import org.springframework.data.repository.core.RepositoryInformation;
+import org.springframework.data.repository.core.RepositoryMetadata;
+
+import java.io.Serializable;
+
+public class CustomMongoRepositoryFactory extends MongoRepositoryFactory {
+
+    private final MongoOperations mongoOperations;
+
+    public CustomMongoRepositoryFactory(MongoOperations mongoOperations) {
+        super(mongoOperations);
+        this.mongoOperations = mongoOperations;
+    }
+
+    @Override
+    protected Object getTargetRepository(RepositoryInformation information) {
+        MongoEntityInformation<?, Serializable> entityInformation =
+                getEntityInformation(information.getDomainType());
+
+        return new BaseMongoRepository<>(entityInformation, mongoOperations);
+    }
+
+    @Override
+    protected Class<?> getRepositoryBaseClass(RepositoryMetadata metadata) {
+        return BaseMongoRepository.class;
+    }
+}
+
+```
+
+## CustomMongoRepositoryFactoryBean.java
+
+```java
+package com.study.collect.core.storage.repository.factory;
+
+import org.springframework.data.mongodb.core.MongoOperations;
+import org.springframework.data.mongodb.repository.support.MongoRepositoryFactoryBean;
+import org.springframework.data.repository.Repository;
+import org.springframework.data.repository.core.support.RepositoryFactorySupport;
+
+import java.io.Serializable;
+
+public class CustomMongoRepositoryFactoryBean<T extends Repository<S, ID>, S, ID extends Serializable>
+        extends MongoRepositoryFactoryBean<T, S, ID> {
+
+    public CustomMongoRepositoryFactoryBean(Class<? extends T> repositoryInterface) {
+        super(repositoryInterface);
+    }
+
+    @Override
+    protected RepositoryFactorySupport getFactoryInstance(MongoOperations operations) {
+        return new CustomMongoRepositoryFactory(operations);
+    }
+}
+```
+
+## CollectTask.java
+
+```java
+package com.study.collect.core.task;
+
+import lombok.Data;
+
+import java.time.LocalDateTime;
+import java.util.Map;
+import java.util.UUID;
+
+// 1. 采集任务
+@Data
+public class CollectTask {
+    private String id;              // 任务ID
+    private String type;            // 任务类型
+    private Map<String, Object> params;  // 任务参数
+    private Integer shardIndex;     // 分片索引
+    private Integer shardTotal;     // 分片总数
+    private TaskStatus status;      // 任务状态
+    private LocalDateTime createTime; // 创建时间
+
+    public static CollectTask create(String type, Map<String, Object> params) {
+        CollectTask task = new CollectTask();
+        task.setId(UUID.randomUUID().toString());
+        task.setType(type);
+        task.setParams(params);
+        task.setStatus(TaskStatus.CREATED);
+        task.setCreateTime(LocalDateTime.now());
+        return task;
+    }
+}
+
+```
+
+## TaskResult.java
+
+```java
+package com.study.collect.core.task;
+
+import lombok.Data;
+
+import java.time.LocalDateTime;
+
+// 2. 任务结果
+@Data
+public class TaskResult {
+    private String taskId;          // 任务ID
+    private String type;            // 任务类型
+    private Boolean success;        // 是否成功
+    private String message;         // 结果信息
+    private Object data;            // 结果数据
+    private LocalDateTime finishTime; // 完成时间
+}
+
+```
+
+## TaskResultHandler.java
+
+```java
+package com.study.collect.core.task;
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+// 3. 结果处理器
+@Component
+@RequiredArgsConstructor
+public class TaskResultHandler {
+
+    private final RabbitTemplate rabbitTemplate;
+
+    @Value("${mq.result.exchange}")
+    private String resultExchange;
+
+    @Value("${mq.result.routing-key}")
+    private String resultRoutingKey;
+
+    public void handleResult(TaskResult result) {
+        // 发送结果到结果队列
+        rabbitTemplate.convertAndSend(resultExchange, resultRoutingKey, result);
+    }
+}
+
+```
+
+## TaskStatus.java
+
+```java
+package com.study.collect.core.task;
+
+// 3. 任务状态枚举
+public enum TaskStatus {
+    CREATED,    // 已创建
+    RUNNING,    // 执行中
+    SUCCESS,    // 执行成功
+    FAILED,     // 执行失败
+    CANCELED    // 已取消
+}
+```
+
+## ParallelExecutor.java
+
+```java
+package com.study.collect.core.task.executor;
+
+public class ParallelExecutor {
+}
+
+```
+
+## TaskExecutor.java
+
+```java
+package com.study.collect.core.task.executor;
+
+public class TaskExecutor {
+}
+
+```
+
+## DefaultScheduler.java
+
+```java
+package com.study.collect.core.task.scheduler;
+
+public class DefaultScheduler {
+}
+
+```
+
+## TaskScheduler.java
+
+```java
+package com.study.collect.core.task.scheduler;
+
+import com.study.collect.core.task.CollectTask;
+import com.study.collect.core.task.TaskResult;
+
+// 3. 任务接口
+public interface TaskExecutor {
+    // 执行任务
+    void execute(CollectTask task);
+    // 处理结果
+    void handleResult(TaskResult result);
+}
+
+```
+
+## DefaultTaskSplitter.java
+
+```java
+package com.study.collect.core.task.splitter;
+
+import com.study.collect.core.task.CollectTask;
+import org.springframework.beans.BeanUtils;
+import org.springframework.stereotype.Component;
+import org.springframework.util.CollectionUtils;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.UUID;
+
+// 2. 默认分片实现
+@Component
+public class DefaultTaskSplitter implements TaskSplitter {
+
+    @Override
+    public List<CollectTask> split(CollectTask task, int shardCount) {
+        List<CollectTask> tasks = new ArrayList<>();
+
+        // 获取需要分片的参数
+        List<?> params = (List<?>) task.getParams().get("dataList");
+        if (CollectionUtils.isEmpty(params)) {
+            return Collections.singletonList(task);
+        }
+
+        // 计算分片
+        int size = params.size();
+        int shardSize = (size + shardCount - 1) / shardCount;
+
+        // 生成分片任务
+        for (int i = 0; i < shardCount; i++) {
+            int fromIndex = i * shardSize;
+            if (fromIndex >= size) {
+                break;
+            }
+
+            int toIndex = Math.min((i + 1) * shardSize, size);
+            List<?> subParams = params.subList(fromIndex, toIndex);
+
+            CollectTask subTask = new CollectTask();
+            BeanUtils.copyProperties(task, subTask);
+            subTask.setId(UUID.randomUUID().toString());
+            subTask.getParams().put("dataList", subParams);
+            subTask.setShardIndex(i);
+            subTask.setShardTotal(shardCount);
+
+            tasks.add(subTask);
+        }
+
+        return tasks;
+    }
+}
+
+```
+
+## TaskSplitter.java
+
+```java
+package com.study.collect.core.task.splitter;
+
+import com.study.collect.core.task.CollectTask;
+import org.springframework.beans.BeanUtils;
+import org.springframework.stereotype.Component;
+import org.springframework.util.CollectionUtils;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.UUID;
+
+// 1. 任务分片接口
+public interface TaskSplitter {
+    List<CollectTask> split(CollectTask task, int shardCount);
+}
+
+
 ```
 
 ## pom.xml

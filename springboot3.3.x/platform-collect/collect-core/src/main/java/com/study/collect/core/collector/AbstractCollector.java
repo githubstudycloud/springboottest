@@ -21,7 +21,8 @@ public abstract class AbstractCollector<T, R> implements ICollector<T, R> {
             return result;
         } catch (Exception e) {
             log.error("Collect failed", e);
-            throw new CollectException("Collect failed: " + e.getMessage());
+//            throw new CollectException("Collect failed: " + e.getMessage());
+            throw new RuntimeException("Collect failed: " + e.getMessage());
         }
     }
 

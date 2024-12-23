@@ -17,4 +17,5 @@ public class Enterprise {
     private String phone;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
+    private String version;
 }

@@ -11,11 +11,14 @@ import java.time.LocalDateTime;
 public class FinanceData {
     @Id
     private String id;
+    private String code;
     private String stockCode;
     private String stockName;
     private BigDecimal price;
     private BigDecimal volume;
     private BigDecimal amount;
+    private String status;
+    private Boolean deleted;
     private LocalDateTime tradeTime;
     private LocalDateTime createTime;
 }

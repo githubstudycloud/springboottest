@@ -2,8 +2,7 @@ package com.study.business.medical.repository;
 
 
 import com.study.business.medical.model.MedicalData;
-import com.study.collect.business.finance.model.FinanceData;
-import com.study.collect.core.repository.IRepository;
+import com.study.collect.core.storage.repository.IRepository;
 import org.springframework.data.mongodb.repository.MongoRepository;
 
 public interface medicalRepository extends IRepository<MedicalData, String>, MongoRepository<MedicalData, String> {
