@@ -1,0 +1,63 @@
+Sub GetUniqueValuesForDropDown()
+    On Error GoTo ErrorHandler
+    
+    Dim ws2 As Worksheet
+    Dim ws3 As Worksheet
+    Dim lastRow As Long
+    Dim dataRange As Range
+    Dim uniqueValues As Collection
+    Dim dict As Object
+    Dim cell As Range
+    Dim item As Variant
+    Dim row As Long
+    
+    '设置工作表引用
+    Set ws2 = ThisWorkbook.Sheets("Sheet2")
+    Set ws3 = ThisWorkbook.Sheets("Sheet3")
+    
+    '获取Sheet3中B列的最后一行
+    lastRow = ws3.Cells(ws3.Rows.Count, "B").End(xlUp).Row
+    
+    '如果只有标题行或没有数据，则退出
+    If lastRow < 2 Then
+        MsgBox "Sheet3的B列没有数据！", vbExclamation
+        Exit Sub
+    End If
+    
+    '设置数据范围（从第二行开始）
+    Set dataRange = ws3.Range("B2:B" & lastRow)
+    
+    '创建字典对象用于去重
+    Set dict = CreateObject("Scripting.Dictionary")
+    
+    '将数据添加到字典中（自动去重）
+    For Each cell In dataRange
+        If Not IsEmpty(cell) Then
+            If Not dict.exists(cell.Value) Then
+                dict.Add cell.Value, cell.Value
+            End If
+        End If
+    Next cell
+    
+    '清除Sheet2中A列的现有数据
+    ws2.Range("A2:A" & ws2.Rows.Count).ClearContents
+    
+    '将唯一值写入Sheet2的A列
+    row = 2
+    For Each item In dict.Items
+        ws2.Cells(row, "A").Value = item
+        row = row + 1
+    Next item
+    
+    '对Sheet2中的值进行排序（可选）
+    ws2.Range("A2:A" & row - 1).Sort Key1:=ws2.Range("A2"), _
+        Order1:=xlAscending, Header:=xlNo
+    
+    MsgBox "已成功获取唯一值并更新到Sheet2！", vbInformation
+    
+    Exit Sub
+
+ErrorHandler:
+    MsgBox "发生错误：" & vbNewLine & Err.Description, vbCritical
+    Exit Sub
+End Sub
