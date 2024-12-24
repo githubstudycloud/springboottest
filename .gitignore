@@ -26,3 +26,4 @@ replay_pid*
 /springboot3.3.x/platform-gateway/target/
 /springboot3.3.x/platform-common/target/
 /springboot3.3.x/platform-collect/target/
+/springboot3.3.x/platform-collect/collect-core/target/
