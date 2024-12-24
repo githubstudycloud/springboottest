@@ -146,15 +146,23 @@ platform-collect/
                                         RedisConfiguration.java
                                     constant/
                                     mq/
+                                        DistributedTaskManager.java
                                         config/
                                             RabbitConfig.java
+                                            RabbitProperties.java
                                         consumer/
+                                            RabbitTaskConsumer.java
                                             ResultConsumer.java
                                             TaskConsumer.java
+                                        handler/
+                                            MessageHandler.java
+                                            TaskMessageHandler.java
                                         message/
+                                            DeFaultMessageConverter.java
                                             ResultMessage.java
                                             TaskMessage.java
                                         producer/
+                                            RabbitTaskProducer.java
                                             ResultProducer.java
                                             TaskProducer.java
                                     processor/
@@ -186,18 +194,44 @@ platform-collect/
                                                 CustomMongoRepositoryFactoryBean.java
                                     task/
                                         CollectTask.java
+                                        TaskContext.java
                                         TaskResult.java
                                         TaskResultHandler.java
                                         TaskStatus.java
+                                        config/
+                                            TaskAutoConfiguration.java
+                                            TaskProperties.java
+                                        definition/
+                                            ShardingConfig.java
+                                            TaskDefinition.java
+                                            TaskProperties.java
+                                            TaskTrigger.java
                                         executor/
+                                            AbstractTaskExecutor.java
+                                            DefaultTaskExecutor.java
                                             ParallelExecutor.java
                                             TaskExecutor.java
+                                        handler/
+                                            CollectTaskHandler.java
+                                            TaskHandler.java
+                                        listener/
+                                            DefaultTaskListener.java
+                                            TaskListener.java
+                                        manager/
+                                            DefaultTaskManager.java
+                                            TaskManager.java
                                         scheduler/
+                                            AbstractTaskScheduler.java
                                             DefaultScheduler.java
+                                            DefaultTaskScheduler.java
                                             TaskScheduler.java
                                         splitter/
                                             DefaultTaskSplitter.java
                                             TaskSplitter.java
+                                        store/
+                                            DbTaskStore.java
+                                            MemoryTaskStore.java
+                                            TaskStore.java
                                     util/
     collect-starter/
         pom.xml
@@ -212,6 +246,8 @@ platform-collect/
                     application-dev.yml
                     application-prod.yml
                     application.yml
+                    sql.sql
+                    任务.md
 ```
 
 # File Contents
@@ -257,6 +293,7 @@ platform-collect/
         <redisson.version>3.27.2</redisson.version>
         <rabbitmq.version>5.20.0</rabbitmq.version>
         <mybatis.version>3.0.3</mybatis.version>
+        <mariadb.version>3.3.3</mariadb.version>  <!-- 这是最新的稳定版本 -->
         <jackson.version>2.17.0</jackson.version>
         <prometheus.version>1.12.4</prometheus.version>
         <lombok.version>1.18.30</lombok.version>
@@ -290,6 +327,13 @@ platform-collect/
                 <groupId>org.mybatis.spring.boot</groupId>
                 <artifactId>mybatis-spring-boot-starter</artifactId>
                 <version>${mybatis.version}</version>
+            </dependency>
+
+            <!-- 添加 MariaDB JDBC 驱动依赖 -->
+            <dependency>
+                <groupId>org.mariadb.jdbc</groupId>
+                <artifactId>mariadb-java-client</artifactId>
+                <version>${mariadb.version}</version>
             </dependency>
 
             <!-- MongoDB -->
@@ -1796,6 +1840,12 @@ public class JsonUtils {
             <artifactId>spring-boot-starter-amqp</artifactId>
         </dependency>
 
+        <!-- 添加 MariaDB JDBC 驱动依赖 -->
+        <dependency>
+            <groupId>org.mariadb.jdbc</groupId>
+            <artifactId>mariadb-java-client</artifactId>
+        </dependency>
+
         <!-- Metrics -->
         <dependency>
             <groupId>io.micrometer</groupId>
@@ -2599,12 +2649,52 @@ public class RedisConfiguration {
 }
 ```
 
+## DistributedTaskManager.java
+
+```java
+package com.study.collect.core.mq;
+
+import com.study.collect.core.mq.message.TaskMessage;
+import com.study.collect.core.mq.producer.TaskProducer;
+import com.study.collect.core.task.definition.TaskDefinition;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+@Service
+@RequiredArgsConstructor
+public class DistributedTaskManager {
+
+    private final TaskProducer taskProducer;
+    private final TaskScheduler taskScheduler;
+
+    // 提交任务
+    public void submitTask(TaskDefinition task) {
+        // 1. 构建任务消息
+        TaskMessage message = TaskMessage.builder()
+                .taskId(task.getTaskId())
+                .task(task)
+                .build();
+
+        // 2. 判断是否需要分片
+        if (isShardingTask(task)) {
+            // 分片发送
+            taskProducer.sendShardingTask(message, getShardingTotal(task));
+        } else {
+            // 直接发送
+            taskProducer.sendTask(message);
+        }
+    }
+}
+
+```
+
 ## RabbitConfig.java
 
 ```java
 package com.study.collect.core.mq.config;
 
 import org.springframework.amqp.core.*;
+import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.beans.factory.annotation.Value;
@@ -2614,31 +2704,20 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class RabbitConfig {
 
-    @Value("${mq.task.exchange}")
+    @Value("${collect.mq.rabbit.task.exchange}")
     private String taskExchange;
 
-    @Value("${mq.task.queue}")
+    @Value("${collect.mq.rabbit.task.queue}")
     private String taskQueue;
 
-    @Value("${mq.task.routing-key}")
+    @Value("${collect.mq.rabbit.task.routing-key}")
     private String taskRoutingKey;
 
-    @Value("${mq.result.exchange}")
-    private String resultExchange;
-
-    @Value("${mq.result.queue}")
-    private String resultQueue;
-
-    @Value("${mq.result.routing-key}")
-    private String resultRoutingKey;
-
-    // 任务交换机
     @Bean
     public DirectExchange taskExchange() {
         return new DirectExchange(taskExchange);
     }
 
-    // 任务队列
     @Bean
     public Queue taskQueue() {
         return QueueBuilder.durable(taskQueue)
@@ -2647,7 +2726,6 @@ public class RabbitConfig {
                 .build();
     }
 
-    // 任务绑定关系
     @Bean
     public Binding taskBinding() {
         return BindingBuilder.bind(taskQueue())
@@ -2655,41 +2733,84 @@ public class RabbitConfig {
                 .with(taskRoutingKey);
     }
 
-    // 结果交换机
-    @Bean
-    public DirectExchange resultExchange() {
-        return new DirectExchange(resultExchange);
-    }
-
-    // 结果队列
-    @Bean
-    public Queue resultQueue() {
-        return QueueBuilder.durable(resultQueue)
-                .withArgument("x-dead-letter-exchange", resultExchange + ".dlx")
-                .withArgument("x-dead-letter-routing-key", resultRoutingKey + ".dlx")
-                .build();
-    }
-
-    // 结果绑定关系
-    @Bean
-    public Binding resultBinding() {
-        return BindingBuilder.bind(resultQueue())
-                .to(resultExchange())
-                .with(resultRoutingKey);
-    }
-
-    // 消息转换器
-    @Bean
-    public MessageConverter jsonMessageConverter() {
-        return new Jackson2JsonMessageConverter();
-    }
-
-    // RabbitTemplate配置
     @Bean
     public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory) {
-        RabbitTemplate rabbitTemplate = new RabbitTemplate(connectionFactory);
-        rabbitTemplate.setMessageConverter(jsonMessageConverter());
-        return rabbitTemplate;
+        RabbitTemplate template = new RabbitTemplate(connectionFactory);
+        template.setMessageConverter(new Jackson2JsonMessageConverter());
+        return template;
+    }
+}
+
+```
+
+## RabbitProperties.java
+
+```java
+package com.study.collect.core.mq.config;
+
+import lombok.Data;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+
+@Data
+@ConfigurationProperties(prefix = "collect.mq.rabbit")
+public class RabbitProperties {
+
+    private String host;
+    private int port;
+    private String username;
+    private String password;
+
+    private TaskConfig task = new TaskConfig();
+    private ResultConfig result = new ResultConfig();
+
+    @Data
+    public static class TaskConfig {
+        private String exchange;
+        private String queue;
+        private String routingKey;
+    }
+
+    @Data
+    public static class ResultConfig {
+        private String exchange;
+        private String queue;
+        private String routingKey;
+    }
+}
+```
+
+## RabbitTaskConsumer.java
+
+```java
+package com.study.collect.core.mq.consumer;
+
+import com.study.collect.core.mq.message.TaskMessage;
+import lombok.RequiredArgsConstructor;
+import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.stereotype.Component;
+
+@Component
+@RabbitListener(queues = "${collect.mq.rabbit.task.queue}")
+@RequiredArgsConstructor
+public class RabbitTaskConsumer implements TaskConsumer {
+
+    private final TaskExecutor taskExecutor;
+
+    @Override
+    public void onMessage(TaskMessage message) {
+        // 1. 判断是否是本节点的分片
+        if (!isCurrentShard(message)) {
+            return;
+        }
+
+        // 2. 执行任务
+        TaskContext context = buildContext(message);
+        taskExecutor.execute(message.getTask(), context);
+    }
+
+    private boolean isCurrentShard(TaskMessage message) {
+        return message.getShardingId() == null ||
+                message.getShardingId().equals(getShardingId());
     }
 }
 
@@ -2710,66 +2831,132 @@ public class ResultConsumer {
 ```java
 package com.study.collect.core.mq.consumer;
 
-
-import com.study.collect.core.collector.ICollector;
-import com.study.collect.core.task.CollectTask;
-import com.study.collect.core.task.TaskResult;
-import com.study.collect.core.task.TaskResultHandler;
-import com.study.collect.core.task.TaskStatus;
+import com.study.collect.core.mq.message.TaskMessage;
+import com.study.collect.core.task.TaskContext;
+import com.study.collect.core.task.executor.TaskExecutor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalDateTime;
-import java.util.Map;
-
-// 2. 任务消费者
+@Slf4j
 @Component
 @RequiredArgsConstructor
-@Slf4j
 public class TaskConsumer {
 
-    private final Map<String, ICollector> collectors;
-    private final TaskResultHandler resultHandler;
+    private final TaskExecutor taskExecutor;
 
-    @RabbitListener(queues = "${mq.task.queue}")
-    public void handleTask(CollectTask task) {
+    @RabbitListener(queues = "${collect.mq.rabbit.task.queue}")
+    public void onMessage(TaskMessage message) {
         try {
-            // 1. 获取对应的采集器
-            ICollector collector = collectors.get(task.getType());
-            if (collector == null) {
-                throw new IllegalArgumentException("Unknown task type: " + task.getType());
-            }
+            log.info("Receive task message: {}", message);
 
-            // 2. 执行采集
-            task.setStatus(TaskStatus.RUNNING);
-            Object result = collector.collect(task.getParams());
+            // 1. 构建任务上下文
+            TaskContext context = new TaskContext();
+            context.setTaskId(message.getTaskId());
+            context.setShardingId(message.getShardingId());
+            context.setShardingTotal(message.getShardingTotal());
+            context.setParams(message.getContext());
 
-            // 3. 处理结果
-            TaskResult taskResult = new TaskResult();
-            taskResult.setTaskId(task.getId());
-            taskResult.setType(task.getType());
-            taskResult.setSuccess(true);
-            taskResult.setData(result);
-            taskResult.setFinishTime(LocalDateTime.now());
-
-            resultHandler.handleResult(taskResult);
+            // 2. 执行任务
+            taskExecutor.execute(message.getTaskDefinition(), context);
 
         } catch (Exception e) {
-            log.error("Task execution failed: " + task.getId(), e);
-
-            // 4. 处理异常
-            TaskResult taskResult = new TaskResult();
-            taskResult.setTaskId(task.getId());
-            taskResult.setType(task.getType());
-            taskResult.setSuccess(false);
-            taskResult.setMessage(e.getMessage());
-            taskResult.setFinishTime(LocalDateTime.now());
-
-            resultHandler.handleResult(taskResult);
+            log.error("Process task message failed", e);
+            // 异常处理
         }
     }
+}
+```
+
+## MessageHandler.java
+
+```java
+package com.study.collect.core.mq.handler;
+
+import com.study.collect.core.mq.message.TaskMessage;
+import com.study.collect.core.mq.message.ResultMessage;
+
+public interface MessageHandler {
+    void handleTaskMessage(TaskMessage message);
+    void handleResultMessage(ResultMessage message);
+}
+
+```
+
+## TaskMessageHandler.java
+
+```java
+package com.study.collect.core.mq.handler;
+
+import com.study.collect.core.mq.message.TaskMessage;
+import com.study.collect.core.mq.message.ResultMessage;
+import com.study.collect.core.task.executor.TaskExecutor;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class TaskMessageHandler implements MessageHandler {
+
+    private final TaskExecutor taskExecutor;
+
+    @Override
+    public void handleTaskMessage(TaskMessage message) {
+        log.info("Handle task message: {}", message);
+        // 任务处理
+    }
+
+    @Override
+    public void handleResultMessage(ResultMessage message) {
+        log.info("Handle result message: {}", message);
+        // 结果处理
+    }
+}
+```
+
+## DeFaultMessageConverter.java
+
+```java
+package com.study.collect.core.mq.message;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.amqp.core.Message;
+import org.springframework.amqp.core.MessageProperties;
+import org.springframework.amqp.support.converter.MessageConverter;
+import org.springframework.stereotype.Component;
+
+@Component
+public class DeFaultMessageConverter implements MessageConverter {
+
+    private final ObjectMapper objectMapper;
+
+    public DeFaultMessageConverter(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
+
+    @Override
+    public Message toMessage(Object object, MessageProperties properties) {
+        try {
+            byte[] bytes = objectMapper.writeValueAsBytes(object);
+            return new Message(bytes, properties);
+        } catch (Exception e) {
+            throw new RuntimeException("Convert to message failed", e);
+        }
+    }
+
+    @Override
+    public Object fromMessage(Message message) {
+        try {
+            Class<?> type = Class.forName(message.getMessageProperties().getContentType());
+            return objectMapper.readValue(message.getBody(), type);
+        } catch (Exception e) {
+            throw new RuntimeException("Convert from message failed", e);
+        }
+    }
+}
 ```
 
 ## ResultMessage.java
@@ -2777,9 +2964,20 @@ public class TaskConsumer {
 ```java
 package com.study.collect.core.mq.message;
 
-public class ResultMessage {
-}
+import lombok.Data;
+import java.io.Serializable;
+import java.time.LocalDateTime;
 
+@Data
+public class ResultMessage implements Serializable {
+    private String messageId;
+    private String taskId;
+    private String nodeId;
+    private Boolean success;
+    private String errorMsg;
+    private Object result;
+    private LocalDateTime finishTime;
+}
 ```
 
 ## TaskMessage.java
@@ -2787,9 +2985,87 @@ public class ResultMessage {
 ```java
 package com.study.collect.core.mq.message;
 
-public class TaskMessage {
+import com.study.collect.core.task.definition.TaskDefinition;
+import lombok.Data;
+import java.io.Serializable;
+import java.util.Map;
+
+@Data
+public class TaskMessage implements Serializable {
+    private String messageId;
+    private String taskId;
+    private String nodeId;
+    private Integer shardingId;
+    private Integer shardingTotal;
+    private TaskDefinition taskDefinition;
+    private Map<String,Object> context;
 }
 
+```
+
+## RabbitTaskProducer.java
+
+```java
+package com.study.collect.core.mq.producer;
+
+import com.study.collect.core.mq.config.RabbitProperties;
+import com.study.collect.core.mq.message.TaskMessage;
+import com.study.collect.core.task.definition.TaskDefinition;
+import lombok.RequiredArgsConstructor;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.stereotype.Component;
+
+import java.util.UUID;
+
+@Component
+@RequiredArgsConstructor
+public class RabbitTaskProducer implements TaskProducer {
+
+    private final RabbitTemplate rabbitTemplate;
+    private final RabbitProperties properties;
+
+    @Override
+    public void sendTask(TaskDefinition task) {
+        TaskMessage message = createTaskMessage(task);
+        rabbitTemplate.convertAndSend(
+                properties.getTask().getExchange(),
+                properties.getTask().getRoutingKey(),
+                message
+        );
+    }
+
+    @Override
+    public void sendShardingTask(TaskDefinition task, int shardingTotal) {
+        for (int i = 0; i < shardingTotal; i++) {
+            TaskMessage message = createTaskMessage(task);
+            message.setShardingId(i);
+            message.setShardingTotal(shardingTotal);
+
+            rabbitTemplate.convertAndSend(
+                    properties.getTask().getExchange(),
+                    properties.getTask().getRoutingKey(),
+                    message
+            );
+        }
+    }
+
+    @Override
+    public void broadcastTask(TaskDefinition task) {
+        rabbitTemplate.convertAndSend(
+                properties.getTask().getExchange(),
+                properties.getTask().getRoutingKey(),
+                createTaskMessage(task)
+        );
+    }
+
+    private TaskMessage createTaskMessage(TaskDefinition task) {
+        TaskMessage message = new TaskMessage();
+        message.setMessageId(UUID.randomUUID().toString());
+        message.setTaskId(task.getTaskId());
+        message.setTaskDefinition(task);
+        return message;
+    }
+}
 ```
 
 ## ResultProducer.java
@@ -2807,10 +3083,12 @@ public class ResultProducer {
 ```java
 package com.study.collect.core.mq.producer;
 
+import com.study.collect.core.mq.message.TaskMessage;
 import com.study.collect.core.task.CollectTask;
 import com.study.collect.core.task.TaskResult;
 import com.study.collect.core.task.TaskResultHandler;
 import com.study.collect.core.task.TaskStatus;
+import com.study.collect.core.task.definition.TaskDefinition;
 import com.study.collect.core.task.splitter.TaskSplitter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -2822,32 +3100,16 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDateTime;
 import java.util.List;
 
-// 1. 任务生产者
-@Component
-@RequiredArgsConstructor
-public class TaskProducer {
+// 任务生产者
+public interface TaskProducer {
+    // 发送任务消息
+    void sendTask(TaskDefinition task);
 
-    private final RabbitTemplate rabbitTemplate;
-    private final TaskSplitter taskSplitter;
+    // 发送带分片的任务消息
+    void sendShardingTask(TaskDefinition task, int shardingTotal);
 
-    @Value("${mq.task.exchange}")
-    private String taskExchange;
-
-    @Value("${mq.task.routing-key}")
-    private String taskRoutingKey;
-
-    public void sendTask(CollectTask task, int shardCount) {
-        // 1. 任务分片
-        List<CollectTask> tasks = taskSplitter.split(task, shardCount);
-
-        // 2. 发送任务
-        tasks.forEach(subTask -> {
-            rabbitTemplate.convertAndSend(taskExchange, taskRoutingKey, subTask);
-        });
-    }
-}
-
-
+    // 广播任务消息
+    void broadcastTask(TaskDefinition task);
 }
 
 
@@ -3453,6 +3715,16 @@ public class CollectTask {
 
 ```
 
+## TaskContext.java
+
+```java
+package com.study.collect.core.task;
+
+public class TaskContext {
+}
+
+```
+
 ## TaskResult.java
 
 ```java
@@ -3521,6 +3793,165 @@ public enum TaskStatus {
 }
 ```
 
+## TaskAutoConfiguration.java
+
+```java
+package com.study.collect.core.task.config;
+
+public class TaskAutoConfiguration {
+}
+
+```
+
+## TaskProperties.java
+
+```java
+package com.study.collect.core.task.config;
+
+public class TaskProperties {
+}
+
+```
+
+## ShardingConfig.java
+
+```java
+package com.study.collect.core.task.definition;
+
+import lombok.Data;
+
+@Data
+public class ShardingConfig {
+    private boolean enabled;         // 是否启用分片
+    private Integer total;           // 分片总数
+    private String strategy;         // 分片策略
+}
+```
+
+## TaskDefinition.java
+
+```java
+package com.study.collect.core.task.definition;
+
+import lombok.Data;
+import java.util.Map;
+
+@Data
+public class TaskDefinition {
+    private String taskId;           // 任务ID
+    private String taskName;         // 任务名称
+    private String taskHandler;      // 任务处理器
+    private String cronExpression;   // cron表达式
+    private ShardingConfig sharding; // 分片配置
+    private Map<String,Object> props;// 任务属性
+}
+```
+
+## TaskProperties.java
+
+```java
+package com.study.collect.core.task.definition;
+
+public class TaskProperties {
+}
+
+```
+
+## TaskTrigger.java
+
+```java
+package com.study.collect.core.task.definition;
+
+import lombok.Data;
+
+@Data
+public class TaskTrigger {
+    private String cronExpression;   // cron表达式
+    private Long interval;           // 固定间隔
+    private Long delay;              // 延迟时间
+}
+
+```
+
+## AbstractTaskExecutor.java
+
+```java
+package com.study.collect.core.task.executor;
+
+import com.study.collect.core.task.TaskContext;
+import com.study.collect.core.task.definition.TaskDefinition;
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
+public abstract class AbstractTaskExecutor implements TaskExecutor {
+
+    @Override
+    public void execute(TaskDefinition task, TaskContext context) {
+        try {
+            // 1. 前置处理
+            beforeExecute(task, context);
+
+            // 2. 执行任务
+            doExecute(task, context);
+
+            // 3. 后置处理
+            afterExecute(task, context);
+
+        } catch (Exception e) {
+            log.error("Task execute error", e);
+            onError(task, context, e);
+        }
+    }
+
+    protected void beforeExecute(TaskDefinition task, TaskContext context) {
+        // 默认空实现
+    }
+
+    protected abstract void doExecute(TaskDefinition task, TaskContext context);
+
+    protected void afterExecute(TaskDefinition task, TaskContext context) {
+        // 默认空实现
+    }
+
+    protected void onError(TaskDefinition task, TaskContext context, Exception e) {
+        // 默认空实现
+    }
+}
+```
+
+## DefaultTaskExecutor.java
+
+```java
+package com.study.collect.core.task.executor;
+
+import com.study.collect.core.task.TaskContext;
+import com.study.collect.core.task.definition.TaskDefinition;
+import com.study.collect.core.task.handler.TaskHandler;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
+
+import java.util.Map;
+
+@Component
+@RequiredArgsConstructor
+public class DefaultTaskExecutor extends AbstractTaskExecutor {
+
+    private final Map<String, TaskHandler> taskHandlers;
+
+    @Override
+    protected void doExecute(TaskDefinition task, TaskContext context) {
+        // 1. 获取任务处理器
+        TaskHandler handler = taskHandlers.get(task.getTaskHandler());
+        if (handler == null) {
+            throw new RuntimeException("Task handler not found: " + task.getTaskHandler());
+        }
+
+        // 2. 执行任务处理
+        handler.handle(context);
+    }
+}
+```
+
 ## ParallelExecutor.java
 
 ```java
@@ -3536,7 +3967,143 @@ public class ParallelExecutor {
 ```java
 package com.study.collect.core.task.executor;
 
-public class TaskExecutor {
+import com.study.collect.core.task.TaskContext;
+import com.study.collect.core.task.definition.TaskDefinition;
+
+public interface TaskExecutor {
+    void execute(TaskDefinition task, TaskContext context);
+}
+```
+
+## CollectTaskHandler.java
+
+```java
+package com.study.collect.core.task.handler;
+
+import com.study.collect.core.task.TaskContext;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+
+@Slf4j
+@Component
+public class CollectTaskHandler implements TaskHandler {
+
+    @Override
+    public void handle(TaskContext context) {
+        log.info("Execute collect task, context: {}", context);
+        // 具体采集逻辑由业务模块实现
+    }
+}
+```
+
+## TaskHandler.java
+
+```java
+package com.study.collect.core.task.handler;
+
+import com.study.collect.core.task.TaskContext;
+
+public interface TaskHandler {
+    void handle(TaskContext context);
+}
+```
+
+## DefaultTaskListener.java
+
+```java
+package com.study.collect.core.task.listener;
+
+public class DefaultTaskListener {
+}
+
+```
+
+## TaskListener.java
+
+```java
+package com.study.collect.core.task.listener;
+
+public class TaskListener {
+}
+
+```
+
+## DefaultTaskManager.java
+
+```java
+package com.study.collect.core.task.manager;
+
+import com.study.collect.core.mq.producer.TaskProducer;
+import com.study.collect.core.task.definition.TaskDefinition;
+import com.study.collect.core.task.scheduler.TaskScheduler;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
+
+@Component
+@RequiredArgsConstructor
+public class DefaultTaskManager implements TaskManager {
+
+    private final TaskProducer taskProducer;
+    private final TaskScheduler taskScheduler;
+
+    @Override
+    public void submitTask(TaskDefinition task) {
+        // 1. 校验任务
+        validateTask(task);
+
+        // 2. 分发任务
+        if (task.getSharding() != null && task.getSharding().isEnabled()) {
+            // 分片执行
+            taskProducer.sendShardingTask(task, task.getSharding().getTotal());
+        } else {
+            // 单节点执行
+            taskProducer.sendTask(task);
+        }
+    }
+
+    @Override
+    public void cancelTask(String taskId) {
+        taskScheduler.cancelTask(taskId);
+    }
+
+    @Override
+    public void pauseTask(String taskId) {
+        taskScheduler.pauseTask(taskId);
+    }
+
+    @Override
+    public void resumeTask(String taskId) {
+        taskScheduler.resumeTask(taskId);
+    }
+
+    private void validateTask(TaskDefinition task) {
+        // 任务参数校验
+    }
+}
+```
+
+## TaskManager.java
+
+```java
+package com.study.collect.core.task.manager;
+
+import com.study.collect.core.task.definition.TaskDefinition;
+
+public interface TaskManager {
+    void submitTask(TaskDefinition task);
+    void cancelTask(String taskId);
+    void pauseTask(String taskId);
+    void resumeTask(String taskId);
+}
+
+```
+
+## AbstractTaskScheduler.java
+
+```java
+package com.study.collect.core.task.scheduler;
+
+public class AbstractTaskScheduler {
 }
 
 ```
@@ -3551,6 +4118,16 @@ public class DefaultScheduler {
 
 ```
 
+## DefaultTaskScheduler.java
+
+```java
+package com.study.collect.core.task.scheduler;
+
+public class DefaultTaskScheduler {
+}
+
+```
+
 ## TaskScheduler.java
 
 ```java
@@ -3560,11 +4137,11 @@ import com.study.collect.core.task.CollectTask;
 import com.study.collect.core.task.TaskResult;
 
 // 3. 任务接口
-public interface TaskExecutor {
-    // 执行任务
-    void execute(CollectTask task);
-    // 处理结果
-    void handleResult(TaskResult result);
+public interface TaskScheduler {
+//    // 执行任务
+//    void execute(CollectTask task);
+//    // 处理结果
+//    void handleResult(TaskResult result);
 }
 
 ```
@@ -3651,6 +4228,36 @@ public interface TaskSplitter {
 
 ```
 
+## DbTaskStore.java
+
+```java
+package com.study.collect.core.task.store;
+
+public class DbTaskStore {
+}
+
+```
+
+## MemoryTaskStore.java
+
+```java
+package com.study.collect.core.task.store;
+
+public class MemoryTaskStore {
+}
+
+```
+
+## TaskStore.java
+
+```java
+package com.study.collect.core.task.store;
+
+public class TaskStore {
+}
+
+```
+
 ## pom.xml
 
 ```xml
@@ -3700,7 +4307,7 @@ public interface TaskSplitter {
         <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-            <version>2.3.0</version>
+            <version>2.5.0</version>
         </dependency>
 
         <!-- Monitoring -->
@@ -3838,52 +4445,143 @@ name: /var/log/collect/collect.log
 
 ```yaml
 server:
-port: 8080
+  port: 8080
 
 spring:
-application:
-name: platform-collect
+  application:
+    name: platform-collect
 
-# 数据源配置
-datasource:
-url: jdbc:mysql://localhost:3306/collect?useUnicode=true&characterEncoding=utf8
-username: root
-password: root
-driver-class-name: com.mysql.cj.jdbc.Driver
+  # 数据源配置
+  datasource:
+    driver-class-name: org.mariadb.jdbc.Driver
+    url: jdbc:mariadb://192.168.80.137:3306/test?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
+    username: root
+    password: 123456
+  # RabbitMQ配置
+  rabbitmq:
+    host: 192.168.80.137
+    port: 5672
+    username: admin
+    password: 123456
+  data:
+    redis:
+      # 通用配置
+      password: 123456
+      timeout: 5000
+      # 集群配置（如果使用集群模式，则注释掉host和port）
+      cluster:
+        nodes:
+          - 192.168.80.137:6379
+          - 192.168.80.137:6380
+          - 192.168.80.137:6381
+          - 192.168.80.137:6382
+          - 192.168.80.137:6383
+          - 192.168.80.137:6384
+      # 连接池配置
+      lettuce:
+        pool:
+          max-active: 8  # 连接池最大连接数
+          max-idle: 8    # 连接池最大空闲连接数
+          min-idle: 0    # 连接池最小空闲连接数
+          max-wait: 1000 # 连接池最大阻塞等待时间（使用负值表示没有限制）
 
-# Redis配置
-redis:
-host: localhost
-port: 6379
-database: 0
 
-# MongoDB配置
-data:
-mongodb:
-uri: mongodb://localhost:27017/collect
+      # 单机配置（如果使用集群模式，则注释掉这部分）
+    #      host: 192.168.80.137
+    #      port: 6379
+    mongodb:
+      uri: mongodb://root:123456@192.168.80.137:27017
+      database: crawler
+      auto-index-creation: true
 
-# RabbitMQ配置
-rabbitmq:
-host: localhost
-port: 5672
-username: guest
-password: guest
 
 # 监控端点配置
 management:
-endpoints:
-web:
-exposure:
-include: "*"
-endpoint:
-health:
-show-details: always
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+  endpoint:
+    health:
+      show-details: always
 
 # 日志配置
 logging:
-level:
-com.study.collect: info
-file:
-name: logs/collect.log
+  level:
+    com.study.collect: info
+  file:
+    name: logs/collect.log
+
+#collect:
+#  task:
+#    enabled: true  # 是否启用任务
+#    tasks:
+#      - taskId: "enterprise-collect"
+#        taskName: "企业数据采集"
+#        taskHandler: "enterpriseCollectHandler"
+#        cronExpression: "0 0 1 * * ?"
+#        props:
+#          collectType: "enterprise"
+#          batchSize: 100
+collect:
+  task:
+    enabled: true
+    tasks:
+      - taskId: "enterprise-collect"
+        taskName: "企业数据采集"
+        taskHandler: "enterpriseCollectHandler"
+        cronExpression: "0 0 1 * * ?"
+        sharding:
+          enabled: true
+          total: 4
+  mq:
+    rabbit:
+      enabled: true
+      host: 192.168.80.137
+      port: 5672
+      username: admin
+      password: 123456
+
+      # 任务队列配置
+      task:
+        exchange: collect.task
+        queue: collect.task.queue
+        routing-key: collect.task
+
+      # 结果队列配置
+      result:
+        exchange: collect.result
+        queue: collect.result.queue
+        routing-key: collect.result
+
+      # 分片配置
+      sharding:
+        enabled: true
+        total: 4      # 分片总数
+```
+
+## sql.sql
+
+```sql
+-- 任务配置表
+CREATE TABLE task_config (
+id bigint NOT NULL AUTO_INCREMENT,
+task_id varchar(64) NOT NULL COMMENT '任务ID',
+task_name varchar(64) NOT NULL COMMENT '任务名称',
+task_handler varchar(64) NOT NULL COMMENT '任务处理器',
+cron_expression varchar(64) COMMENT 'cron表达式',
+props json COMMENT '任务属性',
+status tinyint NOT NULL COMMENT '状态:0-禁用,1-启用',
+create_time datetime NOT NULL,
+update_time datetime NOT NULL,
+PRIMARY KEY (id),
+UNIQUE KEY uk_task_id (task_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='任务配置表';
+```
+
+## 任务.md
+
+```markdown
+
 ```
 

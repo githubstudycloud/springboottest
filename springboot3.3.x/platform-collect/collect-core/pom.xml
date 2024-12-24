@@ -45,6 +45,12 @@
             <artifactId>spring-boot-starter-amqp</artifactId>
         </dependency>
 
+        <!-- 添加 MariaDB JDBC 驱动依赖 -->
+        <dependency>
+            <groupId>org.mariadb.jdbc</groupId>
+            <artifactId>mariadb-java-client</artifactId>
+        </dependency>
+
         <!-- Metrics -->
         <dependency>
             <groupId>io.micrometer</groupId>
