@@ -1,29 +1,62 @@
 package com.study.collect.core.mq.producer;
 
-//生产者接口
+import com.study.collect.core.mq.config.MQProperties;
+import com.study.collect.core.mq.message.TaskMessage;
+import com.study.collect.core.mq.message.TaskResultMessage;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
-import com.study.collect.core.task.definition.TaskDefinition;
+@Slf4j
+@Component
+public class TaskProducer {
 
-public interface TaskProducer {
-    /**
-     * 发送任务消息
-     *
-     * @param task 任务定义
-     */
-    void sendTask(TaskDefinition task);
+    private final RabbitTemplate rabbitTemplate;
+    private final MQProperties mqProperties;
 
-    /**
-     * 发送分片任务消息
-     *
-     * @param task          任务定义
-     * @param shardingTotal 分片总数
-     */
-    void sendShardingTask(TaskDefinition task, int shardingTotal);
+    @Autowired
+    public TaskProducer(RabbitTemplate rabbitTemplate, MQProperties mqProperties) {
+        this.rabbitTemplate = rabbitTemplate;
+        this.mqProperties = mqProperties;
+    }
 
-    /**
-     * 广播任务消息
-     *
-     * @param task 任务定义
-     */
-    void broadcastTask(TaskDefinition task);
+    public void sendTask(TaskMessage message) {
+        try {
+            MQProperties.RabbitMQ.Queue taskQueue = mqProperties.getRabbit().getTask();
+            rabbitTemplate.convertAndSend(
+                    taskQueue.getExchange(),
+                    taskQueue.getRoutingKey(),
+                    message
+            );
+            log.info("Task message sent: instanceId={}, taskCode={}, shard={}/{}",
+                    message.getInstanceId(),
+                    message.getTaskId(),
+                    message.getShardIndex() + 1,
+                    message.getShardTotal()
+            );
+        } catch (Exception e) {
+            log.error("Failed to send task message: " + message.getInstanceId(), e);
+            throw new RuntimeException("Message sending failed", e);
+        }
+    }
+
+    public void sendResult(TaskResultMessage message) {
+        try {
+            MQProperties.RabbitMQ.Queue resultQueue = mqProperties.getRabbit().getResult();
+            rabbitTemplate.convertAndSend(
+                    resultQueue.getExchange(),
+                    resultQueue.getRoutingKey(),
+                    message
+            );
+            log.info("Result message sent: instanceId={}, taskCode={}, success={}",
+                    message.getInstanceId(),
+                    message.getTaskId(),
+                    message.getSuccess()
+            );
+        } catch (Exception e) {
+            log.error("Failed to send result message: " + message.getInstanceId(), e);
+            throw new RuntimeException("Message sending failed", e);
+        }
+    }
 }

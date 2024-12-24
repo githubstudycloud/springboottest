@@ -112,3 +112,15 @@ collect:
       sharding:
         enabled: true
         total: 4      # 分片总数
+
+collect:
+  task:
+    enabled: true
+    thread-pool:
+      core-size: 10
+      max-size: 20
+      queue-capacity: 200
+    execution:
+      timeout: 3600
+      retry-times: 3
+      retry-interval: 300

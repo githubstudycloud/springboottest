@@ -1,55 +1,71 @@
 package com.study.collect.core.task.scheduler;
 
-// 抽象调度器
 
-import com.study.collect.core.task.definition.TaskDefinition;
-import com.study.collect.core.task.executor.TaskExecutor;
+import com.study.collect.core.task.entity.TaskConfig;
+import com.study.collect.core.task.model.TaskDefinition;
+import com.study.collect.core.task.service.TaskConfigService;
+import com.study.collect.core.task.service.TaskExecuteService;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ScheduledFuture;
 
 @Slf4j
 public abstract class AbstractTaskScheduler implements TaskScheduler {
 
-    protected final TaskExecutor taskExecutor;
-    protected final Map<String, TaskDefinition> taskDefinitions = new ConcurrentHashMap<>();
+    protected final TaskConfigService taskConfigService;
+    protected final TaskExecuteService taskExecuteService;
+    protected final Map<String, ScheduledFuture<?>> scheduledTasks = new ConcurrentHashMap<>();
 
-    protected AbstractTaskScheduler(TaskExecutor taskExecutor) {
-        this.taskExecutor = taskExecutor;
+    protected AbstractTaskScheduler(TaskConfigService taskConfigService, TaskExecuteService taskExecuteService) {
+        this.taskConfigService = taskConfigService;
+        this.taskExecuteService = taskExecuteService;
+    }
+
+    @Override
+    public void start() {
+        log.info("Starting task scheduler...");
+        doStart();
+    }
+
+    @Override
+    public void stop() {
+        log.info("Stopping task scheduler...");
+        scheduledTasks.values().forEach(future -> future.cancel(true));
+        scheduledTasks.clear();
+        doStop();
     }
 
     @Override
     public void addTask(TaskDefinition task) {
-        log.info("Add task to scheduler, taskId: {}", task.getTaskId());
-        taskDefinitions.put(task.getTaskId(), task);
+        TaskConfig config = convertToConfig(task);
+        taskConfigService.saveTaskConfig(config);
         doAddTask(task);
     }
 
     @Override
     public void removeTask(String taskId) {
-        log.info("Remove task from scheduler, taskId: {}", taskId);
-        taskDefinitions.remove(taskId);
+        ScheduledFuture<?> future = scheduledTasks.remove(taskId);
+        if (future != null) {
+            future.cancel(true);
+        }
         doRemoveTask(taskId);
     }
 
-    @Override
-    public void pauseTask(String taskId) {
-        log.info("Pause task, taskId: {}", taskId);
-        doPauseTask(taskId);
-    }
-
-    @Override
-    public void resumeTask(String taskId) {
-        log.info("Resume task, taskId: {}", taskId);
-        doResumeTask(taskId);
-    }
-
+    protected abstract void doStart();
+    protected abstract void doStop();
     protected abstract void doAddTask(TaskDefinition task);
-
     protected abstract void doRemoveTask(String taskId);
 
-    protected abstract void doPauseTask(String taskId);
-
-    protected abstract void doResumeTask(String taskId);
+    // 提供任务配置转换方法
+    protected TaskConfig convertToConfig(TaskDefinition task) {
+        TaskConfig config = new TaskConfig();
+        config.setTaskCode(task.getTaskId());
+        config.setTaskName(task.getTaskName());
+        config.setTaskHandler(task.getTaskHandler());
+        config.setCronExpr(task.getCronExpression());
+        config.setShardTotal(task.getSharding() != null ? task.getSharding().getTotal() : 1);
+        return config;
+    }
 }

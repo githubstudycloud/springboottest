@@ -8,39 +8,45 @@ import lombok.extern.slf4j.Slf4j;
 public abstract class AbstractTaskHandler implements TaskHandler {
 
     @Override
-    public TaskResult handle(TaskContext context) {
+    public TaskResult execute(TaskContext context) {
         String taskId = context.getTaskId();
-        log.info("Start handling task: {}", taskId);
+        log.info("开始执行任务: taskId={}, type={}", taskId, getType());
 
         try {
             // 前置处理
-            beforeHandle(context);
+            beforeExecute(context);
 
-            // 执行处理
-            TaskResult result = doHandle(context);
+            // 执行任务
+            Object result = doExecute(context);
 
             // 后置处理
-            afterHandle(context, result);
+            afterExecute(context, result);
 
-            return result;
+            log.info("任务执行完成: taskId={}", taskId);
+            return TaskResult.success(taskId, result);
 
         } catch (Exception e) {
-            log.error("Task handling failed, taskId: {}", taskId, e);
-            return handleError(context, e);
+            log.error("任务执行失败: taskId={}", taskId, e);
+            return TaskResult.failure(taskId, e.getMessage());
         }
     }
 
-    protected void beforeHandle(TaskContext context) {
-        // 子类可以覆盖实现具体的前置处理逻辑
+    /**
+     * 任务执行前的处理
+     */
+    protected void beforeExecute(TaskContext context) {
+        // 子类可以覆盖实现
     }
 
-    protected abstract TaskResult doHandle(TaskContext context);
+    /**
+     * 执行具体任务
+     */
+    protected abstract Object doExecute(TaskContext context);
 
-    protected void afterHandle(TaskContext context, TaskResult result) {
-        // 子类可以覆盖实现具体的后置处理逻辑
-    }
-
-    protected TaskResult handleError(TaskContext context, Exception e) {
-        return TaskResult.failure(context.getTaskId(), e.getMessage());
+    /**
+     * 任务执行后的处理
+     */
+    protected void afterExecute(TaskContext context, Object result) {
+        // 子类可以覆盖实现
     }
 }

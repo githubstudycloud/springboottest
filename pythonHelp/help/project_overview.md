@@ -134,37 +134,21 @@ platform-collect/
                                         model/
                                             CollectContext.java
                                             CollectResult.java
+                                    common/
                                     config/
                                         CollectAutoConfiguration.java
                                         package-info.java
                                     mq/
-                                        package-info.java
                                         config/
                                             MQProperties.java
-                                            package-info.java
                                             RabbitConfig.java
                                         consumer/
-                                            AbstractConsumer.java
-                                            package-info.java
-                                            RabbitTaskConsumer.java
-                                            ResultConsumer.java
                                             TaskConsumer.java
-                                        handler/
-                                            DefaultMessageHandler.java
-                                            MessageHandler.java
-                                            ResultHandler.java
                                         message/
                                             BaseMessage.java
-                                            package-info.java
-                                            ResultMessage.java
                                             TaskMessage.java
-                                            converter/
-                                                DefaultMessageConverter.java
+                                            TaskResultMessage.java
                                         producer/
-                                            AbstractProducer.java
-                                            package-info.java
-                                            RabbitTaskProducer.java
-                                            ResultProducer.java
                                             TaskProducer.java
                                     processor/
                                         AbstractProcessor.java
@@ -229,54 +213,52 @@ platform-collect/
                                     task/
                                         package-info.java
                                         config/
+                                            MyBatisConfig.java
                                             TaskConfiguration.java
                                         definition/
-                                            package-info.java
-                                            ShardingConfig.java
-                                            TaskDefinition.java
                                             TaskProperties.java
-                                            TaskTrigger.java
+                                        entity/
+                                            TaskConfig.java
+                                            TaskInstance.java
+                                            TaskLog.java
+                                        enums/
+                                            LogTypeEnum.java
+                                            TaskStatusEnum.java
                                         exception/
                                             TaskValidationException.java
-                                        executor/
-                                            AbstractTaskExecutor.java
-                                            AsyncTaskExecutor.java
-                                            DefaultTaskExecutor.java
-                                            package-info.java
-                                            RetryExecutor.java
-                                            TaskExecutor.java
                                         handler/
                                             AbstractTaskHandler.java
+                                            SampleTaskHandler.java
                                             TaskHandler.java
-                                        lifecycle/
-                                            TaskLifecycle.java
-                                            TaskLifecycleManager.java
-                                        manager/
-                                            AbstractTaskManager.java
-                                            DefaultTaskManager.java
-                                            TaskManager.java
+                                            TaskHandlerManager.java
+                                        mapper/
+                                            TaskConfigMapper.java
+                                            TaskInstanceMapper.java
+                                            TaskLogMapper.java
                                         model/
-                                            CollectTask.java
                                             package-info.java
+                                            ShardingConfig.java
                                             TaskContext.java
+                                            TaskDefinition.java
                                             TaskResult.java
                                             TaskStatus.java
-                                        monitor/
-                                            TaskMonitor.java
                                         scheduler/
                                             AbstractTaskScheduler.java
                                             DefaultTaskScheduler.java
-                                            DynamicTaskScheduler.java
                                             package-info.java
+                                            TaskDispatcher.java
                                             TaskScheduler.java
-                                        splitter/
-                                            CustomSplitter.java
-                                            DefaultSplitter.java
-                                            package-info.java
-                                            TaskSplitter.java
-                                        validator/
-                                            TaskValidator.java
+                                        service/
+                                            TaskConfigService.java
+                                            TaskExecuteService.java
+                                        utils/
+                                            InstanceIdGenerator.java
                                     util/
+                resources/
+                    mapper/
+                        TaskConfigMapper.xml
+                        TaskInstanceMapper.xml
+                        TaskLogMapper.xml
     collect-starter/
         pom.xml
         src/
@@ -1962,6 +1944,12 @@ public class JsonUtils {
             <groupId>com.fasterxml.jackson.datatype</groupId>
             <artifactId>jackson-datatype-jsr310</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.mybatis</groupId>
+            <artifactId>mybatis-spring</artifactId>
+            <version>3.0.3</version>
+            <scope>compile</scope>
+        </dependency>
     </dependencies>
 </project>
 ```
@@ -2370,10 +2358,10 @@ package com.study.collect.core.config;
 
 import com.study.collect.core.collector.config.CollectorConfiguration;
 import com.study.collect.core.mq.config.MQProperties;
-import com.study.collect.core.mq.config.RabbitConfig;
 import com.study.collect.core.processor.config.ProcessorConfiguration;
 import com.study.collect.core.storage.cache.config.CacheAutoConfiguration;
 import com.study.collect.core.storage.config.MongoConfig;
+import com.study.collect.core.task.config.MyBatisConfig;
 import com.study.collect.core.task.config.TaskConfiguration;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
@@ -2383,7 +2371,8 @@ import org.springframework.context.annotation.Import;
 @ComponentScan("com.study.collect.core")
 @Import({
         MongoConfig.class,
-        RabbitConfig.class,
+        MyBatisConfig.class,
+        MQProperties.class,
         CacheAutoConfiguration.class,
         TaskConfiguration.class,
         CollectorConfiguration.class,
@@ -2403,68 +2392,102 @@ public class CollectAutoConfiguration {
 package com.study.collect.core.config;
 ```
 
-## package-info.java
-
-```java
-/**
- * 这个包包含与消息队列（MQ）模块相关的类和接口。
- * <p>
- * MQ模块负责处理应用程序中的消息队列操作
- * 它包括发送、接收和处理消息的功能。
- */
-package com.study.collect.core.mq;
-```
-
 ## MQProperties.java
 
 ```java
 package com.study.collect.core.mq.config;
 
-// 基础配置
-
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+/**
+ * 消息队列配置属性类
+ * 对应配置文件中 collect.mq 前缀的配置项
+ */
 @Data
 @ConfigurationProperties(prefix = "collect.mq")
 public class MQProperties {
+
+    /**
+     * RabbitMQ相关配置
+     */
     private RabbitMQ rabbit = new RabbitMQ();
 
     @Data
     public static class RabbitMQ {
+        /**
+         * 服务器地址
+         */
         private String host;
+
+        /**
+         * 服务器端口
+         */
         private Integer port;
+
+        /**
+         * 用户名
+         */
         private String username;
+
+        /**
+         * 密码
+         */
         private String password;
 
+        /**
+         * 虚拟主机
+         */
+        private String virtualHost = "/";
+
+        /**
+         * 任务队列配置
+         */
         private Queue task = new Queue();
+
+        /**
+         * 结果队列配置
+         */
         private Queue result = new Queue();
 
+        /**
+         * 队列配置类
+         */
         @Data
         public static class Queue {
+            /**
+             * 交换机名称
+             */
             private String exchange;
+
+            /**
+             * 队列名称
+             */
             private String queue;
+
+            /**
+             * 路由键
+             */
             private String routingKey;
+
+            /**
+             * 是否持久化
+             */
+            private boolean durable = true;
+
+            /**
+             * 是否自动删除
+             */
+            private boolean autoDelete = false;
         }
     }
 }
-```
-
-## package-info.java
-
-```java
-/**
- * 配置层
- */
-package com.study.collect.core.mq.config;
 ```
 
 ## RabbitConfig.java
 
 ```java
 package com.study.collect.core.mq.config;
-
-// RabbitMQ配置
 
 import org.springframework.amqp.core.*;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
@@ -2499,126 +2522,28 @@ public class RabbitConfig {
     }
 
     @Bean
+    public DirectExchange resultExchange(MQProperties properties) {
+        return new DirectExchange(properties.getRabbit().getResult().getExchange());
+    }
+
+    @Bean
+    public Queue resultQueue(MQProperties properties) {
+        return QueueBuilder.durable(properties.getRabbit().getResult().getQueue())
+                .build();
+    }
+
+    @Bean
+    public Binding resultBinding(Queue resultQueue, DirectExchange resultExchange, MQProperties properties) {
+        return BindingBuilder.bind(resultQueue)
+                .to(resultExchange)
+                .with(properties.getRabbit().getResult().getRoutingKey());
+    }
+
+    @Bean
     public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory) {
         RabbitTemplate template = new RabbitTemplate(connectionFactory);
         template.setMessageConverter(new Jackson2JsonMessageConverter());
         return template;
-    }
-}
-```
-
-## AbstractConsumer.java
-
-```java
-package com.study.collect.core.mq.consumer;
-
-// 抽象消费者
-public class AbstractConsumer {
-}
-
-```
-
-## package-info.java
-
-```java
-/**
- * 消息模型层
- */
-package com.study.collect.core.mq.consumer;
-```
-
-## RabbitTaskConsumer.java
-
-```java
-package com.study.collect.core.mq.consumer;
-
-// RabbitMQ实现
-
-import com.study.collect.core.mq.config.MQProperties;
-import com.study.collect.core.mq.message.TaskMessage;
-import com.study.collect.core.task.executor.TaskExecutor;
-import com.study.collect.core.task.model.TaskContext;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.amqp.rabbit.annotation.RabbitListener;
-import org.springframework.stereotype.Component;
-
-@Slf4j
-@Component
-@RequiredArgsConstructor
-public class RabbitTaskConsumer implements TaskConsumer {
-
-    private final TaskExecutor taskExecutor;
-    private final MQProperties properties;
-
-    @Override
-    @RabbitListener(queues = "#{@taskQueue.name}")
-    public void onMessage(TaskMessage message) {
-        try {
-            log.info("Receive task message: {}", message);
-
-            // 1. 判断是否是当前节点的分片
-            if (!isCurrentShard(message)) {
-                log.info("Not current shard task, ignore, taskId: {}, shardingId: {}",
-                        message.getTaskId(), message.getShardingId());
-                return;
-            }
-
-            // 2. 构建任务上下文
-            TaskContext context = buildContext(message);
-
-            // 3. 执行任务
-            taskExecutor.execute(message.getTaskDefinition(), context);
-
-            log.info("Process task message success, taskId: {}", message.getTaskId());
-        } catch (Exception e) {
-            log.error("Process task message failed, taskId: {}", message.getTaskId(), e);
-            // TODO: 异常处理、重试、死信队列等逻辑
-        }
-    }
-
-    @Override
-    public boolean isCurrentShard(TaskMessage message) {
-        // TODO: 实现分片判断逻辑
-        return message.getShardingId() == null ||
-                message.getShardingId().equals(getCurrentShardingId());
-    }
-
-    private Integer getCurrentShardingId() {
-        // TODO: 实现获取当前节点分片ID的逻辑
-        return 0;
-    }
-}
-
-```
-
-## ResultConsumer.java
-
-```java
-package com.study.collect.core.mq.consumer;
-
-import com.study.collect.core.mq.handler.MessageHandler;
-import com.study.collect.core.mq.message.ResultMessage;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.amqp.rabbit.annotation.RabbitListener;
-import org.springframework.stereotype.Component;
-
-@Slf4j
-@Component
-@RequiredArgsConstructor
-public class ResultConsumer {
-
-    private final MessageHandler messageHandler;
-
-    @RabbitListener(queues = "#{@resultQueue.name}")
-    public void onMessage(ResultMessage message) {
-        try {
-            log.info("收到结果消息: taskId={}", message.getTaskId());
-            messageHandler.handleResultMessage(message);
-        } catch (Exception e) {
-            log.error("处理结果消息失败: taskId={}", message.getTaskId(), e);
-        }
     }
 }
 ```
@@ -2628,202 +2553,126 @@ public class ResultConsumer {
 ```java
 package com.study.collect.core.mq.consumer;
 
-// 消费者接口
-
 import com.study.collect.core.mq.message.TaskMessage;
+import com.study.collect.core.mq.message.TaskResultMessage;
+import com.study.collect.core.mq.producer.TaskProducer;
+import com.study.collect.core.task.handler.TaskHandler;
+import com.study.collect.core.task.handler.TaskHandlerManager;
 import com.study.collect.core.task.model.TaskContext;
-
-public interface TaskConsumer {
-    /**
-     * 处理任务消息
-     *
-     * @param message 任务消息
-     */
-    void onMessage(TaskMessage message);
-
-    /**
-     * 判断是否为当前节点的分片
-     *
-     * @param message 任务消息
-     * @return 是否处理
-     */
-    default boolean isCurrentShard(TaskMessage message) {
-        return true;
-    }
-
-    /**
-     * 构建任务上下文
-     *
-     * @param message 任务消息
-     * @return 任务上下文
-     */
-    default TaskContext buildContext(TaskMessage message) {
-        TaskContext context = new TaskContext();
-        context.setTaskId(message.getTaskId());
-        context.setShardingId(message.getShardingId());
-        context.setShardingTotal(message.getShardingTotal());
-        return context;
-    }
-}
-
-```
-
-## DefaultMessageHandler.java
-
-```java
-package com.study.collect.core.mq.handler;
-
-import com.study.collect.core.mq.message.ResultMessage;
-import com.study.collect.core.mq.message.TaskMessage;
-import com.study.collect.core.task.executor.TaskExecutor;
-import com.study.collect.core.task.model.TaskContext;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-
-/**
- * 默认消息处理器实现
- */
-@Slf4j
-@Component
-@RequiredArgsConstructor
-public class DefaultMessageHandler implements MessageHandler {
-
-    private final TaskExecutor taskExecutor;
-
-    @Override
-    public void handleTaskMessage(TaskMessage message) {
-        log.info("开始处理任务消息: taskId={}", message.getTaskId());
-
-        try {
-            TaskContext context = buildTaskContext(message);
-            taskExecutor.execute(message.getTaskDefinition(), context);
-            log.info("任务消息处理完成: taskId={}", message.getTaskId());
-
-        } catch (Exception e) {
-            log.error("任务消息处理失败: taskId={}", message.getTaskId(), e);
-            handleTaskError(message, e);
-        }
-    }
-
-    @Override
-    public void handleResultMessage(ResultMessage message) {
-        log.info("开始处理结果消息: taskId={}, success={}", message.getTaskId(), message.getSuccess());
-
-        try {
-            if (message.getSuccess()) {
-                handleTaskSuccess(message);
-            } else {
-                handleTaskFailure(message);
-            }
-            log.info("结果消息处理完成: taskId={}", message.getTaskId());
-
-        } catch (Exception e) {
-            log.error("结果消息处理失败: taskId={}", message.getTaskId(), e);
-        }
-    }
-
-    private TaskContext buildTaskContext(TaskMessage message) {
-        TaskContext context = new TaskContext();
-        context.setTaskId(message.getTaskId());
-        context.setShardingId(message.getShardingId());
-        context.setShardingTotal(message.getShardingTotal());
-        return context;
-    }
-
-    private void handleTaskError(TaskMessage message, Exception e) {
-        // 任务执行异常处理逻辑
-    }
-
-    private void handleTaskSuccess(ResultMessage message) {
-        // 任务执行成功处理逻辑
-    }
-
-    private void handleTaskFailure(ResultMessage message) {
-        // 任务执行失败处理逻辑
-    }
-}
-
-```
-
-## MessageHandler.java
-
-```java
-package com.study.collect.core.mq.handler;
-
-import com.study.collect.core.mq.message.ResultMessage;
-import com.study.collect.core.mq.message.TaskMessage;
-
-/**
- * 消息处理器接口
- */
-public interface MessageHandler {
-
-    /**
-     * 处理任务消息
-     *
-     * @param message 任务消息
-     */
-    void handleTaskMessage(TaskMessage message);
-
-    /**
-     * 处理结果消息
-     *
-     * @param message 结果消息
-     */
-    void handleResultMessage(ResultMessage message);
-}
-```
-
-## ResultHandler.java
-
-```java
-package com.study.collect.core.mq.handler;
-
-import com.study.collect.core.mq.message.ResultMessage;
-import com.study.collect.core.mq.producer.ResultProducer;
 import com.study.collect.core.task.model.TaskResult;
-import lombok.RequiredArgsConstructor;
+import com.study.collect.core.task.service.TaskExecuteService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-/**
- * 结果处理器
- */
+import java.time.LocalDateTime;
+
 @Slf4j
 @Component
-@RequiredArgsConstructor
-public class ResultHandler {
+public class TaskConsumer {
 
-    private final ResultProducer resultProducer;
+    private final TaskExecuteService taskExecuteService;
+    private final TaskProducer taskProducer;
+    private final TaskHandlerManager handlerManager;
 
-    public void handleTaskResult(String taskId, TaskResult result) {
-        log.info("开始处理任务执行结果: taskId={}", taskId);
+    @Autowired
+    public TaskConsumer(TaskExecuteService taskExecuteService,
+                        TaskProducer taskProducer,
+                        TaskHandlerManager handlerManager) {
+        this.taskExecuteService = taskExecuteService;
+        this.taskProducer = taskProducer;
+        this.handlerManager = handlerManager;
+    }
+
+    @RabbitListener(queues = "${collect.mq.rabbit.task.queue}")
+    public void onTaskMessage(TaskMessage message) {
+        String instanceId = message.getInstanceId();
+        log.info("Received task message: instanceId={}, taskCode={}, shard={}/{}",
+                instanceId,
+                message.getTaskId(),
+                message.getShardIndex() + 1,
+                message.getShardTotal()
+        );
 
         try {
-            ResultMessage message = createResultMessage(taskId, result);
-            resultProducer.sendResult(message);
-            log.info("任务执行结果处理完成: taskId={}", taskId);
+            // 执行任务
+            Object result = executeTask(message);
+
+            // 发送成功结果
+            sendSuccessResult(message, result);
+
+            // 更新任务状态
+            taskExecuteService.completeTaskInstance(instanceId, true, null);
+
+            log.info("Task executed successfully: {}", instanceId);
 
         } catch (Exception e) {
-            log.error("任务执行结果处理失败: taskId={}", taskId, e);
+            log.error("Task execution failed: " + instanceId, e);
+
+            // 发送失败结果
+            sendFailureResult(message, e.getMessage());
+
+            // 更新任务状态
+            taskExecuteService.completeTaskInstance(instanceId, false, e.getMessage());
         }
     }
 
-    private ResultMessage createResultMessage(String taskId, TaskResult result) {
-        ResultMessage message = new ResultMessage();
-        message.setTaskId(taskId);
-        message.setSuccess(result.getSuccess());
-        message.setResult(result.getData());
+//    private Object executeTask(TaskMessage message) {
+//        // 实际任务执行逻辑
+//        // 这里需要根据具体业务实现，可能需要调用具体的TaskHandler
+//        return null;
+//    }
+    private Object executeTask(TaskMessage message) {
+        // 创建任务上下文
+        TaskContext context = createTaskContext(message);
+
+        // 获取任务处理器
+        TaskHandler handler = handlerManager.getHandler(message.getTaskId());
+
+        // 执行任务
+        TaskResult result = handler.execute(context);
 
         if (!result.getSuccess()) {
-            message.setErrorMsg(result.getErrorMessage());
+            throw new RuntimeException(result.getErrorMessage());
         }
 
-        return message;
+        return result.getData();
+    }
+
+    private TaskContext createTaskContext(TaskMessage message) {
+        TaskContext context = new TaskContext();
+        context.setTaskId(message.getTaskId());
+        context.setInstanceId(message.getInstanceId());
+        context.setShardIndex(message.getShardIndex());
+        context.setShardTotal(message.getShardTotal());
+        context.setShardParam(message.getShardParam());
+        return context;
+    }
+
+    private void sendSuccessResult(TaskMessage message, Object result) {
+        TaskResultMessage resultMessage = createResultMessage(message);
+        resultMessage.setSuccess(true);
+        resultMessage.setResult(result);
+        taskProducer.sendResult(resultMessage);
+    }
+
+    private void sendFailureResult(TaskMessage message, String errorMsg) {
+        TaskResultMessage resultMessage = createResultMessage(message);
+        resultMessage.setSuccess(false);
+        resultMessage.setErrorMsg(errorMsg);
+        taskProducer.sendResult(resultMessage);
+    }
+
+    private TaskResultMessage createResultMessage(TaskMessage message) {
+        TaskResultMessage resultMessage = new TaskResultMessage();
+        resultMessage.setTaskId(message.getTaskId());
+        resultMessage.setInstanceId(message.getInstanceId());
+        resultMessage.setExecuteHost(message.getHostName());
+        resultMessage.setFinishTime(LocalDateTime.now());
+        return resultMessage;
     }
 }
-
 ```
 
 ## BaseMessage.java
@@ -2831,67 +2680,72 @@ public class ResultHandler {
 ```java
 package com.study.collect.core.mq.message;
 
-// 基础消息
-
 import lombok.Data;
-
 import java.io.Serializable;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
+/**
+ * 消息基类
+ * 定义所有消息共有的属性和行为
+ */
 @Data
 public abstract class BaseMessage implements Serializable {
+
+    /**
+     * 消息ID，用于消息追踪
+     */
     private String messageId;
+
+    /**
+     * 消息类型，用于区分不同消息
+     */
     private String type;
+
+    /**
+     * 消息创建时间
+     */
     private LocalDateTime createTime;
 
+    /**
+     * 消息优先级
+     */
+    private Integer priority;
+
+    /**
+     * 消息重试次数
+     */
+    private Integer retryCount;
+
+    /**
+     * 额外属性，用于扩展
+     */
+    private String properties;
+
     public BaseMessage() {
+        this.messageId = UUID.randomUUID().toString();
         this.createTime = LocalDateTime.now();
+        this.retryCount = 0;
     }
 
+    /**
+     * 设置消息类型
+     * 子类需要在构造函数中调用此方法设置具体的消息类型
+     */
     protected void setType(String type) {
         this.type = type;
     }
-}
-```
 
-## package-info.java
-
-```java
-/**
- * 消息模型层
- */
-package com.study.collect.core.mq.message;
-```
-
-## ResultMessage.java
-
-```java
-package com.study.collect.core.mq.message;
-
-// 结果消息
-
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-
-import java.time.LocalDateTime;
-
-@Data
-@EqualsAndHashCode(callSuper = true)
-public class ResultMessage extends BaseMessage {
-    private String taskId;
-    private String nodeId;
-    private Boolean success;
-    private String errorMsg;
-    private Object result;
-    private LocalDateTime finishTime;
-
-    public ResultMessage() {
-        super();
-        setType("RESULT");
-        this.finishTime = LocalDateTime.now();
+    /**
+     * 增加重试次数
+     */
+    public void incrementRetryCount() {
+        if (this.retryCount == null) {
+            this.retryCount = 0;
+        }
+        this.retryCount++;
     }
 }
-
 ```
 
 ## TaskMessage.java
@@ -2899,18 +2753,18 @@ public class ResultMessage extends BaseMessage {
 ```java
 package com.study.collect.core.mq.message;
 
-import com.study.collect.core.task.definition.TaskDefinition;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class TaskMessage extends BaseMessage {
-    private String taskId;
-    private String nodeId;
-    private Integer shardingId;
-    private Integer shardingTotal;
-    private TaskDefinition taskDefinition;
+    private String taskId;           // 任务编码
+    private String instanceId;       // 实例ID
+    private Integer shardIndex;      // 分片索引
+    private Integer shardTotal;      // 分片总数
+    private String shardParam;       // 分片参数
+    private String hostName;         // 执行机器
 
     public TaskMessage() {
         super();
@@ -2919,190 +2773,30 @@ public class TaskMessage extends BaseMessage {
 }
 ```
 
-## DefaultMessageConverter.java
+## TaskResultMessage.java
 
 ```java
-// MessageConverter.java
-package com.study.collect.core.mq.message.converter;
+package com.study.collect.core.mq.message;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.amqp.core.Message;
-import org.springframework.amqp.core.MessageProperties;
-import org.springframework.amqp.support.converter.MessageConverter;
-import org.springframework.stereotype.Component;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
 
-@Component
-public class DefaultMessageConverter implements MessageConverter {
+import java.time.LocalDateTime;
 
-    private final ObjectMapper objectMapper;
+@Data
+@EqualsAndHashCode(callSuper = true)
+public class TaskResultMessage extends BaseMessage {
+    private String taskId;           // 任务编码
+    private String instanceId;       // 实例ID
+    private String executeHost;      // 执行机器
+    private Boolean success;         // 是否成功
+    private String errorMsg;         // 错误信息
+    private Object result;           // 执行结果
+    private LocalDateTime finishTime; // 完成时间
 
-    public DefaultMessageConverter(ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
-    }
-
-    @Override
-    public Message toMessage(Object object, MessageProperties properties) {
-        try {
-            byte[] bytes = objectMapper.writeValueAsBytes(object);
-            properties.setContentType(MessageProperties.CONTENT_TYPE_JSON);
-            properties.setContentEncoding("UTF-8");
-            return new Message(bytes, properties);
-        } catch (Exception e) {
-            throw new RuntimeException("消息转换失败", e);
-        }
-    }
-
-    @Override
-    public Object fromMessage(Message message) {
-        try {
-            String contentType = message.getMessageProperties().getContentType();
-            if (contentType != null && contentType.contains("json")) {
-                return objectMapper.readValue(message.getBody(), Object.class);
-            }
-            return message.getBody();
-        } catch (Exception e) {
-            throw new RuntimeException("消息反序列化失败", e);
-        }
-    }
-}
-
-```
-
-## AbstractProducer.java
-
-```java
-package com.study.collect.core.mq.producer;
-
-// 抽象生产者
-public class AbstractProducer {
-}
-
-```
-
-## package-info.java
-
-```java
-/**
- * 生产者层
- */
-package com.study.collect.core.mq.producer;
-```
-
-## RabbitTaskProducer.java
-
-```java
-package com.study.collect.core.mq.producer;
-
-// RabbitMQ实现
-
-import com.study.collect.core.mq.config.MQProperties;
-import com.study.collect.core.mq.message.TaskMessage;
-import com.study.collect.core.task.definition.TaskDefinition;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
-import org.springframework.stereotype.Component;
-
-import java.util.UUID;
-
-@Slf4j
-@Component
-@RequiredArgsConstructor
-public class RabbitTaskProducer implements TaskProducer {
-
-    private final RabbitTemplate rabbitTemplate;
-    private final MQProperties properties;
-
-    @Override
-    public void sendTask(TaskDefinition task) {
-        TaskMessage message = createTaskMessage(task);
-        sendMessage(message);
-        log.info("Send task message success, taskId: {}", task.getTaskId());
-    }
-
-    @Override
-    public void sendShardingTask(TaskDefinition task, int shardingTotal) {
-        for (int i = 0; i < shardingTotal; i++) {
-            TaskMessage message = createTaskMessage(task);
-            message.setShardingId(i);
-            message.setShardingTotal(shardingTotal);
-            sendMessage(message);
-        }
-        log.info("Send sharding task message success, taskId: {}, shardingTotal: {}",
-                task.getTaskId(), shardingTotal);
-    }
-
-    @Override
-    public void broadcastTask(TaskDefinition task) {
-        TaskMessage message = createTaskMessage(task);
-        sendMessage(message);
-        log.info("Broadcast task message success, taskId: {}", task.getTaskId());
-    }
-
-    private TaskMessage createTaskMessage(TaskDefinition task) {
-        TaskMessage message = new TaskMessage();
-        message.setMessageId(UUID.randomUUID().toString());
-        message.setTaskId(task.getTaskId());
-        message.setTaskDefinition(task);
-        message.setNodeId(getNodeId());
-        return message;
-    }
-
-    private void sendMessage(TaskMessage message) {
-        MQProperties.RabbitMQ.Queue taskQueue = properties.getRabbit().getTask();
-        rabbitTemplate.convertAndSend(
-                taskQueue.getExchange(),
-                taskQueue.getRoutingKey(),
-                message
-        );
-    }
-
-    private String getNodeId() {
-        // TODO: 实现获取当前节点ID的逻辑
-        return "NODE-" + UUID.randomUUID().toString().substring(0, 8);
-    }
-}
-
-
-```
-
-## ResultProducer.java
-
-```java
-package com.study.collect.core.mq.producer;
-
-import com.study.collect.core.mq.config.MQProperties;
-import com.study.collect.core.mq.message.ResultMessage;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
-import org.springframework.stereotype.Component;
-
-/**
- * 结果消息生产者
- */
-@Slf4j
-@Component
-@RequiredArgsConstructor
-public class ResultProducer {
-
-    private final RabbitTemplate rabbitTemplate;
-    private final MQProperties properties;
-
-    public void sendResult(ResultMessage message) {
-        try {
-            MQProperties.RabbitMQ.Queue resultQueue = properties.getRabbit().getResult();
-            rabbitTemplate.convertAndSend(
-                    resultQueue.getExchange(),
-                    resultQueue.getRoutingKey(),
-                    message
-            );
-            log.info("结果消息发送成功: taskId={}", message.getTaskId());
-
-        } catch (Exception e) {
-            log.error("结果消息发送失败: taskId={}", message.getTaskId(), e);
-            throw new RuntimeException("发送结果消息失败", e);
-        }
+    public TaskResultMessage() {
+        super();
+        setType("RESULT");
     }
 }
 ```
@@ -3112,32 +2806,65 @@ public class ResultProducer {
 ```java
 package com.study.collect.core.mq.producer;
 
-//生产者接口
+import com.study.collect.core.mq.config.MQProperties;
+import com.study.collect.core.mq.message.TaskMessage;
+import com.study.collect.core.mq.message.TaskResultMessage;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
-import com.study.collect.core.task.definition.TaskDefinition;
+@Slf4j
+@Component
+public class TaskProducer {
 
-public interface TaskProducer {
-    /**
-     * 发送任务消息
-     *
-     * @param task 任务定义
-     */
-    void sendTask(TaskDefinition task);
+    private final RabbitTemplate rabbitTemplate;
+    private final MQProperties mqProperties;
 
-    /**
-     * 发送分片任务消息
-     *
-     * @param task          任务定义
-     * @param shardingTotal 分片总数
-     */
-    void sendShardingTask(TaskDefinition task, int shardingTotal);
+    @Autowired
+    public TaskProducer(RabbitTemplate rabbitTemplate, MQProperties mqProperties) {
+        this.rabbitTemplate = rabbitTemplate;
+        this.mqProperties = mqProperties;
+    }
 
-    /**
-     * 广播任务消息
-     *
-     * @param task 任务定义
-     */
-    void broadcastTask(TaskDefinition task);
+    public void sendTask(TaskMessage message) {
+        try {
+            MQProperties.RabbitMQ.Queue taskQueue = mqProperties.getRabbit().getTask();
+            rabbitTemplate.convertAndSend(
+                    taskQueue.getExchange(),
+                    taskQueue.getRoutingKey(),
+                    message
+            );
+            log.info("Task message sent: instanceId={}, taskCode={}, shard={}/{}",
+                    message.getInstanceId(),
+                    message.getTaskId(),
+                    message.getShardIndex() + 1,
+                    message.getShardTotal()
+            );
+        } catch (Exception e) {
+            log.error("Failed to send task message: " + message.getInstanceId(), e);
+            throw new RuntimeException("Message sending failed", e);
+        }
+    }
+
+    public void sendResult(TaskResultMessage message) {
+        try {
+            MQProperties.RabbitMQ.Queue resultQueue = mqProperties.getRabbit().getResult();
+            rabbitTemplate.convertAndSend(
+                    resultQueue.getExchange(),
+                    resultQueue.getRoutingKey(),
+                    message
+            );
+            log.info("Result message sent: instanceId={}, taskCode={}, success={}",
+                    message.getInstanceId(),
+                    message.getTaskId(),
+                    message.getSuccess()
+            );
+        } catch (Exception e) {
+            log.error("Failed to send result message: " + message.getInstanceId(), e);
+            throw new RuntimeException("Message sending failed", e);
+        }
+    }
 }
 ```
 
@@ -4810,81 +4537,66 @@ public class CustomMongoRepositoryFactoryBean<T extends Repository<S, ID>, S, ID
 package com.study.collect.core.task;
 ```
 
+## MyBatisConfig.java
+
+```java
+package com.study.collect.core.task.config;
+
+import org.mybatis.spring.annotation.MapperScan;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+@MapperScan("com.study.collect.core.task.mapper")
+public class MyBatisConfig {
+    // MyBatis的其他配置可以在这里添加
+}
+```
+
 ## TaskConfiguration.java
 
 ```java
 package com.study.collect.core.task.config;
 
 import com.study.collect.core.task.definition.TaskProperties;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 
+@Slf4j
 @Configuration
+@EnableScheduling
 @EnableConfigurationProperties(TaskProperties.class)
 public class TaskConfiguration {
 
     @Bean
     public ThreadPoolTaskScheduler taskScheduler(TaskProperties properties) {
         ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
-        scheduler.setPoolSize(properties.getCorePoolSize());
+
+        // 配置线程池核心参数
+        scheduler.setPoolSize(properties.getThreadPool().getCoreSize());
         scheduler.setThreadNamePrefix("TaskScheduler-");
+
+        // 配置优雅停机
         scheduler.setWaitForTasksToCompleteOnShutdown(true);
-        scheduler.setAwaitTerminationSeconds(60);
+        scheduler.setAwaitTerminationSeconds(properties.getThreadPool().getAwaitTerminationSeconds());
+
+        // 配置异常处理
+        scheduler.setErrorHandler(throwable ->
+                log.error("Task execution error: {}", throwable.getMessage(), throwable)
+        );
+
+        // 配置任务拒绝处理
+        scheduler.setRejectedExecutionHandler((runnable, executor) ->
+                log.error("Task rejected: thread pool exhausted. Current pool size: {}",
+                        executor.getPoolSize())
+        );
+
         return scheduler;
     }
 }
-```
-
-## package-info.java
-
-```java
-/**
- * 任务定义层
- */
-package com.study.collect.core.task.definition;
-```
-
-## ShardingConfig.java
-
-```java
-package com.study.collect.core.task.definition;
-
-// 分片配置
-
-import lombok.Data;
-
-@Data
-public class ShardingConfig {
-    private boolean enabled;         // 是否启用分片
-    private Integer total;           // 分片总数
-    private String strategy;         // 分片策略
-}
-
-```
-
-## TaskDefinition.java
-
-```java
-package com.study.collect.core.task.definition;
-
-// 任务定义
-
-import lombok.Data;
-
-import java.util.Map;
-
-@Data
-public class TaskDefinition {
-    private String taskId;           // 任务ID
-    private String taskName;         // 任务名称
-    private String taskHandler;      // 任务处理器
-    private String cronExpression;   // 调度表达式
-    private ShardingConfig sharding; // 分片配置
-    private Map<String, Object> props;// 扩展属性
-}
-
 ```
 
 ## TaskProperties.java
@@ -4892,43 +4604,225 @@ public class TaskDefinition {
 ```java
 package com.study.collect.core.task.definition;
 
-// 任务配置属性
-
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
-
-import java.util.ArrayList;
-import java.util.List;
 
 @Data
 @ConfigurationProperties(prefix = "collect.task")
 public class TaskProperties {
-    private boolean enabled = true;  // 是否启用任务
-    private int corePoolSize = 5;    // 核心线程数
-    private int maxPoolSize = 10;    // 最大线程数
-    private int queueCapacity = 100; // 队列容量
-    private List<TaskDefinition> tasks = new ArrayList<>(); // 任务配置列表
-}
 
+    /**
+     * 是否启用任务调度
+     */
+    private boolean enabled = true;
+
+    /**
+     * 线程池配置
+     */
+    private ThreadPool threadPool = new ThreadPool();
+
+    /**
+     * 执行配置
+     */
+    private Execution execution = new Execution();
+
+    @Data
+    public static class ThreadPool {
+        /**
+         * 核心线程数
+         */
+        private int coreSize = 10;
+
+        /**
+         * 最大线程数
+         */
+        private int maxSize = 20;
+
+        /**
+         * 队列容量
+         */
+        private int queueCapacity = 200;
+
+        /**
+         * 线程空闲超时时间（秒）
+         */
+        private int keepAliveSeconds = 60;
+
+        /**
+         * 优雅停机等待时间（秒）
+         */
+        private int awaitTerminationSeconds = 60;
+    }
+
+    @Data
+    public static class Execution {
+        /**
+         * 任务超时时间（秒）
+         */
+        private int timeout = 3600;
+
+        /**
+         * 重试次数
+         */
+        private int retryTimes = 3;
+
+        /**
+         * 重试间隔（秒）
+         */
+        private int retryInterval = 300;
+
+        /**
+         * 是否允许并行执行
+         */
+        private boolean allowParallel = true;
+    }
+}
 ```
 
-## TaskTrigger.java
+## TaskConfig.java
 
 ```java
-package com.study.collect.core.task.definition;
-
-// 触发器定义
+package com.study.collect.core.task.entity;
 
 import lombok.Data;
+import java.time.LocalDateTime;
 
 @Data
-public class TaskTrigger {
-    private String cronExpression;   // cron表达式
-    private Long interval;           // 固定间隔(毫秒)
-    private Long delay;              // 初始延迟(毫秒)
-    private Boolean repeat;          // 是否重复执行
+public class TaskConfig {
+    private Long id;
+    private String taskCode;        // 任务编码
+    private String taskName;        // 任务名称
+    private String taskHandler;     // 任务处理器
+    private String taskParam;       // 任务参数(JSON)
+    private String cronExpr;        // cron表达式
+    private Integer shardTotal;     // 分片总数
+    private Integer retryTimes;     // 重试次数
+    private Integer retryInterval;  // 重试间隔(秒)
+    private Integer timeout;        // 超时时间(秒)
+    private Integer status;         // 状态:0-禁用,1-启用
+    private String remark;          // 备注
+    private LocalDateTime createTime; // 创建时间
+    private LocalDateTime updateTime; // 更新时间
 }
+```
 
+## TaskInstance.java
+
+```java
+package com.study.collect.core.task.entity;
+
+import lombok.Data;
+import java.time.LocalDateTime;
+
+@Data
+public class TaskInstance {
+    private Long id;
+    private String instanceId;      // 实例ID
+    private String taskCode;        // 任务编码
+    private Integer shardIndex;     // 分片索引
+    private Integer shardTotal;     // 分片总数
+    private String shardParam;      // 分片参数
+    private Integer status;         // 状态
+    private String errorMsg;        // 错误信息
+    private String hostName;        // 执行机器
+    private LocalDateTime startTime;  // 开始时间
+    private LocalDateTime endTime;    // 结束时间
+    private LocalDateTime createTime; // 创建时间
+    private LocalDateTime updateTime; // 更新时间
+}
+```
+
+## TaskLog.java
+
+```java
+package com.study.collect.core.task.entity;
+
+import lombok.Data;
+import java.time.LocalDateTime;
+
+@Data
+public class TaskLog {
+    private Long id;
+    private String instanceId;      // 实例ID
+    private String taskCode;        // 任务编码
+    private Integer logType;        // 日志类型:1-开始,2-心跳,3-进度,4-结果,5-错误
+    private String logContent;      // 日志内容
+    private LocalDateTime createTime; // 创建时间
+
+    public TaskLog() {
+    }
+
+    public TaskLog(String instanceId, String taskCode, Integer logType, String logContent) {
+        this.instanceId = instanceId;
+        this.taskCode = taskCode;
+        this.logType = logType;
+        this.logContent = logContent;
+        this.createTime = LocalDateTime.now();
+    }
+}
+```
+
+## LogTypeEnum.java
+
+```java
+package com.study.collect.core.task.enums;
+
+import lombok.Getter;
+
+@Getter
+public enum LogTypeEnum {
+    START(1, "开始执行"),
+    HEARTBEAT(2, "心跳检测"),
+    PROGRESS(3, "执行进度"),
+    RESULT(4, "执行结果"),
+    ERROR(5, "执行错误");
+
+    private final Integer code;
+    private final String desc;
+
+    LogTypeEnum(Integer code, String desc) {
+        this.code = code;
+        this.desc = desc;
+    }
+}
+```
+
+## TaskStatusEnum.java
+
+```java
+package com.study.collect.core.task.enums;
+
+import lombok.Getter;
+
+@Getter
+public enum TaskStatusEnum {
+    INIT(0, "初始化"),
+    RUNNING(1, "执行中"),
+    SUCCESS(2, "执行成功"),
+    FAILED(3, "执行失败"),
+    TIMEOUT(4, "执行超时"),
+    CANCELED(5, "已取消");
+
+    private final Integer code;
+    private final String desc;
+
+    TaskStatusEnum(Integer code, String desc) {
+        this.code = code;
+        this.desc = desc;
+    }
+
+    public static TaskStatusEnum getByCode(Integer code) {
+        if (code == null) {
+            return null;
+        }
+        for (TaskStatusEnum status : TaskStatusEnum.values()) {
+            if (status.getCode().equals(code)) {
+                return status;
+            }
+        }
+        return null;
+    }
+}
 ```
 
 ## TaskValidationException.java
@@ -4948,225 +4842,6 @@ public class TaskValidationException extends RuntimeException {
 }
 ```
 
-## AbstractTaskExecutor.java
-
-```java
-package com.study.collect.core.task.executor;
-
-// 抽象执行器
-
-import com.study.collect.core.task.definition.TaskDefinition;
-import com.study.collect.core.task.model.TaskContext;
-import com.study.collect.core.task.model.TaskStatus;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.util.StopWatch;
-
-@Slf4j
-public abstract class AbstractTaskExecutor implements TaskExecutor {
-
-    @Override
-    public void execute(TaskDefinition task, TaskContext context) {
-        StopWatch stopWatch = new StopWatch();
-        try {
-            // 1. 前置处理
-            beforeExecute(task, context);
-            stopWatch.start();
-
-            // 2. 执行任务
-            doExecute(task, context);
-
-            // 3. 后置处理
-            stopWatch.stop();
-            afterExecute(task, context);
-
-            // 4. 更新任务状态
-            updateTaskStatus(task.getTaskId(), TaskStatus.SUCCESS);
-
-        } catch (Exception e) {
-            log.error("Task execution failed, taskId: {}", task.getTaskId(), e);
-            onError(task, context, e);
-            updateTaskStatus(task.getTaskId(), TaskStatus.FAILED);
-        } finally {
-            log.info("Task execution completed, taskId: {}, cost: {}ms",
-                    task.getTaskId(), stopWatch.getTotalTimeMillis());
-        }
-    }
-
-    /**
-     * 任务执行前处理
-     */
-    protected void beforeExecute(TaskDefinition task, TaskContext context) {
-        log.info("Start executing task, taskId: {}", task.getTaskId());
-        updateTaskStatus(task.getTaskId(), TaskStatus.RUNNING);
-    }
-
-    /**
-     * 执行具体任务
-     */
-    protected abstract void doExecute(TaskDefinition task, TaskContext context);
-
-    /**
-     * 任务执行后处理
-     */
-    protected void afterExecute(TaskDefinition task, TaskContext context) {
-        log.info("Task execution completed successfully, taskId: {}", task.getTaskId());
-    }
-
-    /**
-     * 任务执行异常处理
-     */
-    protected void onError(TaskDefinition task, TaskContext context, Exception e) {
-        log.error("Task execution error handler, taskId: {}", task.getTaskId(), e);
-    }
-
-    /**
-     * 更新任务状态
-     */
-    protected void updateTaskStatus(String taskId, TaskStatus status) {
-        log.info("Update task status, taskId: {}, status: {}", taskId, status);
-        // TODO: 实现具体的状态更新逻辑
-    }
-}
-
-
-```
-
-## AsyncTaskExecutor.java
-
-```java
-package com.study.collect.core.task.executor;
-
-// 异步执行器
-
-import com.study.collect.core.task.definition.TaskDefinition;
-import com.study.collect.core.task.model.TaskContext;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
-import org.springframework.stereotype.Component;
-
-@Slf4j
-@Component
-public class AsyncTaskExecutor extends AbstractTaskExecutor {
-
-    private final ThreadPoolTaskExecutor threadPoolTaskExecutor;
-    private final DefaultTaskExecutor defaultTaskExecutor;
-
-    public AsyncTaskExecutor(ThreadPoolTaskExecutor threadPoolTaskExecutor,
-                             DefaultTaskExecutor defaultTaskExecutor) {
-        this.threadPoolTaskExecutor = threadPoolTaskExecutor;
-        this.defaultTaskExecutor = defaultTaskExecutor;
-    }
-
-    @Override
-    protected void doExecute(TaskDefinition task, TaskContext context) {
-        threadPoolTaskExecutor.execute(() -> {
-            try {
-                defaultTaskExecutor.execute(task, context);
-            } catch (Exception e) {
-                log.error("Async task execution failed, taskId: {}",
-                        task.getTaskId(), e);
-            }
-        });
-    }
-
-    @Override
-    protected void beforeExecute(TaskDefinition task, TaskContext context) {
-        super.beforeExecute(task, context);
-        log.info("Submit async task, taskId: {}, active threads: {}",
-                task.getTaskId(), threadPoolTaskExecutor.getActiveCount());
-    }
-}
-```
-
-## DefaultTaskExecutor.java
-
-```java
-package com.study.collect.core.task.executor;
-
-// 默认执行器
-
-import com.study.collect.core.task.definition.TaskDefinition;
-import com.study.collect.core.task.handler.TaskHandler;
-import com.study.collect.core.task.model.TaskContext;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-
-import java.util.Map;
-
-@Slf4j
-@Component
-public class DefaultTaskExecutor extends AbstractTaskExecutor {
-
-    private final Map<String, TaskHandler> taskHandlers;
-
-    public DefaultTaskExecutor(Map<String, TaskHandler> taskHandlers) {
-        this.taskHandlers = taskHandlers;
-    }
-
-    @Override
-    protected void doExecute(TaskDefinition task, TaskContext context) {
-        // 1. 获取任务处理器
-        TaskHandler handler = getTaskHandler(task);
-
-        // 2. 执行任务处理
-        handler.handle(context);
-    }
-
-    private TaskHandler getTaskHandler(TaskDefinition task) {
-        TaskHandler handler = taskHandlers.get(task.getTaskHandler());
-        if (handler == null) {
-            throw new IllegalStateException(
-                    "Task handler not found: " + task.getTaskHandler());
-        }
-        return handler;
-    }
-}
-
-```
-
-## package-info.java
-
-```java
-/**
- * 执行引擎层
- */
-package com.study.collect.core.task.executor;
-```
-
-## RetryExecutor.java
-
-```java
-package com.study.collect.core.task.executor;
-
-// 重试执行器
-public class RetryExecutor {
-}
-
-```
-
-## TaskExecutor.java
-
-```java
-package com.study.collect.core.task.executor;
-
-// 执行器接口
-
-import com.study.collect.core.task.definition.TaskDefinition;
-import com.study.collect.core.task.model.TaskContext;
-
-public interface TaskExecutor {
-    /**
-     * 执行任务
-     *
-     * @param task    任务定义
-     * @param context 任务上下文
-     */
-    void execute(TaskDefinition task, TaskContext context);
-}
-
-
-```
-
 ## AbstractTaskHandler.java
 
 ```java
@@ -5180,40 +4855,70 @@ import lombok.extern.slf4j.Slf4j;
 public abstract class AbstractTaskHandler implements TaskHandler {
 
     @Override
-    public TaskResult handle(TaskContext context) {
+    public TaskResult execute(TaskContext context) {
         String taskId = context.getTaskId();
-        log.info("Start handling task: {}", taskId);
+        log.info("开始执行任务: taskId={}, type={}", taskId, getType());
 
         try {
             // 前置处理
-            beforeHandle(context);
+            beforeExecute(context);
 
-            // 执行处理
-            TaskResult result = doHandle(context);
+            // 执行任务
+            Object result = doExecute(context);
 
             // 后置处理
-            afterHandle(context, result);
+            afterExecute(context, result);
 
-            return result;
+            log.info("任务执行完成: taskId={}", taskId);
+            return TaskResult.success(taskId, result);
 
         } catch (Exception e) {
-            log.error("Task handling failed, taskId: {}", taskId, e);
-            return handleError(context, e);
+            log.error("任务执行失败: taskId={}", taskId, e);
+            return TaskResult.failure(taskId, e.getMessage());
         }
     }
 
-    protected void beforeHandle(TaskContext context) {
-        // 子类可以覆盖实现具体的前置处理逻辑
+    /**
+     * 任务执行前的处理
+     */
+    protected void beforeExecute(TaskContext context) {
+        // 子类可以覆盖实现
     }
 
-    protected abstract TaskResult doHandle(TaskContext context);
+    /**
+     * 执行具体任务
+     */
+    protected abstract Object doExecute(TaskContext context);
 
-    protected void afterHandle(TaskContext context, TaskResult result) {
-        // 子类可以覆盖实现具体的后置处理逻辑
+    /**
+     * 任务执行后的处理
+     */
+    protected void afterExecute(TaskContext context, Object result) {
+        // 子类可以覆盖实现
+    }
+}
+```
+
+## SampleTaskHandler.java
+
+```java
+package com.study.collect.core.task.handler;
+
+import com.study.collect.core.task.model.TaskContext;
+import org.springframework.stereotype.Component;
+
+@Component
+public class SampleTaskHandler extends AbstractTaskHandler {
+
+    @Override
+    public String getType() {
+        return "sample";
     }
 
-    protected TaskResult handleError(TaskContext context, Exception e) {
-        return TaskResult.failure(context.getTaskId(), e.getMessage());
+    @Override
+    protected Object doExecute(TaskContext context) {
+        // 实现具体的任务处理逻辑
+        return "Task executed successfully";
     }
 }
 ```
@@ -5228,353 +4933,141 @@ import com.study.collect.core.task.model.TaskResult;
 
 public interface TaskHandler {
     /**
-     * 处理任务
-     *
+     * 执行任务
      * @param context 任务上下文
-     * @return 处理结果
+     * @return 任务执行结果
      */
-    TaskResult handle(TaskContext context);
-}
+    TaskResult execute(TaskContext context);
 
+    /**
+     * 获取处理器类型
+     * @return 处理器类型标识
+     */
+    String getType();
+}
 ```
 
-## TaskLifecycle.java
+## TaskHandlerManager.java
 
 ```java
-package com.study.collect.core.task.lifecycle;
+package com.study.collect.core.task.handler;
 
-import com.study.collect.core.task.model.TaskStatus;
-import lombok.Getter;
+import jakarta.annotation.PostConstruct;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+//import javax.annotation.PostConstruct;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
+@Component
+public class TaskHandlerManager {
+
+    private final Map<String, TaskHandler> handlerMap = new HashMap<>();
+
+    @Autowired
+    private List<TaskHandler> handlers;
+
+    @PostConstruct
+    public void init() {
+        handlers.forEach(handler -> handlerMap.put(handler.getType(), handler));
+    }
+
+    public TaskHandler getHandler(String type) {
+        TaskHandler handler = handlerMap.get(type);
+        if (handler == null) {
+            throw new IllegalArgumentException("未找到任务处理器: " + type);
+        }
+        return handler;
+    }
+}
+```
+
+## TaskConfigMapper.java
+
+```java
+package com.study.collect.core.task.mapper;
+
+import com.study.collect.core.task.entity.TaskConfig;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+import java.util.List;
+
+@Mapper
+public interface TaskConfigMapper {
+
+    void insert(TaskConfig config);
+
+    void update(TaskConfig config);
+
+    TaskConfig selectById(@Param("id") Long id);
+
+    TaskConfig selectByCode(@Param("taskCode") String taskCode);
+
+    List<TaskConfig> selectEnabled();
+
+    void updateStatus(@Param("taskCode") String taskCode, @Param("status") Integer status);
+}
+```
+
+## TaskInstanceMapper.java
+
+```java
+package com.study.collect.core.task.mapper;
+
+import com.study.collect.core.task.entity.TaskInstance;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 import java.time.LocalDateTime;
+import java.util.List;
 
-@Getter
-public class TaskLifecycle {
+@Mapper
+public interface TaskInstanceMapper {
 
-    private final String taskId;
-    private TaskStatus currentStatus;
-    private LocalDateTime createTime;
-    private LocalDateTime startTime;
-    private LocalDateTime endTime;
-    private LocalDateTime lastUpdateTime;
+    void insert(TaskInstance instance);
 
-    public TaskLifecycle(String taskId) {
-        this.taskId = taskId;
-        this.createTime = LocalDateTime.now();
-        this.currentStatus = TaskStatus.CREATED;
-    }
+    void updateStatus(@Param("instanceId") String instanceId,
+                      @Param("status") Integer status,
+                      @Param("errorMsg") String errorMsg);
 
-    public void setCurrentStatus(TaskStatus status) {
-        this.currentStatus = status;
-        this.lastUpdateTime = LocalDateTime.now();
+    void updateEndTime(@Param("instanceId") String instanceId,
+                       @Param("endTime") LocalDateTime endTime);
 
-        switch (status) {
-            case RUNNING -> this.startTime = LocalDateTime.now();
-            case SUCCESS, FAILED, CANCELED -> this.endTime = LocalDateTime.now();
-        }
-    }
+    TaskInstance selectById(@Param("id") Long id);
+
+    TaskInstance selectByInstanceId(@Param("instanceId") String instanceId);
+
+    List<TaskInstance> selectRunning();
+
+    List<TaskInstance> selectByTaskCode(@Param("taskCode") String taskCode,
+                                        @Param("startTime") LocalDateTime startTime,
+                                        @Param("endTime") LocalDateTime endTime);
 }
 ```
 
-## TaskLifecycleManager.java
+## TaskLogMapper.java
 
 ```java
-package com.study.collect.core.task.lifecycle;
+package com.study.collect.core.task.mapper;
 
-import com.study.collect.core.task.model.TaskStatus;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
+import com.study.collect.core.task.entity.TaskLog;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+import java.util.List;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+@Mapper
+public interface TaskLogMapper {
 
-@Slf4j
-@Component
-public class TaskLifecycleManager {
+    void insert(TaskLog log);
 
-    private final Map<String, TaskLifecycle> lifecycles = new ConcurrentHashMap<>();
+    void batchInsert(@Param("logs") List<TaskLog> logs);
 
-    public void createTask(String taskId) {
-        TaskLifecycle lifecycle = new TaskLifecycle(taskId);
-        lifecycles.put(taskId, lifecycle);
-        updateStatus(taskId, TaskStatus.CREATED);
-    }
+    List<TaskLog> selectByInstanceId(@Param("instanceId") String instanceId);
 
-    public void startTask(String taskId) {
-        checkLifecycleExists(taskId);
-        updateStatus(taskId, TaskStatus.RUNNING);
-    }
-
-    public void completeTask(String taskId, boolean success) {
-        checkLifecycleExists(taskId);
-        updateStatus(taskId, success ? TaskStatus.SUCCESS : TaskStatus.FAILED);
-    }
-
-    public void pauseTask(String taskId) {
-        checkLifecycleExists(taskId);
-        updateStatus(taskId, TaskStatus.WAITING);
-    }
-
-    public void cancelTask(String taskId) {
-        checkLifecycleExists(taskId);
-        updateStatus(taskId, TaskStatus.CANCELED);
-    }
-
-    public TaskStatus getTaskStatus(String taskId) {
-        TaskLifecycle lifecycle = lifecycles.get(taskId);
-        return lifecycle != null ? lifecycle.getCurrentStatus() : null;
-    }
-
-    private void updateStatus(String taskId, TaskStatus newStatus) {
-        TaskLifecycle lifecycle = lifecycles.get(taskId);
-        TaskStatus oldStatus = lifecycle.getCurrentStatus();
-
-        if (isValidStatusTransition(oldStatus, newStatus)) {
-            lifecycle.setCurrentStatus(newStatus);
-            log.info("任务状态更新 - taskId: {}, {} -> {}", taskId, oldStatus, newStatus);
-            publishStatusChangeEvent(taskId, oldStatus, newStatus);
-        } else {
-            log.warn("非法的状态转换 - taskId: {}, {} -> {}", taskId, oldStatus, newStatus);
-        }
-    }
-
-    private void checkLifecycleExists(String taskId) {
-        if (!lifecycles.containsKey(taskId)) {
-            throw new IllegalStateException("任务生命周期不存在: " + taskId);
-        }
-    }
-
-    private boolean isValidStatusTransition(TaskStatus from, TaskStatus to) {
-        // 实现状态转换的合法性检查逻辑
-        return true; // 简化实现
-    }
-
-    private void publishStatusChangeEvent(String taskId, TaskStatus oldStatus, TaskStatus newStatus) {
-        // 发布任务状态变更事件
-    }
+    List<TaskLog> selectByTaskCode(@Param("taskCode") String taskCode,
+                                   @Param("logType") Integer logType,
+                                   @Param("limit") Integer limit);
 }
-
-```
-
-## AbstractTaskManager.java
-
-```java
-package com.study.collect.core.task.manager;
-
-import com.study.collect.core.mq.producer.TaskProducer;
-import com.study.collect.core.task.definition.TaskDefinition;
-import com.study.collect.core.task.model.TaskResult;
-import com.study.collect.core.task.scheduler.TaskScheduler;
-import lombok.extern.slf4j.Slf4j;
-
-@Slf4j
-public abstract class AbstractTaskManager implements TaskManager {
-
-    protected final TaskProducer taskProducer;
-    protected final TaskScheduler taskScheduler;
-
-    protected AbstractTaskManager(TaskProducer taskProducer, TaskScheduler taskScheduler) {
-        this.taskProducer = taskProducer;
-        this.taskScheduler = taskScheduler;
-    }
-
-    @Override
-    public TaskResult submitTask(TaskDefinition task) {
-        try {
-            validateTask(task);
-            beforeSubmit(task);
-
-            // 提交任务到调度器
-            if (isScheduledTask(task)) {
-                taskScheduler.addTask(task);
-                return TaskResult.success(task.getTaskId(), "Task scheduled successfully");
-            }
-
-            // 发送任务到消息队列
-            if (task.getSharding() != null && task.getSharding().isEnabled()) {
-                taskProducer.sendShardingTask(task, task.getSharding().getTotal());
-            } else {
-                taskProducer.sendTask(task);
-            }
-
-            afterSubmit(task);
-            return TaskResult.success(task.getTaskId(), "Task submitted successfully");
-
-        } catch (Exception e) {
-            log.error("Failed to submit task, taskId: {}", task.getTaskId(), e);
-            return TaskResult.failure(task.getTaskId(), e.getMessage());
-        }
-    }
-
-    @Override
-    public void cancelTask(String taskId) {
-        log.info("Canceling task: {}", taskId);
-        taskScheduler.removeTask(taskId);
-        doCancelTask(taskId);
-    }
-
-    @Override
-    public void pauseTask(String taskId) {
-        log.info("Pausing task: {}", taskId);
-        taskScheduler.pauseTask(taskId);
-        doPauseTask(taskId);
-    }
-
-    @Override
-    public void resumeTask(String taskId) {
-        log.info("Resuming task: {}", taskId);
-        taskScheduler.resumeTask(taskId);
-        doResumeTask(taskId);
-    }
-
-    protected void validateTask(TaskDefinition task) {
-        // 任务基础校验
-        if (task == null) {
-            throw new IllegalArgumentException("Task definition cannot be null");
-        }
-        if (task.getTaskId() == null || task.getTaskId().trim().isEmpty()) {
-            throw new IllegalArgumentException("Task ID cannot be empty");
-        }
-        if (task.getTaskHandler() == null || task.getTaskHandler().trim().isEmpty()) {
-            throw new IllegalArgumentException("Task handler cannot be empty");
-        }
-    }
-
-    protected boolean isScheduledTask(TaskDefinition task) {
-        return task.getCronExpression() != null && !task.getCronExpression().trim().isEmpty();
-    }
-
-    protected void beforeSubmit(TaskDefinition task) {
-        // 子类可以覆盖此方法实现提交前的处理逻辑
-    }
-
-    protected void afterSubmit(TaskDefinition task) {
-        // 子类可以覆盖此方法实现提交后的处理逻辑
-    }
-
-    protected abstract void doCancelTask(String taskId);
-
-    protected abstract void doPauseTask(String taskId);
-
-    protected abstract void doResumeTask(String taskId);
-}
-
-```
-
-## DefaultTaskManager.java
-
-```java
-package com.study.collect.core.task.manager;
-
-import com.study.collect.core.mq.producer.TaskProducer;
-import com.study.collect.core.task.definition.TaskDefinition;
-import com.study.collect.core.task.model.TaskResult;
-import com.study.collect.core.task.model.TaskStatus;
-import com.study.collect.core.task.scheduler.TaskScheduler;
-import org.springframework.stereotype.Component;
-
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
-@Component
-public class DefaultTaskManager extends AbstractTaskManager {
-
-    // 内存中维护任务状态
-    private final Map<String, TaskStatus> taskStatusMap = new ConcurrentHashMap<>();
-
-    public DefaultTaskManager(TaskProducer taskProducer, TaskScheduler taskScheduler) {
-        super(taskProducer, taskScheduler);
-    }
-
-    @Override
-    protected void beforeSubmit(TaskDefinition task) {
-        taskStatusMap.put(task.getTaskId(), TaskStatus.CREATED);
-    }
-
-    @Override
-    protected void doCancelTask(String taskId) {
-        taskStatusMap.put(taskId, TaskStatus.CANCELED);
-    }
-
-    @Override
-    protected void doPauseTask(String taskId) {
-        taskStatusMap.put(taskId, TaskStatus.WAITING);
-    }
-
-    @Override
-    protected void doResumeTask(String taskId) {
-        taskStatusMap.put(taskId, TaskStatus.RUNNING);
-    }
-
-    @Override
-    public TaskResult getTaskStatus(String taskId) {
-        TaskStatus status = taskStatusMap.get(taskId);
-        if (status == null) {
-            return TaskResult.failure(taskId, "Task not found");
-        }
-        return TaskResult.success(taskId, status);
-    }
-}
-```
-
-## TaskManager.java
-
-```java
-package com.study.collect.core.task.manager;
-
-import com.study.collect.core.task.definition.TaskDefinition;
-import com.study.collect.core.task.model.TaskResult;
-
-public interface TaskManager {
-    /**
-     * 提交任务
-     *
-     * @param task 任务定义
-     * @return 任务结果
-     */
-    TaskResult submitTask(TaskDefinition task);
-
-    /**
-     * 取消任务
-     *
-     * @param taskId 任务ID
-     */
-    void cancelTask(String taskId);
-
-    /**
-     * 暂停任务
-     *
-     * @param taskId 任务ID
-     */
-    void pauseTask(String taskId);
-
-    /**
-     * 恢复任务
-     *
-     * @param taskId 任务ID
-     */
-    void resumeTask(String taskId);
-
-    /**
-     * 获取任务状态
-     *
-     * @param taskId 任务ID
-     * @return 任务状态
-     */
-    TaskResult getTaskStatus(String taskId);
-}
-
-```
-
-## CollectTask.java
-
-```java
-package com.study.collect.core.task.model;
-
-// 采集任务实体
-public class CollectTask {
-}
-
 ```
 
 ## package-info.java
@@ -5586,34 +5079,195 @@ public class CollectTask {
 package com.study.collect.core.task.model;
 ```
 
+## ShardingConfig.java
+
+```java
+package com.study.collect.core.task.model;
+
+import lombok.Data;
+import java.io.Serializable;
+
+@Data
+public class ShardingConfig implements Serializable {
+    /**
+     * 是否启用分片
+     */
+    private boolean enabled = false;
+
+    /**
+     * 分片总数
+     */
+    private Integer total = 1;
+
+    /**
+     * 分片策略
+     */
+    private String strategy;
+
+    /**
+     * 分片参数
+     */
+    private String parameter;
+
+    /**
+     * 是否允许分片并行执行
+     */
+    private boolean parallel = true;
+
+    /**
+     * 分片超时时间（秒）
+     */
+    private Integer timeout;
+
+    /**
+     * 分片失败处理策略
+     * CONTINUE: 继续执行其他分片
+     * STOP: 停止所有分片执行
+     */
+    private String failureStrategy = "CONTINUE";
+
+    /**
+     * 验证分片配置
+     */
+    public void validate() {
+        if (enabled) {
+            if (total == null || total < 1) {
+                throw new IllegalArgumentException("分片总数必须大于0");
+            }
+            if (timeout != null && timeout < 0) {
+                throw new IllegalArgumentException("分片超时时间不能小于0");
+            }
+        }
+    }
+
+    /**
+     * 创建默认配置
+     */
+    public static ShardingConfig createDefault() {
+        ShardingConfig config = new ShardingConfig();
+        config.setEnabled(false);
+        config.setTotal(1);
+        config.setStrategy("AVERAGE");
+        return config;
+    }
+}
+```
+
 ## TaskContext.java
 
 ```java
 package com.study.collect.core.task.model;
 
-// 任务上下文
-
 import lombok.Data;
-
+import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Data
 public class TaskContext {
-    private String taskId;           // 任务ID
-    private Integer shardingId;      // 分片ID
-    private Integer shardingTotal;   // 分片总数
-    private Map<String, Object> attributes = new ConcurrentHashMap<>(); // 上下文属性
+    /**
+     * 任务ID
+     */
+    private String taskId;
 
-    public void setAttribute(String key, Object value) {
-        attributes.put(key, value);
+    /**
+     * 任务实例ID
+     */
+    private String instanceId;
+
+    /**
+     * 分片索引，从0开始
+     */
+    private Integer shardIndex;
+
+    /**
+     * 分片总数
+     */
+    private Integer shardTotal;
+
+    /**
+     * 分片参数，JSON格式
+     */
+    private String shardParam;
+
+    /**
+     * 执行开始时间
+     */
+    private LocalDateTime startTime;
+
+    /**
+     * 执行超时时间（秒）
+     */
+    private Integer timeout;
+
+    /**
+     * 执行机器
+     */
+    private String hostName;
+
+    /**
+     * 上下文参数，用于在执行过程中传递数据
+     */
+    private Map<String, Object> parameters;
+
+    public TaskContext() {
+        this.startTime = LocalDateTime.now();
+        this.parameters = new HashMap<>();
     }
 
+    /**
+     * 设置上下文参数
+     */
+    public void setParameter(String key, Object value) {
+        this.parameters.put(key, value);
+    }
+
+    /**
+     * 获取上下文参数
+     */
     @SuppressWarnings("unchecked")
-    public <T> T getAttribute(String key) {
-        return (T) attributes.get(key);
+    public <T> T getParameter(String key) {
+        return (T) this.parameters.get(key);
+    }
+
+    /**
+     * 移除上下文参数
+     */
+    public void removeParameter(String key) {
+        this.parameters.remove(key);
+    }
+
+    /**
+     * 清空所有上下文参数
+     */
+    public void clearParameters() {
+        this.parameters.clear();
     }
 }
+```
+
+## TaskDefinition.java
+
+```java
+package com.study.collect.core.task.model;
+
+// 任务定义
+
+import com.study.collect.core.task.definition.ShardingConfig;
+import lombok.Data;
+
+import java.util.Map;
+
+@Data
+public class TaskDefinition {
+    private String taskId;           // 任务ID
+    private String taskName;         // 任务名称
+    private String taskHandler;      // 任务处理器
+    private String cronExpression;   // 调度表达式
+    private ShardingConfig sharding; // 分片配置
+    private Map<String, Object> props;// 扩展属性
+}
+
 ```
 
 ## TaskResult.java
@@ -5684,129 +5338,80 @@ public enum TaskStatus {
 }
 ```
 
-## TaskMonitor.java
-
-```java
-package com.study.collect.core.task.monitor;
-
-import com.study.collect.core.task.model.TaskStatus;
-import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.MeterRegistry;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-
-import java.util.EnumMap;
-import java.util.Map;
-
-@Slf4j
-@Component
-public class TaskMonitor {
-
-    private final Map<TaskStatus, Counter> statusCounters = new EnumMap<>(TaskStatus.class);
-    private final Counter totalTaskCounter;
-    private final Counter failedTaskCounter;
-    private final Counter timeoutTaskCounter;
-
-    public TaskMonitor(MeterRegistry registry) {
-        // 初始化计数器
-        totalTaskCounter = Counter.builder("task.total")
-                .description("总任务数")
-                .register(registry);
-
-        failedTaskCounter = Counter.builder("task.failed")
-                .description("失败任务数")
-                .register(registry);
-
-        timeoutTaskCounter = Counter.builder("task.timeout")
-                .description("超时任务数")
-                .register(registry);
-
-        // 初始化状态计数器
-        for (TaskStatus status : TaskStatus.values()) {
-            statusCounters.put(status, Counter.builder("task.status")
-                    .tag("status", status.name())
-                    .description("任务状态统计")
-                    .register(registry));
-        }
-    }
-
-    public void recordTaskSubmit() {
-        totalTaskCounter.increment();
-    }
-
-    public void recordTaskStatus(TaskStatus status) {
-        statusCounters.get(status).increment();
-    }
-
-    public void recordTaskFailed() {
-        failedTaskCounter.increment();
-    }
-
-    public void recordTaskTimeout() {
-        timeoutTaskCounter.increment();
-    }
-}
-```
-
 ## AbstractTaskScheduler.java
 
 ```java
 package com.study.collect.core.task.scheduler;
 
-// 抽象调度器
 
-import com.study.collect.core.task.definition.TaskDefinition;
-import com.study.collect.core.task.executor.TaskExecutor;
+import com.study.collect.core.task.entity.TaskConfig;
+import com.study.collect.core.task.model.TaskDefinition;
+import com.study.collect.core.task.service.TaskConfigService;
+import com.study.collect.core.task.service.TaskExecuteService;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ScheduledFuture;
 
 @Slf4j
 public abstract class AbstractTaskScheduler implements TaskScheduler {
 
-    protected final TaskExecutor taskExecutor;
-    protected final Map<String, TaskDefinition> taskDefinitions = new ConcurrentHashMap<>();
+    protected final TaskConfigService taskConfigService;
+    protected final TaskExecuteService taskExecuteService;
+    protected final Map<String, ScheduledFuture<?>> scheduledTasks = new ConcurrentHashMap<>();
 
-    protected AbstractTaskScheduler(TaskExecutor taskExecutor) {
-        this.taskExecutor = taskExecutor;
+    protected AbstractTaskScheduler(TaskConfigService taskConfigService, TaskExecuteService taskExecuteService) {
+        this.taskConfigService = taskConfigService;
+        this.taskExecuteService = taskExecuteService;
+    }
+
+    @Override
+    public void start() {
+        log.info("Starting task scheduler...");
+        doStart();
+    }
+
+    @Override
+    public void stop() {
+        log.info("Stopping task scheduler...");
+        scheduledTasks.values().forEach(future -> future.cancel(true));
+        scheduledTasks.clear();
+        doStop();
     }
 
     @Override
     public void addTask(TaskDefinition task) {
-        log.info("Add task to scheduler, taskId: {}", task.getTaskId());
-        taskDefinitions.put(task.getTaskId(), task);
+        TaskConfig config = convertToConfig(task);
+        taskConfigService.saveTaskConfig(config);
         doAddTask(task);
     }
 
     @Override
     public void removeTask(String taskId) {
-        log.info("Remove task from scheduler, taskId: {}", taskId);
-        taskDefinitions.remove(taskId);
+        ScheduledFuture<?> future = scheduledTasks.remove(taskId);
+        if (future != null) {
+            future.cancel(true);
+        }
         doRemoveTask(taskId);
     }
 
-    @Override
-    public void pauseTask(String taskId) {
-        log.info("Pause task, taskId: {}", taskId);
-        doPauseTask(taskId);
-    }
-
-    @Override
-    public void resumeTask(String taskId) {
-        log.info("Resume task, taskId: {}", taskId);
-        doResumeTask(taskId);
-    }
-
+    protected abstract void doStart();
+    protected abstract void doStop();
     protected abstract void doAddTask(TaskDefinition task);
-
     protected abstract void doRemoveTask(String taskId);
 
-    protected abstract void doPauseTask(String taskId);
-
-    protected abstract void doResumeTask(String taskId);
+    // 提供任务配置转换方法
+    protected TaskConfig convertToConfig(TaskDefinition task) {
+        TaskConfig config = new TaskConfig();
+        config.setTaskCode(task.getTaskId());
+        config.setTaskName(task.getTaskName());
+        config.setTaskHandler(task.getTaskHandler());
+        config.setCronExpr(task.getCronExpression());
+        config.setShardTotal(task.getSharding() != null ? task.getSharding().getTotal() : 1);
+        return config;
+    }
 }
-
 ```
 
 ## DefaultTaskScheduler.java
@@ -5814,240 +5419,245 @@ public abstract class AbstractTaskScheduler implements TaskScheduler {
 ```java
 package com.study.collect.core.task.scheduler;
 
-// 默认调度器
-
-import com.study.collect.core.task.definition.TaskDefinition;
-import com.study.collect.core.task.executor.TaskExecutor;
-import com.study.collect.core.task.model.TaskContext;
+import com.study.collect.core.task.entity.TaskConfig;
+import com.study.collect.core.task.entity.TaskInstance;
+import com.study.collect.core.task.model.TaskDefinition;
+import com.study.collect.core.task.service.TaskConfigService;
+import com.study.collect.core.task.service.TaskExecuteService;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
+import org.springframework.scheduling.TaskScheduler;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.scheduling.support.CronTrigger;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.UUID;
 import java.util.concurrent.ScheduledFuture;
 
 @Slf4j
 @Component
 public class DefaultTaskScheduler extends AbstractTaskScheduler {
 
-    private final ThreadPoolTaskScheduler taskScheduler;
-    private final Map<String, ScheduledFuture<?>> scheduledTasks = new ConcurrentHashMap<>();
+    private final TaskScheduler scheduler;
+    private final TaskDispatcher taskDispatcher;
+    private volatile boolean running = false;
 
-    public DefaultTaskScheduler(TaskExecutor taskExecutor, ThreadPoolTaskScheduler taskScheduler) {
-        super(taskExecutor);
-        this.taskScheduler = taskScheduler;
+    public DefaultTaskScheduler(TaskConfigService taskConfigService,
+                                TaskExecuteService taskExecuteService,
+                                TaskScheduler scheduler,
+                                TaskDispatcher taskDispatcher) {
+        super(taskConfigService, taskExecuteService);
+        this.scheduler = scheduler;
+        this.taskDispatcher = taskDispatcher;
     }
 
     @Override
-    public void start() {
-        log.info("Starting task scheduler");
-        taskScheduler.initialize();
+    protected void doStart() {
+        if (running) {
+            return;
+        }
+        running = true;
 
-        // 初始化时调度所有已配置的任务
-        taskDefinitions.values().forEach(this::scheduleTask);
+        // 加载所有可用的任务配置并调度
+        taskConfigService.getEnabledTaskConfigs().forEach(config -> {
+            try {
+                TaskDefinition task = convertToDefinition(config);
+                scheduleTask(task);
+                log.info("Loaded task from config: {}", config.getTaskCode());
+            } catch (Exception e) {
+                log.error("Failed to load task: {}", config.getTaskCode(), e);
+            }
+        });
+
+        // 启动定时任务状态检查
+        scheduler.scheduleWithFixedDelay(
+                this::checkRunningTasks,
+                Duration.ofMinutes(1)
+        );
+
+        log.info("Task scheduler started successfully");
     }
 
     @Override
-    public void stop() {
-        log.info("Stopping task scheduler");
-        scheduledTasks.values().forEach(future -> future.cancel(true));
-        scheduledTasks.clear();
-        taskScheduler.shutdown();
+    protected void doStop() {
+        if (!running) {
+            return;
+        }
+        running = false;
+
+        // 停止所有运行中的任务
+        taskExecuteService.getRunningTasks().forEach(instance -> {
+            try {
+                taskExecuteService.completeTaskInstance(
+                        instance.getInstanceId(),
+                        false,
+                        "Scheduler stopped"
+                );
+                log.info("Stopped running task: {}", instance.getInstanceId());
+            } catch (Exception e) {
+                log.error("Failed to stop task: {}", instance.getInstanceId(), e);
+            }
+        });
+
+        log.info("Task scheduler stopped successfully");
     }
 
     @Override
     protected void doAddTask(TaskDefinition task) {
+        validateTask(task);
         scheduleTask(task);
+        log.info("Added new task: {}", task.getTaskId());
     }
 
     @Override
     protected void doRemoveTask(String taskId) {
-        ScheduledFuture<?> future = scheduledTasks.remove(taskId);
-        if (future != null) {
-            future.cancel(true);
-        }
+        taskConfigService.disableTask(taskId);
+        log.info("Removed task: {}", taskId);
     }
 
     @Override
-    protected void doPauseTask(String taskId) {
+    public void pauseTask(String taskId) {
         ScheduledFuture<?> future = scheduledTasks.get(taskId);
         if (future != null) {
             future.cancel(false);
+            taskConfigService.disableTask(taskId);
+            log.info("Paused task: {}", taskId);
         }
     }
 
     @Override
-    protected void doResumeTask(String taskId) {
-        TaskDefinition task = taskDefinitions.get(taskId);
-        if (task != null) {
-            scheduleTask(task);
+    public void resumeTask(String taskId) {
+        TaskConfig config = taskConfigService.getTaskConfig(taskId);
+        if (config != null) {
+            taskConfigService.enableTask(taskId);
+            scheduleTask(convertToDefinition(config));
+            log.info("Resumed task: {}", taskId);
         }
     }
 
     private void scheduleTask(TaskDefinition task) {
-        try {
-            // 创建任务上下文
-            TaskContext context = new TaskContext();
-            context.setTaskId(task.getTaskId());
+        // 验证cron表达式
+        if (!StringUtils.hasText(task.getCronExpression())) {
+            log.warn("Task {} has no cron expression, skipped scheduling", task.getTaskId());
+            return;
+        }
 
-            // 根据cron表达式调度任务
-            ScheduledFuture<?> future = taskScheduler.schedule(
-                    () -> taskExecutor.execute(task, context),
+        try {
+            ScheduledFuture<?> future = scheduler.schedule(
+                    () -> executeTask(task),
                     new CronTrigger(task.getCronExpression())
             );
 
-            // 保存调度任务引用
-            scheduledTasks.put(task.getTaskId(), future);
-            log.info("Task scheduled successfully, taskId: {}, cron: {}",
-                    task.getTaskId(), task.getCronExpression());
-
-        } catch (Exception e) {
-            log.error("Failed to schedule task, taskId: {}", task.getTaskId(), e);
-        }
-    }
-}
-```
-
-## DynamicTaskScheduler.java
-
-```java
-package com.study.collect.core.task.scheduler;
-
-// 动态调度器
-
-import com.study.collect.core.task.definition.TaskDefinition;
-import com.study.collect.core.task.executor.TaskExecutor;
-import com.study.collect.core.task.model.TaskContext;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
-import org.springframework.scheduling.support.CronTrigger;
-import org.springframework.stereotype.Component;
-
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.atomic.AtomicInteger;
-
-@Slf4j
-@Component
-public class DynamicTaskScheduler extends AbstractTaskScheduler {
-
-    private final ThreadPoolTaskScheduler taskScheduler;
-    private final Map<String, ScheduledFuture<?>> scheduledTasks = new ConcurrentHashMap<>();
-    private final AtomicInteger activeTaskCount = new AtomicInteger(0);
-
-    public DynamicTaskScheduler(TaskExecutor taskExecutor, ThreadPoolTaskScheduler taskScheduler) {
-        super(taskExecutor);
-        this.taskScheduler = taskScheduler;
-    }
-
-    @Override
-    public void start() {
-        log.info("Starting dynamic task scheduler");
-        taskScheduler.initialize();
-    }
-
-    @Override
-    public void stop() {
-        log.info("Stopping dynamic task scheduler, active tasks: {}", activeTaskCount.get());
-        scheduledTasks.values().forEach(future -> future.cancel(true));
-        scheduledTasks.clear();
-        activeTaskCount.set(0);
-        taskScheduler.shutdown();
-    }
-
-    @Override
-    protected void doAddTask(TaskDefinition task) {
-        // 动态调整线程池参数
-        adjustThreadPool();
-        scheduleTask(task);
-    }
-
-    @Override
-    protected void doRemoveTask(String taskId) {
-        ScheduledFuture<?> future = scheduledTasks.remove(taskId);
-        if (future != null) {
-            future.cancel(true);
-            activeTaskCount.decrementAndGet();
-            // 重新调整线程池
-            adjustThreadPool();
-        }
-    }
-
-    @Override
-    protected void doPauseTask(String taskId) {
-        ScheduledFuture<?> future = scheduledTasks.get(taskId);
-        if (future != null) {
-            future.cancel(false);
-            activeTaskCount.decrementAndGet();
-            adjustThreadPool();
-        }
-    }
-
-    @Override
-    protected void doResumeTask(String taskId) {
-        TaskDefinition task = taskDefinitions.get(taskId);
-        if (task != null) {
-            scheduleTask(task);
-        }
-    }
-
-    private void scheduleTask(TaskDefinition task) {
-        try {
-            // 创建任务上下文
-            TaskContext context = new TaskContext();
-            context.setTaskId(task.getTaskId());
-
-            // 处理分片配置
-            if (task.getSharding() != null && task.getSharding().isEnabled()) {
-                scheduleShardingTask(task, context);
-            } else {
-                scheduleSimpleTask(task, context);
+            // 如果任务已存在，取消旧的调度
+            ScheduledFuture<?> existing = scheduledTasks.put(task.getTaskId(), future);
+            if (existing != null) {
+                existing.cancel(true);
+                log.info("Replaced existing schedule for task: {}", task.getTaskId());
             }
 
-            activeTaskCount.incrementAndGet();
-            log.info("Task scheduled successfully, taskId: {}, active tasks: {}",
-                    task.getTaskId(), activeTaskCount.get());
+            log.info("Scheduled task: {}, cron: {}", task.getTaskId(), task.getCronExpression());
 
         } catch (Exception e) {
-            log.error("Failed to schedule task, taskId: {}", task.getTaskId(), e);
+            log.error("Failed to schedule task: {}", task.getTaskId(), e);
+            throw new RuntimeException("Failed to schedule task", e);
         }
     }
 
-    private void scheduleSimpleTask(TaskDefinition task, TaskContext context) {
-        ScheduledFuture<?> future = taskScheduler.schedule(
-                () -> taskExecutor.execute(task, context),
-                new CronTrigger(task.getCronExpression())
-        );
-        scheduledTasks.put(task.getTaskId(), future);
-    }
+    private void executeTask(TaskDefinition task) {
+        try {
+            log.info("Starting task execution: {}", task.getTaskId());
 
-    private void scheduleShardingTask(TaskDefinition task, TaskContext context) {
-        // 为每个分片创建调度任务
-        for (int i = 0; i < task.getSharding().getTotal(); i++) {
-            context.setShardingId(i);
-            context.setShardingTotal(task.getSharding().getTotal());
+            // 获取分片配置
+            int shardTotal = task.getSharding() != null ? task.getSharding().getTotal() : 1;
 
-            String shardTaskId = task.getTaskId() + "_" + i;
-            ScheduledFuture<?> future = taskScheduler.schedule(
-                    () -> taskExecutor.execute(task, context),
-                    new CronTrigger(task.getCronExpression())
-            );
-            scheduledTasks.put(shardTaskId, future);
+            // 创建并分发分片任务
+            for (int shardIndex = 0; shardIndex < shardTotal; shardIndex++) {
+                String shardParam = createShardParam(shardIndex, shardTotal);
+                TaskInstance instance = taskExecuteService.createTaskInstance(
+                        task.getTaskId(),
+                        shardIndex,
+                        shardParam
+                );
+
+                taskDispatcher.dispatch(instance);
+                log.info("Dispatched task instance: {} - shard {}/{}",
+                        instance.getInstanceId(), shardIndex + 1, shardTotal);
+            }
+
+        } catch (Exception e) {
+            log.error("Task execution failed: {}", task.getTaskId(), e);
         }
     }
 
-    private void adjustThreadPool() {
-        // 根据活动任务数动态调整线程池参数
-        int currentActive = activeTaskCount.get();
-        int corePoolSize = Math.max(5, currentActive / 2);
-        int maxPoolSize = Math.max(10, currentActive);
+    @Scheduled(fixedDelay = 60000)  // 每分钟检查一次
+    private void checkRunningTasks() {
+        if (!running) {
+            return;
+        }
 
-        taskScheduler.setPoolSize(maxPoolSize);
-        log.info("Adjusted thread pool, active tasks: {}, core: {}, max: {}",
-                currentActive, corePoolSize, maxPoolSize);
+        try {
+            taskExecuteService.getRunningTasks().forEach(instance -> {
+                TaskConfig config = taskConfigService.getTaskConfig(instance.getTaskCode());
+                if (config != null && config.getTimeout() > 0) {
+                    checkTaskTimeout(instance, config.getTimeout());
+                }
+            });
+        } catch (Exception e) {
+            log.error("Failed to check running tasks", e);
+        }
+    }
+
+    private void checkTaskTimeout(TaskInstance instance, int timeoutSeconds) {
+        if (instance.getStartTime() == null) {
+            return;
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        if (instance.getStartTime().plusSeconds(timeoutSeconds).isBefore(now)) {
+            try {
+                taskExecuteService.completeTaskInstance(
+                        instance.getInstanceId(),
+                        false,
+                        "Task execution timed out after " + timeoutSeconds + " seconds"
+                );
+                log.warn("Task instance timed out: {}", instance.getInstanceId());
+            } catch (Exception e) {
+                log.error("Failed to handle task timeout: {}", instance.getInstanceId(), e);
+            }
+        }
+    }
+
+    private String createShardParam(int shardIndex, int shardTotal) {
+        return String.format("{\"shardIndex\":%d,\"shardTotal\":%d,\"uuid\":\"%s\"}",
+                shardIndex, shardTotal, UUID.randomUUID().toString());
+    }
+
+    private TaskDefinition convertToDefinition(TaskConfig config) {
+        TaskDefinition task = new TaskDefinition();
+        task.setTaskId(config.getTaskCode());
+        task.setTaskName(config.getTaskName());
+        task.setTaskHandler(config.getTaskHandler());
+        task.setCronExpression(config.getCronExpr());
+        // 设置其他属性...
+        return task;
+    }
+
+    private void validateTask(TaskDefinition task) {
+        if (!StringUtils.hasText(task.getTaskId())) {
+            throw new IllegalArgumentException("Task ID cannot be empty");
+        }
+        if (!StringUtils.hasText(task.getTaskHandler())) {
+            throw new IllegalArgumentException("Task handler cannot be empty");
+        }
+        if (StringUtils.hasText(task.getCronExpression())) {
+            try {
+                new CronTrigger(task.getCronExpression());
+            } catch (Exception e) {
+                throw new IllegalArgumentException("Invalid cron expression: " + task.getCronExpression());
+            }
+        }
     }
 }
 ```
@@ -6061,6 +5671,80 @@ public class DynamicTaskScheduler extends AbstractTaskScheduler {
 package com.study.collect.core.task.scheduler;
 ```
 
+## TaskDispatcher.java
+
+```java
+package com.study.collect.core.task.scheduler;
+
+import com.study.collect.core.task.enums.TaskStatusEnum;
+import com.study.collect.core.mq.message.TaskMessage;
+import com.study.collect.core.mq.producer.TaskProducer;
+import com.study.collect.core.task.entity.TaskInstance;
+import com.study.collect.core.task.service.TaskExecuteService;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
+@Slf4j
+@Component
+public class TaskDispatcher {
+
+    private final TaskProducer taskProducer;
+    private final TaskExecuteService taskExecuteService;
+
+    @Autowired
+    public TaskDispatcher(TaskProducer taskProducer, TaskExecuteService taskExecuteService) {
+        this.taskProducer = taskProducer;
+        this.taskExecuteService = taskExecuteService;
+    }
+
+    public void dispatch(TaskInstance instance) {
+        try {
+            // 更新任务状态为执行中
+            taskExecuteService.updateTaskStatus(
+                    instance.getInstanceId(),
+                    TaskStatusEnum.RUNNING.getCode(),
+                    null
+            );
+
+            // 转换并发送消息
+            TaskMessage message = convertToMessage(instance);
+            taskProducer.sendTask(message);
+
+            log.info("Task dispatched successfully: instanceId={}, taskCode={}, shardIndex={}/{}",
+                    instance.getInstanceId(),
+                    instance.getTaskCode(),
+                    instance.getShardIndex() + 1,
+                    instance.getShardTotal()
+            );
+
+        } catch (Exception e) {
+            log.error("Failed to dispatch task: " + instance.getInstanceId(), e);
+
+            // 更新任务状态为失败
+            taskExecuteService.updateTaskStatus(
+                    instance.getInstanceId(),
+                    TaskStatusEnum.FAILED.getCode(),
+                    "Failed to dispatch task: " + e.getMessage()
+            );
+
+            throw new RuntimeException("Task dispatch failed", e);
+        }
+    }
+
+    private TaskMessage convertToMessage(TaskInstance instance) {
+        TaskMessage message = new TaskMessage();
+        message.setTaskId(instance.getTaskCode());
+        message.setInstanceId(instance.getInstanceId());
+        message.setShardIndex(instance.getShardIndex());
+        message.setShardTotal(instance.getShardTotal());
+        message.setShardParam(instance.getShardParam());
+        message.setHostName(instance.getHostName());
+        return message;
+    }
+}
+```
+
 ## TaskScheduler.java
 
 ```java
@@ -6068,7 +5752,8 @@ package com.study.collect.core.task.scheduler;
 
 // 调度器接口
 
-import com.study.collect.core.task.definition.TaskDefinition;
+
+import com.study.collect.core.task.model.TaskDefinition;
 
 public interface TaskScheduler {
     /**
@@ -6104,102 +5789,330 @@ public interface TaskScheduler {
 
 ```
 
-## CustomSplitter.java
+## TaskConfigService.java
 
 ```java
-package com.study.collect.core.task.splitter;
+package com.study.collect.core.task.service;
 
-// 自定义分片器
-public class CustomSplitter {
-}
+import com.study.collect.core.task.enums.TaskStatusEnum;
+import com.study.collect.core.task.entity.TaskConfig;
+import com.study.collect.core.task.mapper.TaskConfigMapper;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-```
+import java.util.List;
 
-## DefaultSplitter.java
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class TaskConfigService {
 
-```java
-package com.study.collect.core.task.splitter;
+    private final TaskConfigMapper taskConfigMapper;
 
-// 默认分片器
-public class DefaultSplitter {
-}
-
-```
-
-## package-info.java
-
-```java
-/**
- * 分片层
- */
-package com.study.collect.core.task.splitter;
-```
-
-## TaskSplitter.java
-
-```java
-package com.study.collect.core.task.splitter;
-
-// 分片器接口
-public class TaskSplitter {
-}
-
-```
-
-## TaskValidator.java
-
-```java
-package com.study.collect.core.task.validator;
-
-import com.study.collect.core.task.definition.ShardingConfig;
-import com.study.collect.core.task.definition.TaskDefinition;
-import com.study.collect.core.task.exception.TaskValidationException;
-import org.springframework.scheduling.support.CronTrigger;
-import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
-
-@Component
-public class TaskValidator {
-
-    public void validate(TaskDefinition task) {
-        // 基础参数校验
-        if (task == null) {
-            throw new TaskValidationException("任务定义不能为空");
-        }
-
-        if (!StringUtils.hasText(task.getTaskId())) {
-            throw new TaskValidationException("任务ID不能为空");
-        }
-
-        if (!StringUtils.hasText(task.getTaskHandler())) {
-            throw new TaskValidationException("任务处理器不能为空");
-        }
-
-        // 调度参数校验
-        if (StringUtils.hasText(task.getCronExpression())) {
-            validateCronExpression(task.getCronExpression());
-        }
-
-        // 分片参数校验
-        if (task.getSharding() != null && task.getSharding().isEnabled()) {
-            validateShardingConfig(task.getSharding());
+    @Transactional(rollbackFor = Exception.class)
+    public void saveTaskConfig(TaskConfig config) {
+        TaskConfig existConfig = taskConfigMapper.selectByCode(config.getTaskCode());
+        if (existConfig == null) {
+            log.info("新增任务配置: {}", config.getTaskCode());
+            taskConfigMapper.insert(config);
+        } else {
+            log.info("更新任务配置: {}", config.getTaskCode());
+            taskConfigMapper.update(config);
         }
     }
 
-    private void validateCronExpression(String cronExpression) {
+    public TaskConfig getTaskConfig(String taskCode) {
+        return taskConfigMapper.selectByCode(taskCode);
+    }
+
+    public List<TaskConfig> getEnabledTaskConfigs() {
+        return taskConfigMapper.selectEnabled();
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void enableTask(String taskCode) {
+        taskConfigMapper.updateStatus(taskCode, TaskStatusEnum.RUNNING.getCode());
+        log.info("启用任务: {}", taskCode);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void disableTask(String taskCode) {
+        taskConfigMapper.updateStatus(taskCode, TaskStatusEnum.INIT.getCode());
+        log.info("禁用任务: {}", taskCode);
+    }
+
+    public void validateTaskConfig(TaskConfig config) {
+        if (config.getShardTotal() == null || config.getShardTotal() < 1) {
+            config.setShardTotal(1);
+        }
+        if (config.getRetryTimes() == null) {
+            config.setRetryTimes(0);
+        }
+        if (config.getRetryInterval() == null) {
+            config.setRetryInterval(0);
+        }
+        if (config.getTimeout() == null) {
+            config.setTimeout(0);
+        }
+        if (config.getStatus() == null) {
+            config.setStatus(TaskStatusEnum.INIT.getCode());
+        }
+    }
+}
+```
+
+## TaskExecuteService.java
+
+```java
+package com.study.collect.core.task.service;
+
+import com.study.collect.core.task.enums.LogTypeEnum;
+import com.study.collect.core.task.enums.TaskStatusEnum;
+import com.study.collect.core.task.utils.InstanceIdGenerator;
+import com.study.collect.core.task.entity.TaskConfig;
+import com.study.collect.core.task.entity.TaskInstance;
+import com.study.collect.core.task.entity.TaskLog;
+import com.study.collect.core.task.mapper.TaskInstanceMapper;
+import com.study.collect.core.task.mapper.TaskLogMapper;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.net.InetAddress;
+import java.time.LocalDateTime;
+import java.util.List;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class TaskExecuteService {
+
+    private final TaskInstanceMapper taskInstanceMapper;
+    private final TaskLogMapper taskLogMapper;
+    private final TaskConfigService taskConfigService;
+
+    @Transactional(rollbackFor = Exception.class)
+    public TaskInstance createTaskInstance(String taskCode, Integer shardIndex, String shardParam) {
+        TaskConfig config = taskConfigService.getTaskConfig(taskCode);
+        if (config == null) {
+            throw new IllegalArgumentException("任务配置不存在: " + taskCode);
+        }
+
+        String instanceId = InstanceIdGenerator.generateInstanceId(taskCode);
+        TaskInstance instance = new TaskInstance();
+        instance.setInstanceId(instanceId);
+        instance.setTaskCode(taskCode);
+        instance.setShardIndex(shardIndex);
+        instance.setShardTotal(config.getShardTotal());
+        instance.setShardParam(shardParam);
+        instance.setStatus(TaskStatusEnum.INIT.getCode());
+        instance.setHostName(getHostName());
+        instance.setStartTime(LocalDateTime.now());
+
+        taskInstanceMapper.insert(instance);
+        recordTaskLog(instanceId, taskCode, LogTypeEnum.START, "任务开始执行");
+
+        return instance;
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void completeTaskInstance(String instanceId, boolean success, String errorMsg) {
+        TaskInstance instance = taskInstanceMapper.selectByInstanceId(instanceId);
+        if (instance == null) {
+            throw new IllegalArgumentException("任务实例不存在: " + instanceId);
+        }
+
+        LocalDateTime endTime = LocalDateTime.now();
+        TaskStatusEnum status = success ? TaskStatusEnum.SUCCESS : TaskStatusEnum.FAILED;
+
+        taskInstanceMapper.updateStatus(instanceId, status.getCode(), errorMsg);
+        taskInstanceMapper.updateEndTime(instanceId, endTime);
+
+        LogTypeEnum logType = success ? LogTypeEnum.RESULT : LogTypeEnum.ERROR;
+        String logContent = success ? "任务执行成功" : "任务执行失败: " + errorMsg;
+        recordTaskLog(instanceId, instance.getTaskCode(), logType, logContent);
+    }
+
+    public void recordTaskProgress(String instanceId, String progressInfo) {
+        TaskInstance instance = taskInstanceMapper.selectByInstanceId(instanceId);
+        if (instance != null) {
+            recordTaskLog(instanceId, instance.getTaskCode(), LogTypeEnum.PROGRESS, progressInfo);
+        }
+    }
+
+    private void recordTaskLog(String instanceId, String taskCode, LogTypeEnum logType, String content) {
+        TaskLog log = new TaskLog(instanceId, taskCode, logType.getCode(), content);
+        taskLogMapper.insert(log);
+    }
+
+    public List<TaskInstance> getRunningTasks() {
+        return taskInstanceMapper.selectRunning();
+    }
+
+    public List<TaskLog> getTaskLogs(String instanceId) {
+        return taskLogMapper.selectByInstanceId(instanceId);
+    }
+
+    private String getHostName() {
         try {
-            new CronTrigger(cronExpression);
-        } catch (IllegalArgumentException e) {
-            throw new TaskValidationException("无效的CRON表达式: " + cronExpression);
-        }
-    }
-
-    private void validateShardingConfig(ShardingConfig sharding) {
-        if (sharding.getTotal() == null || sharding.getTotal() <= 0) {
-            throw new TaskValidationException("分片总数必须大于0");
+            return InetAddress.getLocalHost().getHostName();
+        } catch (Exception e) {
+            return "unknown";
         }
     }
 }
+```
+
+## InstanceIdGenerator.java
+
+```java
+package com.study.collect.core.task.utils;
+
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.concurrent.atomic.AtomicInteger;
+
+public class InstanceIdGenerator {
+    private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+    private static final AtomicInteger SEQUENCE = new AtomicInteger(0);
+
+    public static String generateInstanceId(String taskCode) {
+        // 重置序号,避免无限增长
+        if (SEQUENCE.get() > 9999) {
+            SEQUENCE.set(0);
+        }
+
+        // 格式：taskCode_yyyyMMddHHmmss_XXXX
+        return String.format("%s_%s_%04d",
+                taskCode,
+                LocalDateTime.now().format(FORMATTER),
+                SEQUENCE.getAndIncrement());
+    }
+}
+```
+
+## TaskConfigMapper.xml
+
+```xml
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.study.collect.core.task.mapper.TaskConfigMapper">
+
+    <insert id="insert" parameterType="TaskConfig" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO task_config (
+            task_code, task_name, task_handler, task_param,
+            cron_expr, shard_total, retry_times, retry_interval,
+            timeout, status, remark
+        ) VALUES (
+                     #{taskCode}, #{taskName}, #{taskHandler}, #{taskParam},
+                     #{cronExpr}, #{shardTotal}, #{retryTimes}, #{retryInterval},
+                     #{timeout}, #{status}, #{remark}
+                 )
+    </insert>
+
+    <update id="update" parameterType="TaskConfig">
+        UPDATE task_config
+        SET task_name = #{taskName},
+            task_handler = #{taskHandler},
+            task_param = #{taskParam},
+            cron_expr = #{cronExpr},
+            shard_total = #{shardTotal},
+            retry_times = #{retryTimes},
+            retry_interval = #{retryInterval},
+            timeout = #{timeout},
+            status = #{status},
+            remark = #{remark}
+        WHERE task_code = #{taskCode}
+    </update>
+
+    <select id="selectById" resultType="TaskConfig">
+        SELECT * FROM task_config WHERE id = #{id}
+    </select>
+
+    <select id="selectByCode" resultType="TaskConfig">
+        SELECT * FROM task_config WHERE task_code = #{taskCode}
+    </select>
+
+    <select id="selectEnabled" resultType="TaskConfig">
+        SELECT * FROM task_config WHERE status = 1
+    </select>
+</mapper>
+```
+
+## TaskInstanceMapper.xml
+
+```xml
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.study.collect.core.task.mapper.TaskInstanceMapper">
+
+    <insert id="insert" parameterType="TaskInstance" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO task_instance (
+            instance_id, task_code, shard_index, shard_total,
+            shard_param, status, host_name, start_time
+        ) VALUES (
+                     #{instanceId}, #{taskCode}, #{shardIndex}, #{shardTotal},
+                     #{shardParam}, #{status}, #{hostName}, #{startTime}
+                 )
+    </insert>
+
+    <update id="updateStatus">
+        UPDATE task_instance
+        SET status = #{status},
+            error_msg = #{errorMsg},
+            update_time = CURRENT_TIMESTAMP
+        WHERE instance_id = #{instanceId}
+    </update>
+
+    <update id="updateEndTime">
+        UPDATE task_instance
+        SET end_time = #{endTime},
+            update_time = CURRENT_TIMESTAMP
+        WHERE instance_id = #{instanceId}
+    </update>
+
+    <select id="selectRunning" resultType="TaskInstance">
+        SELECT * FROM task_instance WHERE status = 1
+    </select>
+</mapper>
+```
+
+## TaskLogMapper.xml
+
+```xml
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.study.collect.core.task.mapper.TaskLogMapper">
+
+    <insert id="insert" parameterType="TaskLog">
+        INSERT INTO task_log (
+            instance_id, task_code, log_type, log_content
+        ) VALUES (
+                     #{instanceId}, #{taskCode}, #{logType}, #{logContent}
+                 )
+    </insert>
+
+    <insert id="batchInsert">
+        INSERT INTO task_log (
+        instance_id, task_code, log_type, log_content
+        ) VALUES
+        <foreach collection="logs" item="log" separator=",">
+            (#{log.instanceId}, #{log.taskCode}, #{log.logType}, #{log.logContent})
+        </foreach>
+    </insert>
+
+    <select id="selectByInstanceId" resultType="TaskLog">
+        SELECT * FROM task_log
+        WHERE instance_id = #{instanceId}
+        ORDER BY create_time ASC
+    </select>
+</mapper>
 ```
 
 ## pom.xml
@@ -6502,26 +6415,76 @@ collect:
       sharding:
         enabled: true
         total: 4      # 分片总数
+
+collect:
+  task:
+    enabled: true
+    thread-pool:
+      core-size: 10
+      max-size: 20
+      queue-capacity: 200
+    execution:
+      timeout: 3600
+      retry-times: 3
+      retry-interval: 300
 ```
 
 ## sql.sql
 
 ```sql
 -- 任务配置表
-CREATE TABLE task_config
-(
-    id              bigint      NOT NULL AUTO_INCREMENT,
-    task_id         varchar(64) NOT NULL COMMENT '任务ID',
-    task_name       varchar(64) NOT NULL COMMENT '任务名称',
-    task_handler    varchar(64) NOT NULL COMMENT '任务处理器',
-    cron_expression varchar(64) COMMENT 'cron表达式',
-    props           json COMMENT '任务属性',
-    status          tinyint     NOT NULL COMMENT '状态:0-禁用,1-启用',
-    create_time     datetime    NOT NULL,
-    update_time     datetime    NOT NULL,
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_task_id (task_id)
+CREATE TABLE `task_config` (
+                               `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+                               `task_code` varchar(50) NOT NULL COMMENT '任务编码',
+                               `task_name` varchar(100) NOT NULL COMMENT '任务名称',
+                               `task_handler` varchar(100) NOT NULL COMMENT '任务处理器',
+                               `task_param` text COMMENT '任务参数(JSON格式)',
+                               `cron_expr` varchar(50) DEFAULT NULL COMMENT 'cron表达式',
+                               `shard_total` int DEFAULT '1' COMMENT '分片总数',
+                               `retry_times` int DEFAULT '0' COMMENT '重试次数',
+                               `retry_interval` int DEFAULT '0' COMMENT '重试间隔(秒)',
+                               `timeout` int DEFAULT '0' COMMENT '超时时间(秒)',
+                               `status` tinyint NOT NULL DEFAULT '1' COMMENT '状态:0-禁用,1-启用',
+                               `remark` varchar(500) DEFAULT NULL COMMENT '备注',
+                               `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                               `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                               PRIMARY KEY (`id`),
+                               UNIQUE KEY `uk_task_code` (`task_code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='任务配置表';
+
+-- 任务实例表
+CREATE TABLE `task_instance` (
+                                 `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+                                 `instance_id` varchar(50) NOT NULL COMMENT '实例ID',
+                                 `task_code` varchar(50) NOT NULL COMMENT '任务编码',
+                                 `shard_index` int DEFAULT NULL COMMENT '分片索引',
+                                 `shard_total` int DEFAULT NULL COMMENT '分片总数',
+                                 `shard_param` text COMMENT '分片参数',
+                                 `status` tinyint NOT NULL DEFAULT '0' COMMENT '状态:0-初始,1-执行中,2-成功,3-失败',
+                                 `error_msg` text COMMENT '错误信息',
+                                 `host_name` varchar(100) DEFAULT NULL COMMENT '执行机器',
+                                 `start_time` datetime DEFAULT NULL COMMENT '开始时间',
+                                 `end_time` datetime DEFAULT NULL COMMENT '结束时间',
+                                 `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                 `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                                 PRIMARY KEY (`id`),
+                                 UNIQUE KEY `uk_instance_id` (`instance_id`),
+                                 KEY `idx_task_code` (`task_code`),
+                                 KEY `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='任务实例表';
+
+-- 任务日志表
+CREATE TABLE `task_log` (
+                            `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+                            `instance_id` varchar(50) NOT NULL COMMENT '实例ID',
+                            `task_code` varchar(50) NOT NULL COMMENT '任务编码',
+                            `log_type` tinyint NOT NULL COMMENT '日志类型:1-开始,2-心跳,3-进度,4-结果,5-错误',
+                            `log_content` text COMMENT '日志内容',
+                            `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                            PRIMARY KEY (`id`),
+                            KEY `idx_instance_id` (`instance_id`),
+                            KEY `idx_task_code` (`task_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='任务日志表';
 ```
 
 ## 任务.md

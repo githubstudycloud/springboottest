@@ -2,7 +2,8 @@ package com.study.collect.core.task.scheduler;
 
 // 调度器接口
 
-import com.study.collect.core.task.definition.TaskDefinition;
+
+import com.study.collect.core.task.model.TaskDefinition;
 
 public interface TaskScheduler {
     /**

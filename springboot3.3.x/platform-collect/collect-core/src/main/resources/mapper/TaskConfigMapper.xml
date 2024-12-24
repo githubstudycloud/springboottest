@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.study.collect.core.task.mapper.TaskConfigMapper">
+
+    <insert id="insert" parameterType="TaskConfig" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO task_config (
+            task_code, task_name, task_handler, task_param,
+            cron_expr, shard_total, retry_times, retry_interval,
+            timeout, status, remark
+        ) VALUES (
+                     #{taskCode}, #{taskName}, #{taskHandler}, #{taskParam},
+                     #{cronExpr}, #{shardTotal}, #{retryTimes}, #{retryInterval},
+                     #{timeout}, #{status}, #{remark}
+                 )
+    </insert>
+
+    <update id="update" parameterType="TaskConfig">
+        UPDATE task_config
+        SET task_name = #{taskName},
+            task_handler = #{taskHandler},
+            task_param = #{taskParam},
+            cron_expr = #{cronExpr},
+            shard_total = #{shardTotal},
+            retry_times = #{retryTimes},
+            retry_interval = #{retryInterval},
+            timeout = #{timeout},
+            status = #{status},
+            remark = #{remark}
+        WHERE task_code = #{taskCode}
+    </update>
+
+    <select id="selectById" resultType="TaskConfig">
+        SELECT * FROM task_config WHERE id = #{id}
+    </select>
+
+    <select id="selectByCode" resultType="TaskConfig">
+        SELECT * FROM task_config WHERE task_code = #{taskCode}
+    </select>
+
+    <select id="selectEnabled" resultType="TaskConfig">
+        SELECT * FROM task_config WHERE status = 1
+    </select>
+</mapper>

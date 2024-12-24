@@ -1,19 +1,75 @@
 package com.study.collect.core.task.definition;
 
-// 任务配置属性
-
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
-
-import java.util.ArrayList;
-import java.util.List;
 
 @Data
 @ConfigurationProperties(prefix = "collect.task")
 public class TaskProperties {
-    private boolean enabled = true;  // 是否启用任务
-    private int corePoolSize = 5;    // 核心线程数
-    private int maxPoolSize = 10;    // 最大线程数
-    private int queueCapacity = 100; // 队列容量
-    private List<TaskDefinition> tasks = new ArrayList<>(); // 任务配置列表
+
+    /**
+     * 是否启用任务调度
+     */
+    private boolean enabled = true;
+
+    /**
+     * 线程池配置
+     */
+    private ThreadPool threadPool = new ThreadPool();
+
+    /**
+     * 执行配置
+     */
+    private Execution execution = new Execution();
+
+    @Data
+    public static class ThreadPool {
+        /**
+         * 核心线程数
+         */
+        private int coreSize = 10;
+
+        /**
+         * 最大线程数
+         */
+        private int maxSize = 20;
+
+        /**
+         * 队列容量
+         */
+        private int queueCapacity = 200;
+
+        /**
+         * 线程空闲超时时间（秒）
+         */
+        private int keepAliveSeconds = 60;
+
+        /**
+         * 优雅停机等待时间（秒）
+         */
+        private int awaitTerminationSeconds = 60;
+    }
+
+    @Data
+    public static class Execution {
+        /**
+         * 任务超时时间（秒）
+         */
+        private int timeout = 3600;
+
+        /**
+         * 重试次数
+         */
+        private int retryTimes = 3;
+
+        /**
+         * 重试间隔（秒）
+         */
+        private int retryInterval = 300;
+
+        /**
+         * 是否允许并行执行
+         */
+        private boolean allowParallel = true;
+    }
 }
