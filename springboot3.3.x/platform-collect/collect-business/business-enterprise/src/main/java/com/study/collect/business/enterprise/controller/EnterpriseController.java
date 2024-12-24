@@ -20,6 +20,7 @@ public class EnterpriseController {
         Enterprise enterprise = enterpriseService.collectAndProcess(code);
         return Response.success(enterprise);
     }
+
     @GetMapping("/full")
     public Response<List<Enterprise>> getFullData() {
         return Response.success(enterpriseService.getFullData());

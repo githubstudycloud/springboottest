@@ -1,38 +1,39 @@
 package com.study.collect.core.mq.consumer;
 
+// 消费者接口
+
 import com.study.collect.core.mq.message.TaskMessage;
-import com.study.collect.core.task.TaskContext;
-import com.study.collect.core.task.executor.TaskExecutor;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.amqp.rabbit.annotation.RabbitListener;
-import org.springframework.stereotype.Component;
+import com.study.collect.core.task.model.TaskContext;
 
-@Slf4j
-@Component
-@RequiredArgsConstructor
-public class TaskConsumer {
+public interface TaskConsumer {
+    /**
+     * 处理任务消息
+     *
+     * @param message 任务消息
+     */
+    void onMessage(TaskMessage message);
 
-    private final TaskExecutor taskExecutor;
+    /**
+     * 判断是否为当前节点的分片
+     *
+     * @param message 任务消息
+     * @return 是否处理
+     */
+    default boolean isCurrentShard(TaskMessage message) {
+        return true;
+    }
 
-    @RabbitListener(queues = "${collect.mq.rabbit.task.queue}")
-    public void onMessage(TaskMessage message) {
-        try {
-            log.info("Receive task message: {}", message);
-
-            // 1. 构建任务上下文
-            TaskContext context = new TaskContext();
-            context.setTaskId(message.getTaskId());
-            context.setShardingId(message.getShardingId());
-            context.setShardingTotal(message.getShardingTotal());
-            context.setParams(message.getContext());
-
-            // 2. 执行任务
-            taskExecutor.execute(message.getTaskDefinition(), context);
-
-        } catch (Exception e) {
-            log.error("Process task message failed", e);
-            // 异常处理
-        }
+    /**
+     * 构建任务上下文
+     *
+     * @param message 任务消息
+     * @return 任务上下文
+     */
+    default TaskContext buildContext(TaskMessage message) {
+        TaskContext context = new TaskContext();
+        context.setTaskId(message.getTaskId());
+        context.setShardingId(message.getShardingId());
+        context.setShardingTotal(message.getShardingTotal());
+        return context;
     }
 }

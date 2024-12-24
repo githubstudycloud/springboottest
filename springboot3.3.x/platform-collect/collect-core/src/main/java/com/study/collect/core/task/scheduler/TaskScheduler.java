@@ -1,12 +1,37 @@
 package com.study.collect.core.task.scheduler;
 
-import com.study.collect.core.task.CollectTask;
-import com.study.collect.core.task.TaskResult;
+// 调度器接口
 
-// 3. 任务接口
+import com.study.collect.core.task.definition.TaskDefinition;
+
 public interface TaskScheduler {
-//    // 执行任务
-//    void execute(CollectTask task);
-//    // 处理结果
-//    void handleResult(TaskResult result);
+    /**
+     * 启动调度器
+     */
+    void start();
+
+    /**
+     * 停止调度器
+     */
+    void stop();
+
+    /**
+     * 添加任务
+     */
+    void addTask(TaskDefinition task);
+
+    /**
+     * 移除任务
+     */
+    void removeTask(String taskId);
+
+    /**
+     * 暂停任务
+     */
+    void pauseTask(String taskId);
+
+    /**
+     * 恢复任务
+     */
+    void resumeTask(String taskId);
 }

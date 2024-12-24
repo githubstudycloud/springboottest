@@ -1,10 +1,11 @@
 package com.study.collect.business.enterprise.collector;
 
 import com.study.collect.business.enterprise.model.Enterprise;
-import com.study.collect.core.annotation.Collector;
 import com.study.collect.core.cache.annotation.Cache;
 import com.study.collect.core.cache.annotation.CacheLock;
 import com.study.collect.core.collector.AbstractCollector;
+import com.study.collect.core.collector.annotation.Collector;
+import com.study.collect.core.collector.model.CollectContext;
 
 //@Collector(type = "enterprise")
 //@Component
@@ -23,7 +24,6 @@ import com.study.collect.core.collector.AbstractCollector;
 //        return "enterprise";
 //    }
 //}
-
 
 
 // 2. Collector - 增加缓存和分布式锁
@@ -49,11 +49,21 @@ public class EnterpriseCollector extends AbstractCollector<String, Enterprise> {
         return data;
     }
 
+    @Override
+    public String getType() {
+        return "";
+    }
+
     private String generateVersion() {
         return "1.0";
     }
 
     private Enterprise collectFromApi(String code) {
         return new Enterprise();
+    }
+
+    @Override
+    protected Enterprise doCollect(CollectContext<String> context) {
+        return null;
     }
 }

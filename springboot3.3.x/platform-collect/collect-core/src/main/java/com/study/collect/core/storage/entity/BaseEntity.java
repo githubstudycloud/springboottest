@@ -6,13 +6,13 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.LastModifiedBy;
 import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.annotation.Version;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
 @Data
 public abstract class BaseEntity implements Serializable {
-
     @Id
     protected String id;
 
@@ -27,6 +27,9 @@ public abstract class BaseEntity implements Serializable {
 
     @LastModifiedBy
     protected String updateBy;
+
+    @Version
+    protected Long version;
 
     protected Boolean deleted = false;
 }

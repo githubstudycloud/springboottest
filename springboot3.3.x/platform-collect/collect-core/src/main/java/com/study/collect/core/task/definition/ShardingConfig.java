@@ -1,5 +1,7 @@
 package com.study.collect.core.task.definition;
 
+// 分片配置
+
 import lombok.Data;
 
 @Data

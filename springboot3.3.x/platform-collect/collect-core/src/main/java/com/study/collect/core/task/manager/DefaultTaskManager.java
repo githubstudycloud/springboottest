@@ -2,48 +2,50 @@ package com.study.collect.core.task.manager;
 
 import com.study.collect.core.mq.producer.TaskProducer;
 import com.study.collect.core.task.definition.TaskDefinition;
+import com.study.collect.core.task.model.TaskResult;
+import com.study.collect.core.task.model.TaskStatus;
 import com.study.collect.core.task.scheduler.TaskScheduler;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
 @Component
-@RequiredArgsConstructor
-public class DefaultTaskManager implements TaskManager {
+public class DefaultTaskManager extends AbstractTaskManager {
 
-    private final TaskProducer taskProducer;
-    private final TaskScheduler taskScheduler;
+    // 内存中维护任务状态
+    private final Map<String, TaskStatus> taskStatusMap = new ConcurrentHashMap<>();
+
+    public DefaultTaskManager(TaskProducer taskProducer, TaskScheduler taskScheduler) {
+        super(taskProducer, taskScheduler);
+    }
 
     @Override
-    public void submitTask(TaskDefinition task) {
-        // 1. 校验任务
-        validateTask(task);
+    protected void beforeSubmit(TaskDefinition task) {
+        taskStatusMap.put(task.getTaskId(), TaskStatus.CREATED);
+    }
 
-        // 2. 分发任务
-        if (task.getSharding() != null && task.getSharding().isEnabled()) {
-            // 分片执行
-            taskProducer.sendShardingTask(task, task.getSharding().getTotal());
-        } else {
-            // 单节点执行
-            taskProducer.sendTask(task);
+    @Override
+    protected void doCancelTask(String taskId) {
+        taskStatusMap.put(taskId, TaskStatus.CANCELED);
+    }
+
+    @Override
+    protected void doPauseTask(String taskId) {
+        taskStatusMap.put(taskId, TaskStatus.WAITING);
+    }
+
+    @Override
+    protected void doResumeTask(String taskId) {
+        taskStatusMap.put(taskId, TaskStatus.RUNNING);
+    }
+
+    @Override
+    public TaskResult getTaskStatus(String taskId) {
+        TaskStatus status = taskStatusMap.get(taskId);
+        if (status == null) {
+            return TaskResult.failure(taskId, "Task not found");
         }
-    }
-
-    @Override
-    public void cancelTask(String taskId) {
-        taskScheduler.cancelTask(taskId);
-    }
-
-    @Override
-    public void pauseTask(String taskId) {
-        taskScheduler.pauseTask(taskId);
-    }
-
-    @Override
-    public void resumeTask(String taskId) {
-        taskScheduler.resumeTask(taskId);
-    }
-
-    private void validateTask(TaskDefinition task) {
-        // 任务参数校验
+        return TaskResult.success(taskId, status);
     }
 }

@@ -1,52 +1,74 @@
 package com.study.collect.core.storage.repository;
 
+import com.study.collect.core.storage.entity.BaseEntity;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.core.MongoOperations;
-import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.data.mongodb.repository.query.MongoEntityInformation;
 import org.springframework.data.mongodb.repository.support.SimpleMongoRepository;
 
 import java.io.Serializable;
+import java.time.LocalDateTime;
 import java.util.List;
 
-public class BaseMongoRepository<T, ID extends Serializable>
+@Slf4j
+public class BaseMongoRepository<T extends BaseEntity, ID extends Serializable>
         extends SimpleMongoRepository<T, ID> implements IRepository<T, ID> {
 
-    protected final MongoTemplate mongoTemplate;
-    protected final MongoEntityInformation<T, ID> entityInformation;
+    private final MongoOperations mongoOperations;
+    private final MongoEntityInformation<T, ID> entityInformation;
 
     public BaseMongoRepository(MongoEntityInformation<T, ID> metadata,
                                MongoOperations mongoOperations) {
         super(metadata, mongoOperations);
-        this.mongoTemplate = (MongoTemplate) mongoOperations;
+        this.mongoOperations = mongoOperations;
         this.entityInformation = metadata;
     }
 
     @Override
     public T findByCode(String code) {
-        Query query = new Query(Criteria.where("code").is(code));
-        return mongoTemplate.findOne(query, entityInformation.getJavaType());
+        Query query = Query.query(
+                Criteria.where("code").is(code)
+                        .and("deleted").is(false)
+        );
+        return mongoOperations.findOne(query, entityInformation.getJavaType());
     }
 
     @Override
-    public void updateStatus(ID id, String status) {
-
+    public Page<T> findByDeletedFalse(Pageable pageable) {
+        return null;
     }
 
     @Override
-    public long countByStatus(String status) {
-        return 0;
+    public List<T> findByVersionCodeGreaterThan(String versionCode) {
+        return List.of();
     }
 
     @Override
     public void softDelete(ID id) {
-
+        Query query = Query.query(Criteria.where("id").is(id));
+        Update update = Update.update("deleted", true)
+                .set("updateTime", LocalDateTime.now());
+        mongoOperations.updateFirst(query, update, entityInformation.getJavaType());
     }
-//
-//    // 其他方法实现...
-//    // 版本查询
-//    List<T> findByVersion(String version);
-//    // 增量查询
-//    List<T> findIncrementalData(String version);
+
+    @Override
+    public void softDelete(List<ID> ids) {
+        Query query = Query.query(Criteria.where("id").in(ids));
+        Update update = Update.update("deleted", true)
+                .set("updateTime", LocalDateTime.now());
+        mongoOperations.updateMulti(query, update, entityInformation.getJavaType());
+    }
+
+    @Override
+    public void updateStatus(ID id, String status) {
+        Query query = Query.query(Criteria.where("id").is(id));
+        Update update = Update.update("status", status)
+                .set("updateTime", LocalDateTime.now());
+        mongoOperations.updateFirst(query, update, entityInformation.getJavaType());
+    }
 }

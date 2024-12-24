@@ -4,6 +4,7 @@ import com.study.collect.business.finance.collector.FinanceCollector;
 import com.study.collect.business.finance.model.FinanceData;
 import com.study.collect.business.finance.processor.FinanceProcessor;
 import com.study.collect.business.finance.repository.FinanceRepository;
+import com.study.collect.core.processor.model.ProcessContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -23,7 +24,7 @@ public class FinanceService {
         FinanceData data = collector.collect(stockCode);
 
         // 2. 处理数据
-        data = processor.process(data);
+        data = processor.process(data, new ProcessContext());
 
         // 3. 保存数据
         return financeRepository.save(data);

@@ -1,43 +1,37 @@
 package com.study.collect.core.mq.config;
 
+// RabbitMQ配置
+
 import org.springframework.amqp.core.*;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
+@EnableConfigurationProperties(MQProperties.class)
 public class RabbitConfig {
 
-    @Value("${collect.mq.rabbit.task.exchange}")
-    private String taskExchange;
-
-    @Value("${collect.mq.rabbit.task.queue}")
-    private String taskQueue;
-
-    @Value("${collect.mq.rabbit.task.routing-key}")
-    private String taskRoutingKey;
-
     @Bean
-    public DirectExchange taskExchange() {
-        return new DirectExchange(taskExchange);
+    public DirectExchange taskExchange(MQProperties properties) {
+        return new DirectExchange(properties.getRabbit().getTask().getExchange());
     }
 
     @Bean
-    public Queue taskQueue() {
-        return QueueBuilder.durable(taskQueue)
-                .withArgument("x-dead-letter-exchange", taskExchange + ".dlx")
-                .withArgument("x-dead-letter-routing-key", taskRoutingKey + ".dlx")
+    public Queue taskQueue(MQProperties properties) {
+        return QueueBuilder.durable(properties.getRabbit().getTask().getQueue())
+                .withArgument("x-dead-letter-exchange", properties.getRabbit().getTask().getExchange() + ".dlx")
+                .withArgument("x-dead-letter-routing-key", properties.getRabbit().getTask().getRoutingKey() + ".dlx")
                 .build();
     }
 
     @Bean
-    public Binding taskBinding() {
-        return BindingBuilder.bind(taskQueue())
-                .to(taskExchange())
-                .with(taskRoutingKey);
+    public Binding taskBinding(Queue taskQueue, DirectExchange taskExchange, MQProperties properties) {
+        return BindingBuilder.bind(taskQueue)
+                .to(taskExchange)
+                .with(properties.getRabbit().getTask().getRoutingKey());
     }
 
     @Bean

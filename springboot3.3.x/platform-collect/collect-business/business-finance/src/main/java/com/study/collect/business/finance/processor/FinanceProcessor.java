@@ -2,7 +2,9 @@ package com.study.collect.business.finance.processor;
 
 import com.study.collect.business.finance.model.FinanceData;
 import com.study.collect.core.processor.AbstractProcessor;
-import com.study.collect.core.annotation.Processor;
+import com.study.collect.core.processor.annotation.Processor;
+import com.study.collect.core.processor.exception.ProcessException;
+import com.study.collect.core.processor.model.ProcessContext;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -16,7 +18,8 @@ import java.time.LocalDateTime;
 public class FinanceProcessor extends AbstractProcessor<FinanceData> {
 
     @Override
-    protected FinanceData doProcess(FinanceData data) {
+    protected FinanceData doProcess(FinanceData data, ProcessContext context) {
+
         // 数据验证
         validateData(data);
 
@@ -29,7 +32,8 @@ public class FinanceProcessor extends AbstractProcessor<FinanceData> {
         return data;
     }
 
-    private void validateData(FinanceData data) {
+
+    protected void validateData(FinanceData data) {
         if (data.getPrice() == null || data.getPrice().compareTo(BigDecimal.ZERO) <= 0) {
             throw new ProcessException("Invalid price");
         }
@@ -58,5 +62,10 @@ public class FinanceProcessor extends AbstractProcessor<FinanceData> {
     @Override
     public String getType() {
         return "finance";
+    }
+
+    @Override
+    public int getOrder() {
+        return 0;
     }
 }
