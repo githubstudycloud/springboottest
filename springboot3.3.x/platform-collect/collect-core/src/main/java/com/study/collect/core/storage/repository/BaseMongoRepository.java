@@ -3,6 +3,7 @@ package com.study.collect.core.storage.repository;
 import com.study.collect.core.storage.entity.BaseEntity;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.core.MongoOperations;
 import org.springframework.data.mongodb.core.query.Criteria;
@@ -77,6 +78,6 @@ public class BaseMongoRepository<T extends BaseEntity>
         long total = mongoOperations.count(query, entityInformation.getJavaType());
         List<T> content = mongoOperations.find(query.with(pageable),
                 entityInformation.getJavaType());
-        return org.springframework.data.domain.PageImpl.of(content, pageable, total);
+        return new PageImpl<>(content, pageable, total);
     }
 }

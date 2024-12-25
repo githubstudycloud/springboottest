@@ -77,41 +77,41 @@ logging:
 #        props:
 #          collectType: "enterprise"
 #          batchSize: 100
-collect:
-  task:
-    enabled: true
-    tasks:
-      - taskId: "enterprise-collect"
-        taskName: "企业数据采集"
-        taskHandler: "enterpriseCollectHandler"
-        cronExpression: "0 0 1 * * ?"
-        sharding:
-          enabled: true
-          total: 4
-  mq:
-    rabbit:
-      enabled: true
-      host: 192.168.80.137
-      port: 5672
-      username: admin
-      password: 123456
-
-      # 任务队列配置
-      task:
-        exchange: collect.task
-        queue: collect.task.queue
-        routing-key: collect.task
-
-      # 结果队列配置
-      result:
-        exchange: collect.result
-        queue: collect.result.queue
-        routing-key: collect.result
-
-      # 分片配置
-      sharding:
-        enabled: true
-        total: 4      # 分片总数
+#collect:
+#  task:
+#    enabled: true
+#    tasks:
+#      - taskId: "enterprise-collect"
+#        taskName: "企业数据采集"
+#        taskHandler: "enterpriseCollectHandler"
+#        cronExpression: "0 0 1 * * ?"
+#        sharding:
+#          enabled: true
+#          total: 4
+#  mq:
+#    rabbit:
+#      enabled: true
+#      host: 192.168.80.137
+#      port: 5672
+#      username: admin
+#      password: 123456
+#
+#      # 任务队列配置
+#      task:
+#        exchange: collect.task
+#        queue: collect.task.queue
+#        routing-key: collect.task
+#
+#      # 结果队列配置
+#      result:
+#        exchange: collect.result
+#        queue: collect.result.queue
+#        routing-key: collect.result
+#
+#      # 分片配置
+#      sharding:
+#        enabled: true
+#        total: 4      # 分片总数
 
 collect:
   task:

@@ -5,6 +5,8 @@ import com.study.collect.core.collector.model.CollectContext;
 import com.study.collect.core.collector.model.CollectResult;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.List;
+
 @Slf4j
 public abstract class AbstractCollector<T, R> implements ICollector<T, R> {
 
@@ -18,13 +20,14 @@ public abstract class AbstractCollector<T, R> implements ICollector<T, R> {
             preProcess(context);
 
             // 执行采集
-            R data = doCollect(context);
-
+//            CollectResult<R> data = doCollect(context);
+            R sourceData = doCollect(context);
+            CollectResult<R> data = CollectResult.success(sourceData);
             // 后置处理
             postProcess(data);
 
             log.info("采集任务执行完成: taskId={}", taskId);
-            return CollectResult.success(data);
+            return CollectResult.success(data.getData());
 
         } catch (Exception e) {
             log.error("采集任务执行失败: taskId={}", taskId, e);
@@ -45,12 +48,13 @@ public abstract class AbstractCollector<T, R> implements ICollector<T, R> {
     /**
      * 执行采集
      */
+//    protected abstract CollectResult<R> doCollect(CollectContext<T> context);
     protected abstract R doCollect(CollectContext<T> context);
 
     /**
      * 后置处理
      */
-    protected void postProcess(R data) {
+    protected void postProcess(CollectResult<R> data) {
         // 数据清洗
         cleanCollectData(data);
         // 结果验证
@@ -82,14 +86,14 @@ public abstract class AbstractCollector<T, R> implements ICollector<T, R> {
     /**
      * 清洗采集数据
      */
-    protected void cleanCollectData(R data) {
+    protected void cleanCollectData(CollectResult<R> data) {
         // 子类可覆盖实现具体的数据清洗逻辑
     }
 
     /**
      * 验证采集结果
      */
-    protected void validateCollectResult(R data) {
+    protected void validateCollectResult(CollectResult<R> data) {
         // 子类可覆盖实现具体的结果验证逻辑
     }
 }

@@ -19,10 +19,17 @@ platform-collect/
                                                 EnterpriseCollector.java
                                             config/
                                                 EnterpriseAutoConfiguration.java
+                                                EnterpriseCollectorProperties.java
+                                                EnterpriseConfig.java
                                             controller/
                                                 EnterpriseController.java
                                             model/
                                                 Enterprise.java
+                                                request/
+                                                    EnterpriseGenerateRequest.java
+                                                    EnterpriseQueryRequest.java
+                                                response/
+                                                    EnterpriseQueryResponse.java
                                             processor/
                                                 EnterpriseProcessor.java
                                             repository/
@@ -316,12 +323,12 @@ platform-collect/
         <mysql.version>8.3.0</mysql.version>
         <mongodb-driver.version>4.11.1</mongodb-driver.version>
         <lettuce.version>6.3.2.RELEASE</lettuce.version>
-        <redisson.version>3.27.2</redisson.version>
+        <redisson.version>3.39.0</redisson.version>
         <rabbitmq.version>5.20.0</rabbitmq.version>
         <mybatis.version>3.0.3</mybatis.version>
         <mariadb.version>3.3.3</mariadb.version>  <!-- 这是最新的稳定版本 -->
         <jackson.version>2.17.0</jackson.version>
-        <prometheus.version>1.12.4</prometheus.version>
+        <prometheus.version>1.12.9</prometheus.version>
         <lombok.version>1.18.30</lombok.version>
         <mapstruct.version>1.5.5.Final</mapstruct.version>
         <commons-lang3.version>3.14.0</commons-lang3.version>
@@ -459,6 +466,12 @@ platform-collect/
                         </annotationProcessorPaths>
                     </configuration>
                 </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-deploy-plugin</artifactId>
+                    <version>3.1.1</version>
+                </plugin>
+
             </plugins>
         </pluginManagement>
     </build>
@@ -509,8 +522,8 @@ platform-collect/
 
     <modules>
         <module>business-enterprise</module>
-        <module>business-finance</module>
-        <module>business-medical</module>
+<!--        <module>business-finance</module>-->
+<!--        <module>business-medical</module>-->
     </modules>
 
     <dependencies>
@@ -592,73 +605,166 @@ platform-collect/
 package com.study.collect.business.enterprise.collector;
 
 import com.study.collect.business.enterprise.model.Enterprise;
-import com.study.collect.core.cache.annotation.Cache;
-import com.study.collect.core.cache.annotation.CacheLock;
+import com.study.collect.business.enterprise.repository.EnterpriseRepository;
+import com.study.collect.common.util.JsonUtils;
 import com.study.collect.core.collector.AbstractCollector;
 import com.study.collect.core.collector.annotation.Collector;
 import com.study.collect.core.collector.model.CollectContext;
+import com.study.collect.core.collector.model.CollectResult;
+import com.study.collect.core.storage.cache.annotation.Cache;
+import com.study.collect.core.storage.cache.annotation.CacheLock;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.stereotype.Component;
 
-//@Collector(type = "enterprise")
-//@Component
-//@RequiredArgsConstructor
-//public class EnterpriseCollector implements ICollector<String, Enterprise> {
-//
-//    private final EnterpriseRepository repository;
-//
-//    @Override
-//    public Enterprise collect(String code) {
-//        return repository.findByCode(code);
-//    }
-//
-//    @Override
-//    public String getType() {
-//        return "enterprise";
-//    }
-//}
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
-
-// 2. Collector - 增加缓存和分布式锁
+@Slf4j
+@Component
 @Collector(type = "enterprise")
-public class EnterpriseCollector extends AbstractCollector<String, Enterprise> {
+@RequiredArgsConstructor
+public class EnterpriseCollector extends AbstractCollector<String, List<Enterprise>> {
 
-//    @Cache(key = "enterprise:#{#code}")  // 缓存注解
-//    @CacheLock(key = "lock:enterprise:#{#code}")  // 分布式锁注解
-//    public Enterprise collect(String code) {
-//        // 采集逻辑
-//        return doCollect(code);
-//    }
+    private final EnterpriseRepository repository;
+    private static final int BATCH_SIZE = 100;
+    private final AtomicInteger counter = new AtomicInteger(0);
 
-    @Cache(key = "enterprise:#{#code}")
-    @CacheLock(key = "lock:enterprise:#{#code}")
     @Override
-//    protected Enterprise doCollect(String code) {
-    public Enterprise collect(String code) {
-        // 1. 调用外部接口采集数据
-        Enterprise data = collectFromApi(code);
-        // 2. 设置版本号
-        data.setVersion(generateVersion());
-        return data;
+    protected void preProcess(CollectContext<String> context) {
+        super.preProcess(context);
+        // 解析分片参数
+        Map<String, Object> params = parseShardingParams(context.getParams());
+        context.setAttribute("shardParams", params);
+
+        // 记录开始时间
+        context.setAttribute("startTime", LocalDateTime.now());
+        counter.set(0);
+    }
+
+    @Override
+    @Cache(key = "enterprise:collect:#{#context.taskId}")
+    @CacheLock(key = "lock:enterprise:collect:#{#context.taskId}")
+    protected List<Enterprise> doCollect(CollectContext<String> context) {
+        Map<String, Object> params = context.getAttribute("shardParams");
+        List<Enterprise> result = new ArrayList<>();
+
+        if (params.containsKey("code")) {
+            // 单个企业采集
+            String code = (String) params.get("code");
+            Enterprise enterprise = collectSingle(code);
+            if (enterprise != null) {
+                result.add(enterprise);
+            }
+        } else {
+            // 分片批量采集
+            int shardTotal = (int) params.get("shardTotal");
+            int shardIndex = context.getShardingId();
+            result = collectBatch(shardIndex, shardTotal);
+        }
+
+        return result;
+    }
+
+    @Override
+    protected void postProcess(CollectResult<List<Enterprise>> result) {
+        super.postProcess(result);
+        if (result.getData() != null) {
+            // 更新采集进度
+            int total = counter.addAndGet(result.getData().size());
+            log.info("采集进度: {}/{}", total, result.getData().size());
+        }
+    }
+
+    /**
+     * 采集单个企业数据
+     */
+    private Enterprise collectSingle(String code) {
+        try {
+            // 模拟调用外部接口
+            Thread.sleep(100);
+
+            Enterprise enterprise = repository.findByCode(code);
+            if (enterprise != null) {
+//                enterprise.setUpdateTime(LocalDateTime.now());
+//                enterprise.setVersion("V" + System.currentTimeMillis());
+                return repository.save(enterprise);
+            }
+            return null;
+        } catch (Exception e) {
+            log.error("采集企业数据失败: {}", code, e);
+            return null;
+        }
+    }
+
+    /**
+     * 批量采集企业数据
+     */
+    private List<Enterprise> collectBatch(int shardIndex, int shardTotal) {
+        List<Enterprise> results = new ArrayList<>();
+        int pageNum = 0;
+
+        while (true) {
+            // 分页查询数据
+            Page<Enterprise> page = repository.findBySharding(
+                    shardIndex,
+                    shardTotal,
+                    PageRequest.of(pageNum, BATCH_SIZE)
+            );
+
+            if (!page.hasContent()) {
+                break;
+            }
+
+            // 处理每页数据
+            for (Enterprise enterprise : page.getContent()) {
+                try {
+                    // 模拟调用外部接口
+                    Thread.sleep(50);
+
+//                    enterprise.setUpdateTime(LocalDateTime.now());
+//                    enterprise.setVersion("V" + System.currentTimeMillis());
+                    results.add(repository.save(enterprise));
+                } catch (Exception e) {
+                    log.error("采集企业数据失败: {}", enterprise.getCode(), e);
+                }
+            }
+
+            pageNum++;
+
+            // 记录进度
+            counter.addAndGet(page.getContent().size());
+
+            if (!page.hasNext()) {
+                break;
+            }
+        }
+
+        return results;
+    }
+
+    /**
+     * 解析分片参数
+     */
+    private Map<String, Object> parseShardingParams(String params) {
+        try {
+            return JsonUtils.fromJson(params, Map.class);
+        } catch (Exception e) {
+            log.error("解析分片参数失败: {}", params, e);
+            return Map.of();
+        }
     }
 
     @Override
     public String getType() {
         return "";
     }
-
-    private String generateVersion() {
-        return "1.0";
-    }
-
-    private Enterprise collectFromApi(String code) {
-        return new Enterprise();
-    }
-
-    @Override
-    protected Enterprise doCollect(CollectContext<String> context) {
-        return null;
-    }
 }
-
 ```
 
 ## EnterpriseAutoConfiguration.java
@@ -675,14 +781,57 @@ public class EnterpriseAutoConfiguration {
 }
 ```
 
+## EnterpriseCollectorProperties.java
+
+```java
+package com.study.collect.business.enterprise.config;
+
+import lombok.Data;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+
+@Data
+@ConfigurationProperties(prefix = "collect.enterprise")
+public class EnterpriseCollectorProperties {
+    private int batchSize = 100;  // 批量处理大小
+    private int threadCount = 4;  // 处理线程数
+    private int retryTimes = 3;   // 重试次数
+    private int timeout = 3600;   // 超时时间(秒)
+}
+```
+
+## EnterpriseConfig.java
+
+```java
+package com.study.collect.business.enterprise.config;
+
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.cache.annotation.EnableCaching;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+@EnableCaching
+public class EnterpriseConfig {
+    @Bean
+    @ConditionalOnMissingBean
+    public EnterpriseCollectorProperties enterpriseCollectorProperties() {
+        return new EnterpriseCollectorProperties();
+    }
+}
+```
+
 ## EnterpriseController.java
 
 ```java
 package com.study.collect.business.enterprise.controller;
 
 import com.study.collect.business.enterprise.model.Enterprise;
+import com.study.collect.business.enterprise.model.request.EnterpriseGenerateRequest;
+import com.study.collect.business.enterprise.model.request.EnterpriseQueryRequest;
+import com.study.collect.business.enterprise.model.response.EnterpriseQueryResponse;
 import com.study.collect.business.enterprise.service.EnterpriseService;
 import com.study.collect.common.model.Response;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -695,26 +844,66 @@ public class EnterpriseController {
 
     private final EnterpriseService enterpriseService;
 
-    @GetMapping("/collect/{code}")
-    public Response<Enterprise> collect(@PathVariable String code) {
-        Enterprise enterprise = enterpriseService.collectAndProcess(code);
-        return Response.success(enterprise);
+    /**
+     * 生成测试数据
+     */
+    @PostMapping("/generate")
+    public Response<List<String>> generateData(@Valid @RequestBody EnterpriseGenerateRequest request) {
+        List<String> codes = enterpriseService.generateEnterprises(
+                request.getStartCode(),
+                request.getCount(),
+                request.getIndustry(),
+                request.getRegAuthority()
+        );
+        return Response.success(codes);
     }
 
-    @GetMapping("/full")
-    public Response<List<Enterprise>> getFullData() {
-        return Response.success(enterpriseService.getFullData());
+    /**
+     * 触发数据采集
+     */
+    @PostMapping("/collect")
+    public Response<String> collect(@RequestParam(required = false) String code) {
+        String taskId = enterpriseService.startCollect(code);
+        return Response.success(taskId);
     }
 
+    /**
+     * 分页查询数据
+     */
+    @GetMapping("/page")
+    public Response<EnterpriseQueryResponse> queryPage(@Valid EnterpriseQueryRequest request) {
+        EnterpriseQueryResponse response = enterpriseService.queryPage(request);
+        return Response.success(response);
+    }
+
+    /**
+     * 查询采集进度
+     */
+    @GetMapping("/progress/{taskId}")
+    public Response<Object> queryProgress(@PathVariable String taskId) {
+        Object progress = enterpriseService.queryProgress(taskId);
+        return Response.success(progress);
+    }
+
+    /**
+     * 获取某个版本之后的增量数据
+     */
     @GetMapping("/increment")
     public Response<List<Enterprise>> getIncrementalData(
-            @RequestParam String version) {
-        return Response.success(enterpriseService.getIncrementalData(version));
+            @RequestParam(required = false) String version) {
+        List<Enterprise> data = enterpriseService.getIncrementalData(version);
+        return Response.success(data);
+    }
+
+    /**
+     * 根据编码获取数据
+     */
+    @GetMapping("/{code}")
+    public Response<Enterprise> getByCode(@PathVariable String code) {
+        Enterprise enterprise = enterpriseService.getByCode(code);
+        return Response.success(enterprise);
     }
 }
-
-
-// 1. Controller - 增加全量/增量接口
 ```
 
 ## Enterprise.java
@@ -722,25 +911,124 @@ public class EnterpriseController {
 ```java
 package com.study.collect.business.enterprise.model;
 
+import com.study.collect.core.storage.entity.BaseEntity;
+import com.study.collect.core.storage.entity.VersionEntity;
 import lombok.Data;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Data
 @Document(collection = "enterprise")
-public class Enterprise {
+public class Enterprise extends VersionEntity {
     @Id
     private String id;
-    private String name;
-    private String code;
-    private String address;
-    private String contact;
-    private String phone;
-    private LocalDateTime createTime;
-    private LocalDateTime updateTime;
-    private String version;
+
+    private String code;           // 企业编码
+    private String name;          // 企业名称
+    private String address;       // 企业地址
+    private String contact;       // 联系人
+    private String phone;         // 联系电话
+    private String industry;      // 所属行业
+    private BigDecimal regCapital; // 注册资本
+    private String regAuthority;   // 注册机构
+    private LocalDate estDate;     // 成立日期
+
+//    private LocalDateTime createTime;  // 创建时间
+//    private LocalDateTime updateTime;  // 更新时间
+//    private String version;       // 数据版本
+//    private Boolean deleted;      // 是否删除
+}
+```
+
+## EnterpriseGenerateRequest.java
+
+```java
+package com.study.collect.business.enterprise.model.request;
+
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.NotNull;
+import lombok.Data;
+
+@Data
+public class EnterpriseGenerateRequest {
+    @NotNull(message = "起始编码不能为空")
+    private Integer startCode;      // 起始编码
+
+    @NotNull(message = "生成数量不能为空")
+    @Max(value = 1000, message = "单次生成数量不能超过1000")
+    private Integer count;          // 生成数量
+
+    private String industry;        // 指定行业(可选)
+    private String regAuthority;    // 指定注册机构(可选)
+}
+```
+
+## EnterpriseQueryRequest.java
+
+```java
+package com.study.collect.business.enterprise.model.request;
+
+import lombok.Data;
+import org.springframework.format.annotation.DateTimeFormat;
+
+import java.time.LocalDate;
+
+@Data
+public class EnterpriseQueryRequest {
+    private String code;           // 企业编码
+    private String name;           // 企业名称
+    private String industry;       // 行业
+    private String regAuthority;   // 注册机构
+
+    @DateTimeFormat(pattern = "yyyy-MM-dd")
+    private LocalDate estDateStart;  // 成立日期开始
+
+    @DateTimeFormat(pattern = "yyyy-MM-dd")
+    private LocalDate estDateEnd;    // 成立日期结束
+
+    private String version;         // 数据版本
+
+    private Integer pageNum = 1;    // 页码
+    private Integer pageSize = 10;  // 每页大小
+}
+```
+
+## EnterpriseQueryResponse.java
+
+```java
+package com.study.collect.business.enterprise.model.response;
+
+import com.study.collect.business.enterprise.model.Enterprise;
+import lombok.Data;
+import org.springframework.data.domain.Page;
+
+import java.util.List;
+import java.util.Map;
+
+@Data
+public class EnterpriseQueryResponse {
+    private List<Enterprise> list;      // 数据列表
+    private long total;                 // 总数量
+    private int pages;                  // 总页数
+    private int pageNum;                // 当前页
+    private int pageSize;               // 每页大小
+
+    private Map<String, Object> summary;  // 汇总信息
+
+    // 构造方法
+    public static EnterpriseQueryResponse of(Page<Enterprise> page) {
+        EnterpriseQueryResponse response = new EnterpriseQueryResponse();
+        response.setList(page.getContent());
+        response.setTotal(page.getTotalElements());
+        response.setPages(page.getTotalPages());
+        response.setPageNum(page.getNumber() + 1);
+        response.setPageSize(page.getSize());
+        return response;
+    }
 }
 ```
 
@@ -807,22 +1095,100 @@ package com.study.collect.business.enterprise.repository;
 
 import com.study.collect.business.enterprise.model.Enterprise;
 import com.study.collect.core.storage.repository.IRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.data.mongodb.repository.Query;
 
+import java.time.LocalDate;
 import java.util.List;
 
-public interface EnterpriseRepository extends IRepository<Enterprise, String>, MongoRepository<Enterprise, String> {
+public interface EnterpriseRepository extends IRepository<Enterprise>, MongoRepository<Enterprise, String> {
+
+    /**
+     * 根据编码查询
+     */
     Enterprise findByCode(String code);
 
-    // 继承基础的版本方法
-    List<Enterprise> findByVersion(String version);
+    /**
+     * 根据名称模糊查询
+     */
+    List<Enterprise> findByNameLike(String name);
 
-    @Query("")
-        // MongoDB查询
-    List<Enterprise> findIncrementalData(String version);
+    /**
+     * 根据行业查询
+     */
+    List<Enterprise> findByIndustry(String industry);
+
+    /**
+     * 根据注册机构查询
+     */
+    List<Enterprise> findByRegAuthority(String regAuthority);
+
+    /**
+     * 根据成立日期范围查询
+     */
+    List<Enterprise> findByEstDateBetween(LocalDate startDate, LocalDate endDate);
+
+    /**
+     * 根据版本号获取增量数据
+     */
+    @Query("{'version': {$gt: ?0}}")
+    List<Enterprise> findByVersionCodeGreaterThan(String version);
+
+    /**
+     * 分片查询
+     * ABS(HASH(code) % total) = index
+     */
+    @Query(value = "{'$where': 'Math.abs(this.code.hashCode() % ?1) == ?0'}")
+    Page<Enterprise> findBySharding(int shardIndex, int shardTotal, Pageable pageable);
+
+    /**
+     * 多条件组合查询
+     */
+    @Query("{ $and: [ " +
+            "?#{ [0] == null ? { $where : '1'} : { 'code': [0] } }, " +
+            "?#{ [1] == null ? { $where : '1'} : { 'name': {$regex: [1]} } }, " +
+            "?#{ [2] == null ? { $where : '1'} : { 'industry': [2] } }, " +
+            "?#{ [3] == null ? { $where : '1'} : { 'regAuthority': [3] } }, " +
+            "?#{ [4] == null ? { $where : '1'} : { 'estDate': { $gte: [4] } } }, " +
+            "?#{ [5] == null ? { $where : '1'} : { 'estDate': { $lte: [5] } } } " +
+            "] }")
+    Page<Enterprise> findByConditions(String code,
+                                      String name,
+                                      String industry,
+                                      String regAuthority,
+                                      LocalDate estDateStart,
+                                      LocalDate estDateEnd,
+                                      Pageable pageable);
+
+    /**
+     * 按行业统计企业数量
+     */
+    @Query(value = "{'industry': ?0}", count = true)
+    long countByIndustry(String industry);
+
+    /**
+     * 按注册机构统计企业数量
+     */
+    @Query(value = "{'regAuthority': ?0}", count = true)
+    long countByRegAuthority(String regAuthority);
+
+    /**
+     * 软删除
+     */
+    @Override
+    default void softDelete(String id) {
+        // 实现父接口的软删除方法
+        update(id, "deleted", true);
+    }
+
+    /**
+     * 更新指定字段
+     */
+    @Query(value = "{'_id': ?0}", fields = "{ ?1: ?2 }")
+    void update(String id, String field, Object value);
 }
-
 ```
 
 ## EnterpriseService.java
@@ -832,79 +1198,200 @@ package com.study.collect.business.enterprise.service;
 
 import com.study.collect.business.enterprise.collector.EnterpriseCollector;
 import com.study.collect.business.enterprise.model.Enterprise;
-import com.study.collect.business.enterprise.processor.EnterpriseProcessor;
+import com.study.collect.business.enterprise.model.request.EnterpriseQueryRequest;
+import com.study.collect.business.enterprise.model.response.EnterpriseQueryResponse;
 import com.study.collect.business.enterprise.repository.EnterpriseRepository;
+import com.study.collect.core.mq.message.TaskMessage;
 import com.study.collect.core.mq.producer.TaskProducer;
-import com.study.collect.core.processor.model.ProcessContext;
-import com.study.collect.core.task.model.CollectTask;
-import com.study.collect.core.task.model.TaskResult;
+import com.study.collect.core.task.entity.TaskInstance;
+import com.study.collect.core.task.model.TaskContext;
+import com.study.collect.core.task.service.TaskExecuteService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.amqp.rabbit.annotation.RabbitListener;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.*;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
-import java.util.List;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.*;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class EnterpriseService {
 
-    private final EnterpriseCollector collector;
-    private final EnterpriseProcessor processor;
     private final EnterpriseRepository repository;
-    @Autowired
-    private TaskProducer taskProducer;
+    private final EnterpriseCollector collector;
+    private final TaskProducer taskProducer;
+    private final TaskExecuteService taskExecuteService;
+    private final MongoTemplate mongoTemplate;
 
-    public Enterprise collectAndProcess(String code) {
-        // 1. 采集数据
-        Enterprise enterprise = collector.collect(code);
-        if (enterprise == null) {
-            return null;
+    /**
+     * 生成测试数据
+     */
+    public List<String> generateEnterprises(Integer startCode, Integer count,
+                                            String industry, String regAuthority) {
+        List<String> codes = new ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            String code = String.format("%06d", startCode + i);
+            Enterprise enterprise = generateOne(code, industry, regAuthority);
+            repository.save(enterprise);
+            codes.add(code);
+        }
+        return codes;
+    }
+
+    /**
+     * 启动采集任务
+     */
+    public String startCollect(String code) {
+        // 创建任务实例
+        TaskInstance instance;
+        if (StringUtils.hasText(code)) {
+            // 单个企业采集
+            instance = taskExecuteService.createTaskInstance(
+                    "enterprise",
+                    0,
+                    "{\"code\":\"" + code + "\"}"
+            );
+        } else {
+            // 全量采集,获取总数计算分片
+            long total = repository.count();
+            int shardTotal = calculateShardTotal(total);
+            instance = taskExecuteService.createTaskInstance(
+                    "enterprise",
+                    0,
+                    "{\"shardTotal\":" + shardTotal + "}"
+            );
         }
 
-        // 2. 处理数据
-        enterprise = processor.process(enterprise, new ProcessContext());
+        // 发送任务消息
+        TaskMessage message = new TaskMessage();
+        message.setTaskId("enterprise");
+        message.setInstanceId(instance.getInstanceId());
+        message.setShardIndex(instance.getShardIndex());
+        message.setShardTotal(instance.getShardTotal());
+        message.setShardParam(instance.getShardParam());
+        taskProducer.sendTask(message);
 
-        // 3. 保存数据
-        return repository.save(enterprise);
+        return instance.getInstanceId();
     }
 
-    // 大批量数据采集
-    public void batchCollect(List<String> codes) {
-        // 创建采集任务
-        CollectTask task = CollectTask.builder()
-                .type("enterprise")
-                .params(codes)
-                .build();
+    /**
+     * 分页查询
+     */
+    public EnterpriseQueryResponse queryPage(EnterpriseQueryRequest request) {
+        // 构建查询条件
+        Query query = new Query();
+        Criteria criteria = new Criteria();
 
-        // 发送到消息队列
-        taskProducer.sendTask(task);
+        if (StringUtils.hasText(request.getCode())) {
+            criteria.and("code").is(request.getCode());
+        }
+        if (StringUtils.hasText(request.getName())) {
+            criteria.and("name").regex(request.getName());
+        }
+        if (StringUtils.hasText(request.getIndustry())) {
+            criteria.and("industry").is(request.getIndustry());
+        }
+        if (StringUtils.hasText(request.getRegAuthority())) {
+            criteria.and("regAuthority").is(request.getRegAuthority());
+        }
+        if (request.getEstDateStart() != null) {
+            criteria.and("estDate").gte(request.getEstDateStart());
+        }
+        if (request.getEstDateEnd() != null) {
+            criteria.and("estDate").lte(request.getEstDateEnd());
+        }
+
+        query.addCriteria(criteria);
+
+        // 执行分页查询
+        long total = mongoTemplate.count(query, Enterprise.class);
+        PageRequest pageRequest = PageRequest.of(request.getPageNum() - 1,
+                request.getPageSize(),
+                Sort.by(Sort.Direction.DESC, "createTime"));
+        query.with(pageRequest);
+        List<Enterprise> list = mongoTemplate.find(query, Enterprise.class);
+
+        // 构建分页结果
+        Page<Enterprise> page = new PageImpl<>(list, pageRequest, total);
+        return EnterpriseQueryResponse.of(page);
     }
 
-    // 结果处理
-    @RabbitListener(queues = "#{taskResultQueue.name}")
-    public void handleResult(TaskResult result) {
-        // 处理采集结果
+    /**
+     * 查询任务进度
+     */
+    public Object queryProgress(String taskId) {
+        return taskExecuteService.getTaskLogs(taskId);
     }
 
-    // 单条采集
-    public Enterprise collect(String code) {
-        return collector.collect(code);
+    /**
+     * 获取增量数据
+     */
+    public List<Enterprise> getIncrementalData(String version) {
+        if (!StringUtils.hasText(version)) {
+            return Collections.emptyList();
+        }
+        return repository.findByVersionCodeGreaterThan(version);
     }
 
-    // 批量采集
-    public void batchCollect(List<String> codes) {
-        CollectTask task = new CollectTask("enterprise", codes);
-        taskProducer.sendTask(task);
+    /**
+     * 根据编码获取数据
+     */
+    public Enterprise getByCode(String code) {
+        return repository.findByCode(code);
     }
 
-    // 采集结果处理
-    @RabbitListener(queues = "#{taskResultQueue.name}")
-    public void handleResult(TaskResult result) {
-        // 处理采集结果
+    /**
+     * 生成单个企业测试数据
+     */
+    private Enterprise generateOne(String code, String industry, String regAuthority) {
+        Enterprise enterprise = new Enterprise();
+        enterprise.setCode(code);
+        enterprise.setName("企业" + code);
+        enterprise.setAddress("测试地址" + code);
+        enterprise.setContact("联系人" + code);
+        enterprise.setPhone("1234567" + code.substring(code.length() - 4));
+        enterprise.setIndustry(industry != null ? industry : randomIndustry());
+        enterprise.setRegCapital(new BigDecimal(random.nextInt(1000000)));
+        enterprise.setRegAuthority(regAuthority != null ? regAuthority : randomAuthority());
+        enterprise.setEstDate(LocalDate.now().minusDays(random.nextInt(3650)));
+        enterprise.setCreateTime(LocalDateTime.now());
+        enterprise.setUpdateTime(LocalDateTime.now());
+//        enterprise.setVersion("V" + System.currentTimeMillis());
+        enterprise.setDeleted(false);
+        return enterprise;
+    }
+
+    private final Random random = new Random();
+    private final String[] INDUSTRIES = {"制造业", "服务业", "零售业", "建筑业", "科技业"};
+    private final String[] AUTHORITIES = {"北京", "上海", "广州", "深圳", "杭州"};
+
+    private String randomIndustry() {
+        return INDUSTRIES[random.nextInt(INDUSTRIES.length)];
+    }
+
+    private String randomAuthority() {
+        return AUTHORITIES[random.nextInt(AUTHORITIES.length)];
+    }
+
+    /**
+     * 计算分片数量
+     */
+    private int calculateShardTotal(long total) {
+        if (total <= 1000) return 1;
+        if (total <= 5000) return 2;
+        if (total <= 10000) return 4;
+        if (total <= 50000) return 8;
+        return 16;
     }
 }
-
 ```
 
 ## spring.factories
@@ -1907,7 +2394,7 @@ public class JsonUtils {
             <artifactId>spring-boot-starter-amqp</artifactId>
         </dependency>
 
-        <!-- 添加 MariaDB JDBC 驱动依赖 -->
+        <!-- MariaDB JDBC Driver -->
         <dependency>
             <groupId>org.mariadb.jdbc</groupId>
             <artifactId>mariadb-java-client</artifactId>
@@ -1934,6 +2421,19 @@ public class JsonUtils {
             <artifactId>guava</artifactId>
         </dependency>
 
+        <!-- MyBatis -->
+        <dependency>
+            <groupId>org.mybatis.spring.boot</groupId>
+            <artifactId>mybatis-spring-boot-starter</artifactId>
+
+        </dependency>
+        <dependency>
+            <groupId>org.mybatis</groupId>
+            <artifactId>mybatis</artifactId>
+            <version>3.5.9</version>
+            <scope>compile</scope>
+        </dependency>
+
         <!-- Test -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -1945,10 +2445,8 @@ public class JsonUtils {
             <artifactId>jackson-datatype-jsr310</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.mybatis</groupId>
-            <artifactId>mybatis-spring</artifactId>
-            <version>3.0.3</version>
-            <scope>compile</scope>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-pool2</artifactId>
         </dependency>
     </dependencies>
 </project>
@@ -1964,6 +2462,8 @@ import com.study.collect.core.collector.model.CollectContext;
 import com.study.collect.core.collector.model.CollectResult;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.List;
+
 @Slf4j
 public abstract class AbstractCollector<T, R> implements ICollector<T, R> {
 
@@ -1977,13 +2477,14 @@ public abstract class AbstractCollector<T, R> implements ICollector<T, R> {
             preProcess(context);
 
             // 执行采集
-            R data = doCollect(context);
-
+//            CollectResult<R> data = doCollect(context);
+            R sourceData = doCollect(context);
+            CollectResult<R> data = CollectResult.success(sourceData);
             // 后置处理
             postProcess(data);
 
             log.info("采集任务执行完成: taskId={}", taskId);
-            return CollectResult.success(data);
+            return CollectResult.success(data.getData());
 
         } catch (Exception e) {
             log.error("采集任务执行失败: taskId={}", taskId, e);
@@ -2004,12 +2505,13 @@ public abstract class AbstractCollector<T, R> implements ICollector<T, R> {
     /**
      * 执行采集
      */
+//    protected abstract CollectResult<R> doCollect(CollectContext<T> context);
     protected abstract R doCollect(CollectContext<T> context);
 
     /**
      * 后置处理
      */
-    protected void postProcess(R data) {
+    protected void postProcess(CollectResult<R> data) {
         // 数据清洗
         cleanCollectData(data);
         // 结果验证
@@ -2041,14 +2543,14 @@ public abstract class AbstractCollector<T, R> implements ICollector<T, R> {
     /**
      * 清洗采集数据
      */
-    protected void cleanCollectData(R data) {
+    protected void cleanCollectData(CollectResult<R> data) {
         // 子类可覆盖实现具体的数据清洗逻辑
     }
 
     /**
      * 验证采集结果
      */
-    protected void validateCollectResult(R data) {
+    protected void validateCollectResult(CollectResult<R> data) {
         // 子类可覆盖实现具体的结果验证逻辑
     }
 }
@@ -2351,35 +2853,40 @@ public class CollectResult<T> {
 ## CollectAutoConfiguration.java
 
 ```java
-
-// 自动配置类
-
 package com.study.collect.core.config;
 
 import com.study.collect.core.collector.config.CollectorConfiguration;
 import com.study.collect.core.mq.config.MQProperties;
+import com.study.collect.core.mq.config.RabbitConfig;
 import com.study.collect.core.processor.config.ProcessorConfiguration;
 import com.study.collect.core.storage.cache.config.CacheAutoConfiguration;
 import com.study.collect.core.storage.config.MongoConfig;
 import com.study.collect.core.task.config.MyBatisConfig;
 import com.study.collect.core.task.config.TaskConfiguration;
-import org.springframework.context.annotation.ComponentScan;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
 @Configuration
-@ComponentScan("com.study.collect.core")
+@EnableConfigurationProperties({
+        MQProperties.class
+})
 @Import({
-        MongoConfig.class,
-        MyBatisConfig.class,
-        MQProperties.class,
-        CacheAutoConfiguration.class,
-        TaskConfiguration.class,
-        CollectorConfiguration.class,
-        ProcessorConfiguration.class
+        // 数据存储配置
+        MongoConfig.class,          // MongoDB
+        MyBatisConfig.class,        // MyBatis
+        CacheAutoConfiguration.class,// Redis
+
+        // 消息队列配置
+        RabbitConfig.class,         // RabbitMQ
+
+        // 业务配置
+        TaskConfiguration.class,     // 任务配置
+        CollectorConfiguration.class,// 采集器配置
+        ProcessorConfiguration.class // 处理器配置
 })
 public class CollectAutoConfiguration {
-    // 核心配置
 }
 ```
 
@@ -2493,11 +3000,13 @@ import org.springframework.amqp.core.*;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
+@ConditionalOnProperty(prefix = "collect.mq.rabbit", name = "enabled", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(MQProperties.class)
 public class RabbitConfig {
 
@@ -2509,34 +3018,19 @@ public class RabbitConfig {
     @Bean
     public Queue taskQueue(MQProperties properties) {
         return QueueBuilder.durable(properties.getRabbit().getTask().getQueue())
-                .withArgument("x-dead-letter-exchange", properties.getRabbit().getTask().getExchange() + ".dlx")
-                .withArgument("x-dead-letter-routing-key", properties.getRabbit().getTask().getRoutingKey() + ".dlx")
+                .withArgument("x-dead-letter-exchange",
+                        properties.getRabbit().getTask().getExchange() + ".dlx")
+                .withArgument("x-dead-letter-routing-key",
+                        properties.getRabbit().getTask().getRoutingKey() + ".dlx")
                 .build();
     }
 
     @Bean
-    public Binding taskBinding(Queue taskQueue, DirectExchange taskExchange, MQProperties properties) {
+    public Binding taskBinding(Queue taskQueue, DirectExchange taskExchange,
+                               MQProperties properties) {
         return BindingBuilder.bind(taskQueue)
                 .to(taskExchange)
                 .with(properties.getRabbit().getTask().getRoutingKey());
-    }
-
-    @Bean
-    public DirectExchange resultExchange(MQProperties properties) {
-        return new DirectExchange(properties.getRabbit().getResult().getExchange());
-    }
-
-    @Bean
-    public Queue resultQueue(MQProperties properties) {
-        return QueueBuilder.durable(properties.getRabbit().getResult().getQueue())
-                .build();
-    }
-
-    @Bean
-    public Binding resultBinding(Queue resultQueue, DirectExchange resultExchange, MQProperties properties) {
-        return BindingBuilder.bind(resultQueue)
-                .to(resultExchange)
-                .with(properties.getRabbit().getResult().getRoutingKey());
     }
 
     @Bean
@@ -3568,6 +4062,7 @@ public class LockAspect {
 package com.study.collect.core.storage.cache.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
@@ -3579,6 +4074,7 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 @Configuration
 @EnableCaching
+@ConditionalOnProperty(prefix = "spring.data.redis", name = "enabled", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(CacheProperties.class)
 public class CacheAutoConfiguration {
 
@@ -3589,7 +4085,7 @@ public class CacheAutoConfiguration {
         RedisTemplate<String, Object> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
 
-        // 使用新版本的序列化器配置
+        // 使用Jackson2JsonRedisSerializer作为序列化器
         Jackson2JsonRedisSerializer<Object> serializer =
                 new Jackson2JsonRedisSerializer<>(objectMapper, Object.class);
 
@@ -3602,6 +4098,7 @@ public class CacheAutoConfiguration {
         return template;
     }
 }
+
 ```
 
 ## CacheProperties.java
@@ -4012,6 +4509,7 @@ import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.study.collect.core.storage.repository.BaseMongoRepository;
 import lombok.Data;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -4022,6 +4520,7 @@ import org.springframework.data.mongodb.repository.config.EnableMongoRepositorie
 @Data
 @Configuration
 @EnableMongoAuditing
+@ConditionalOnProperty(prefix = "spring.data.mongodb", name = "enabled", havingValue = "true", matchIfMissing = true)
 @EnableMongoRepositories(
         basePackages = "com.study.collect",
         repositoryBaseClass = BaseMongoRepository.class
@@ -4043,6 +4542,7 @@ public class MongoConfig extends AbstractMongoClientConfiguration {
         return MongoClients.create(uri);
     }
 }
+
 ```
 
 ## BaseEntity.java
@@ -4051,12 +4551,7 @@ public class MongoConfig extends AbstractMongoClientConfiguration {
 package com.study.collect.core.storage.entity;
 
 import lombok.Data;
-import org.springframework.data.annotation.CreatedBy;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.Id;
-import org.springframework.data.annotation.LastModifiedBy;
-import org.springframework.data.annotation.LastModifiedDate;
-import org.springframework.data.annotation.Version;
+import org.springframework.data.annotation.*;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
@@ -4082,6 +4577,7 @@ public abstract class BaseEntity implements Serializable {
     protected Long version;
 
     protected Boolean deleted = false;
+
 }
 ```
 
@@ -4328,6 +4824,7 @@ package com.study.collect.core.storage.repository;
 import com.study.collect.core.storage.entity.BaseEntity;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.core.MongoOperations;
 import org.springframework.data.mongodb.core.query.Criteria;
@@ -4336,18 +4833,17 @@ import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.data.mongodb.repository.query.MongoEntityInformation;
 import org.springframework.data.mongodb.repository.support.SimpleMongoRepository;
 
-import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.List;
 
 @Slf4j
-public class BaseMongoRepository<T extends BaseEntity, ID extends Serializable>
-        extends SimpleMongoRepository<T, ID> implements IRepository<T, ID> {
+public class BaseMongoRepository<T extends BaseEntity>
+        extends SimpleMongoRepository<T, String> implements IRepository<T> {
 
     private final MongoOperations mongoOperations;
-    private final MongoEntityInformation<T, ID> entityInformation;
+    private final MongoEntityInformation<T, String> entityInformation;
 
-    public BaseMongoRepository(MongoEntityInformation<T, ID> metadata,
+    public BaseMongoRepository(MongoEntityInformation<T, String> metadata,
                                MongoOperations mongoOperations) {
         super(metadata, mongoOperations);
         this.mongoOperations = mongoOperations;
@@ -4365,16 +4861,18 @@ public class BaseMongoRepository<T extends BaseEntity, ID extends Serializable>
 
     @Override
     public Page<T> findByDeletedFalse(Pageable pageable) {
-        return null;
+        Query query = Query.query(Criteria.where("deleted").is(false));
+        return findAll(query, pageable);
     }
 
     @Override
     public List<T> findByVersionCodeGreaterThan(String versionCode) {
-        return List.of();
+        Query query = Query.query(Criteria.where("versionCode").gt(versionCode));
+        return mongoOperations.find(query, entityInformation.getJavaType());
     }
 
     @Override
-    public void softDelete(ID id) {
+    public void softDelete(String id) {
         Query query = Query.query(Criteria.where("id").is(id));
         Update update = Update.update("deleted", true)
                 .set("updateTime", LocalDateTime.now());
@@ -4382,7 +4880,7 @@ public class BaseMongoRepository<T extends BaseEntity, ID extends Serializable>
     }
 
     @Override
-    public void softDelete(List<ID> ids) {
+    public void softDelete(List<String> ids) {
         Query query = Query.query(Criteria.where("id").in(ids));
         Update update = Update.update("deleted", true)
                 .set("updateTime", LocalDateTime.now());
@@ -4390,11 +4888,18 @@ public class BaseMongoRepository<T extends BaseEntity, ID extends Serializable>
     }
 
     @Override
-    public void updateStatus(ID id, String status) {
+    public void updateStatus(String id, String status) {
         Query query = Query.query(Criteria.where("id").is(id));
         Update update = Update.update("status", status)
                 .set("updateTime", LocalDateTime.now());
         mongoOperations.updateFirst(query, update, entityInformation.getJavaType());
+    }
+
+    protected Page<T> findAll(Query query, Pageable pageable) {
+        long total = mongoOperations.count(query, entityInformation.getJavaType());
+        List<T> content = mongoOperations.find(query.with(pageable),
+                entityInformation.getJavaType());
+        return new PageImpl<>(content, pageable, total);
     }
 }
 ```
@@ -4410,13 +4915,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.data.repository.NoRepositoryBean;
 
-import java.io.Serializable;
 import java.util.List;
 
 @NoRepositoryBean
-public interface IRepository<T extends BaseEntity, ID extends Serializable>
-        extends MongoRepository<T, ID> {
-
+public interface IRepository<T extends BaseEntity> extends MongoRepository<T, String> {
     /**
      * 根据业务编码查询
      */
@@ -4435,19 +4937,18 @@ public interface IRepository<T extends BaseEntity, ID extends Serializable>
     /**
      * 软删除
      */
-    void softDelete(ID id);
+    void softDelete(String id);
 
     /**
      * 批量软删除
      */
-    void softDelete(List<ID> ids);
+    void softDelete(List<String> ids);
 
     /**
      * 更新状态
      */
-    void updateStatus(ID id, String status);
+    void updateStatus(String id, String status);
 }
-
 ```
 
 ## VersionRepository.java
@@ -4465,14 +4966,13 @@ public class VersionRepository {
 ```java
 package com.study.collect.core.storage.repository.factory;
 
+import com.study.collect.core.storage.entity.BaseEntity;
 import com.study.collect.core.storage.repository.BaseMongoRepository;
 import org.springframework.data.mongodb.core.MongoOperations;
 import org.springframework.data.mongodb.repository.query.MongoEntityInformation;
 import org.springframework.data.mongodb.repository.support.MongoRepositoryFactory;
 import org.springframework.data.repository.core.RepositoryInformation;
 import org.springframework.data.repository.core.RepositoryMetadata;
-
-import java.io.Serializable;
 
 public class CustomMongoRepositoryFactory extends MongoRepositoryFactory {
 
@@ -4485,10 +4985,17 @@ public class CustomMongoRepositoryFactory extends MongoRepositoryFactory {
 
     @Override
     protected Object getTargetRepository(RepositoryInformation information) {
-        MongoEntityInformation<?, Serializable> entityInformation =
-                getEntityInformation(information.getDomainType());
+        Class<?> domainClass = information.getDomainType();
+        if (!BaseEntity.class.isAssignableFrom(domainClass)) {
+            throw new IllegalArgumentException("Domain class must extend BaseEntity");
+        }
 
-        return new BaseMongoRepository<>(entityInformation, mongoOperations);
+        @SuppressWarnings("unchecked")
+        MongoEntityInformation<? extends BaseEntity, String> entityInformation =
+                getEntityInformation((Class<? extends BaseEntity>) domainClass);
+
+        return getTargetRepositoryViaReflection(information,
+                entityInformation, mongoOperations);
     }
 
     @Override
@@ -4496,7 +5003,6 @@ public class CustomMongoRepositoryFactory extends MongoRepositoryFactory {
         return BaseMongoRepository.class;
     }
 }
-
 ```
 
 ## CustomMongoRepositoryFactoryBean.java
@@ -4504,15 +5010,14 @@ public class CustomMongoRepositoryFactory extends MongoRepositoryFactory {
 ```java
 package com.study.collect.core.storage.repository.factory;
 
+import com.study.collect.core.storage.entity.BaseEntity;
 import org.springframework.data.mongodb.core.MongoOperations;
 import org.springframework.data.mongodb.repository.support.MongoRepositoryFactoryBean;
 import org.springframework.data.repository.Repository;
 import org.springframework.data.repository.core.support.RepositoryFactorySupport;
 
-import java.io.Serializable;
-
-public class CustomMongoRepositoryFactoryBean<T extends Repository<S, ID>, S, ID extends Serializable>
-        extends MongoRepositoryFactoryBean<T, S, ID> {
+public class CustomMongoRepositoryFactoryBean<T extends Repository<S, String>, S extends BaseEntity>
+        extends MongoRepositoryFactoryBean<T, S, String> {
 
     public CustomMongoRepositoryFactoryBean(Class<? extends T> repositoryInterface) {
         super(repositoryInterface);
@@ -4542,14 +5047,37 @@ package com.study.collect.core.task;
 ```java
 package com.study.collect.core.task.config;
 
+import org.apache.ibatis.session.SqlSessionFactory;
+import org.mybatis.spring.SqlSessionFactoryBean;
 import org.mybatis.spring.annotation.MapperScan;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
+import javax.sql.DataSource;
 
 @Configuration
+@ConditionalOnProperty(prefix = "spring.datasource", name = "enabled", havingValue = "true", matchIfMissing = true)
 @MapperScan("com.study.collect.core.task.mapper")
 public class MyBatisConfig {
-    // MyBatis的其他配置可以在这里添加
+
+    @Bean
+    public SqlSessionFactory sqlSessionFactory(@Qualifier("dataSource") DataSource dataSource) throws Exception {
+        SqlSessionFactoryBean sessionFactory = new SqlSessionFactoryBean();
+        sessionFactory.setDataSource(dataSource);
+
+        // 设置XML映射文件路径
+        PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
+        sessionFactory.setMapperLocations(resolver.getResources("classpath*:mapper/*.xml"));
+
+        // 设置实体类别名包
+        sessionFactory.setTypeAliasesPackage("com.study.collect.core.task.entity");
+
+        return sessionFactory.getObject();
+    }
 }
+
 ```
 
 ## TaskConfiguration.java
@@ -5253,7 +5781,7 @@ package com.study.collect.core.task.model;
 
 // 任务定义
 
-import com.study.collect.core.task.definition.ShardingConfig;
+
 import lombok.Data;
 
 import java.util.Map;
@@ -5680,7 +6208,7 @@ import com.study.collect.core.task.enums.TaskStatusEnum;
 import com.study.collect.core.mq.message.TaskMessage;
 import com.study.collect.core.mq.producer.TaskProducer;
 import com.study.collect.core.task.entity.TaskInstance;
-import com.study.collect.core.task.service.TaskExecuteService;
+import com.study.collect.core.task.mapper.TaskInstanceMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -5690,28 +6218,24 @@ import org.springframework.stereotype.Component;
 public class TaskDispatcher {
 
     private final TaskProducer taskProducer;
-    private final TaskExecuteService taskExecuteService;
+    private final TaskInstanceMapper taskInstanceMapper;
 
     @Autowired
-    public TaskDispatcher(TaskProducer taskProducer, TaskExecuteService taskExecuteService) {
+    public TaskDispatcher(TaskProducer taskProducer, TaskInstanceMapper taskInstanceMapper) {
         this.taskProducer = taskProducer;
-        this.taskExecuteService = taskExecuteService;
+        this.taskInstanceMapper = taskInstanceMapper;
     }
 
     public void dispatch(TaskInstance instance) {
         try {
             // 更新任务状态为执行中
-            taskExecuteService.updateTaskStatus(
-                    instance.getInstanceId(),
-                    TaskStatusEnum.RUNNING.getCode(),
-                    null
-            );
+            updateTaskStatus(instance.getInstanceId(), TaskStatusEnum.RUNNING, null);
 
             // 转换并发送消息
             TaskMessage message = convertToMessage(instance);
             taskProducer.sendTask(message);
 
-            log.info("Task dispatched successfully: instanceId={}, taskCode={}, shardIndex={}/{}",
+            log.info("Task dispatched successfully: instanceId={}, taskCode={}, shard={}/{}",
                     instance.getInstanceId(),
                     instance.getTaskCode(),
                     instance.getShardIndex() + 1,
@@ -5722,14 +6246,13 @@ public class TaskDispatcher {
             log.error("Failed to dispatch task: " + instance.getInstanceId(), e);
 
             // 更新任务状态为失败
-            taskExecuteService.updateTaskStatus(
-                    instance.getInstanceId(),
-                    TaskStatusEnum.FAILED.getCode(),
-                    "Failed to dispatch task: " + e.getMessage()
-            );
-
+            updateTaskStatus(instance.getInstanceId(), TaskStatusEnum.FAILED, e.getMessage());
             throw new RuntimeException("Task dispatch failed", e);
         }
+    }
+
+    private void updateTaskStatus(String instanceId, TaskStatusEnum status, String errorMsg) {
+        taskInstanceMapper.updateStatus(instanceId, status.getCode(), errorMsg);
     }
 
     private TaskMessage convertToMessage(TaskInstance instance) {
@@ -6139,16 +6662,16 @@ public class InstanceIdGenerator {
             <artifactId>business-enterprise</artifactId>
             <version>${project.version}</version>
         </dependency>
-        <dependency>
-            <groupId>com.study</groupId>
-            <artifactId>business-finance</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.study</groupId>
-            <artifactId>business-medical</artifactId>
-            <version>${project.version}</version>
-        </dependency>
+<!--        <dependency>-->
+<!--            <groupId>com.study</groupId>-->
+<!--            <artifactId>business-finance</artifactId>-->
+<!--            <version>${project.version}</version>-->
+<!--        </dependency>-->
+<!--        <dependency>-->
+<!--            <groupId>com.study</groupId>-->
+<!--            <artifactId>business-medical</artifactId>-->
+<!--            <version>${project.version}</version>-->
+<!--        </dependency>-->
 
         <!-- Spring Boot Starters -->
         <dependency>
@@ -6220,15 +6743,36 @@ public class InstanceIdGenerator {
 ```java
 package com.study.collect;
 
+import com.study.collect.business.enterprise.config.EnterpriseCollectorProperties;
+import com.study.collect.core.task.scheduler.TaskScheduler;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.cache.annotation.EnableCaching;
+import org.springframework.context.annotation.Bean;
+import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
+
 
 @SpringBootApplication
 @EnableScheduling
+@EnableAsync
+@EnableCaching
+@EnableConfigurationProperties({
+        EnterpriseCollectorProperties.class
+})
 public class CollectApplication {
     public static void main(String[] args) {
         SpringApplication.run(CollectApplication.class, args);
+    }
+
+    @Bean
+    public ThreadPoolTaskScheduler taskScheduler() {
+        ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
+        scheduler.setPoolSize(10);
+        scheduler.setThreadNamePrefix("TaskScheduler-");
+        return scheduler;
     }
 }
 ```
@@ -6380,41 +6924,41 @@ logging:
 #        props:
 #          collectType: "enterprise"
 #          batchSize: 100
-collect:
-  task:
-    enabled: true
-    tasks:
-      - taskId: "enterprise-collect"
-        taskName: "企业数据采集"
-        taskHandler: "enterpriseCollectHandler"
-        cronExpression: "0 0 1 * * ?"
-        sharding:
-          enabled: true
-          total: 4
-  mq:
-    rabbit:
-      enabled: true
-      host: 192.168.80.137
-      port: 5672
-      username: admin
-      password: 123456
-
-      # 任务队列配置
-      task:
-        exchange: collect.task
-        queue: collect.task.queue
-        routing-key: collect.task
-
-      # 结果队列配置
-      result:
-        exchange: collect.result
-        queue: collect.result.queue
-        routing-key: collect.result
-
-      # 分片配置
-      sharding:
-        enabled: true
-        total: 4      # 分片总数
+#collect:
+#  task:
+#    enabled: true
+#    tasks:
+#      - taskId: "enterprise-collect"
+#        taskName: "企业数据采集"
+#        taskHandler: "enterpriseCollectHandler"
+#        cronExpression: "0 0 1 * * ?"
+#        sharding:
+#          enabled: true
+#          total: 4
+#  mq:
+#    rabbit:
+#      enabled: true
+#      host: 192.168.80.137
+#      port: 5672
+#      username: admin
+#      password: 123456
+#
+#      # 任务队列配置
+#      task:
+#        exchange: collect.task
+#        queue: collect.task.queue
+#        routing-key: collect.task
+#
+#      # 结果队列配置
+#      result:
+#        exchange: collect.result
+#        queue: collect.result.queue
+#        routing-key: collect.result
+#
+#      # 分片配置
+#      sharding:
+#        enabled: true
+#        total: 4      # 分片总数
 
 collect:
   task:

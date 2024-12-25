@@ -15,8 +15,8 @@
 
     <modules>
         <module>business-enterprise</module>
-        <module>business-finance</module>
-        <module>business-medical</module>
+<!--        <module>business-finance</module>-->
+<!--        <module>business-medical</module>-->
     </modules>
 
     <dependencies>

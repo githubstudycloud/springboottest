@@ -21,12 +21,12 @@
         <module name="business-enterprise" />
         <module name="collect-core" />
         <module name="collect-common" />
-        <module name="business-medical" />
         <module name="collect-starter" />
-        <module name="business-finance" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
+      <module name="business-finance" target="21" />
+      <module name="business-medical" target="21" />
       <module name="platform-common" target="21" />
       <module name="platform-dashboard" target="21" />
       <module name="platform-gateway" target="21" />

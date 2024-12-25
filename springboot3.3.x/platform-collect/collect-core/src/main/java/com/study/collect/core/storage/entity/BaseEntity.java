@@ -27,4 +27,5 @@ public abstract class BaseEntity implements Serializable {
     protected Long version;
 
     protected Boolean deleted = false;
+
 }
