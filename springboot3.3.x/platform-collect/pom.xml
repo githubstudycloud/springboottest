@@ -33,12 +33,12 @@
         <mysql.version>8.3.0</mysql.version>
         <mongodb-driver.version>4.11.1</mongodb-driver.version>
         <lettuce.version>6.3.2.RELEASE</lettuce.version>
-        <redisson.version>3.27.2</redisson.version>
+        <redisson.version>3.39.0</redisson.version>
         <rabbitmq.version>5.20.0</rabbitmq.version>
         <mybatis.version>3.0.3</mybatis.version>
         <mariadb.version>3.3.3</mariadb.version>  <!-- 这是最新的稳定版本 -->
         <jackson.version>2.17.0</jackson.version>
-        <prometheus.version>1.12.4</prometheus.version>
+        <prometheus.version>1.12.9</prometheus.version>
         <lombok.version>1.18.30</lombok.version>
         <mapstruct.version>1.5.5.Final</mapstruct.version>
         <commons-lang3.version>3.14.0</commons-lang3.version>
@@ -176,6 +176,12 @@
                         </annotationProcessorPaths>
                     </configuration>
                 </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-deploy-plugin</artifactId>
+                    <version>3.1.1</version>
+                </plugin>
+
             </plugins>
         </pluginManagement>
     </build>

@@ -45,7 +45,7 @@
             <artifactId>spring-boot-starter-amqp</artifactId>
         </dependency>
 
-        <!-- 添加 MariaDB JDBC 驱动依赖 -->
+        <!-- MariaDB JDBC Driver -->
         <dependency>
             <groupId>org.mariadb.jdbc</groupId>
             <artifactId>mariadb-java-client</artifactId>
@@ -72,6 +72,19 @@
             <artifactId>guava</artifactId>
         </dependency>
 
+        <!-- MyBatis -->
+        <dependency>
+            <groupId>org.mybatis.spring.boot</groupId>
+            <artifactId>mybatis-spring-boot-starter</artifactId>
+
+        </dependency>
+        <dependency>
+            <groupId>org.mybatis</groupId>
+            <artifactId>mybatis</artifactId>
+            <version>3.5.9</version>
+            <scope>compile</scope>
+        </dependency>
+
         <!-- Test -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -83,10 +96,8 @@
             <artifactId>jackson-datatype-jsr310</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.mybatis</groupId>
-            <artifactId>mybatis-spring</artifactId>
-            <version>3.0.3</version>
-            <scope>compile</scope>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-pool2</artifactId>
         </dependency>
     </dependencies>
 </project>

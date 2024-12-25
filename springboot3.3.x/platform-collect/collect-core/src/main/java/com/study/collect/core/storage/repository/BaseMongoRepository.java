@@ -11,18 +11,17 @@ import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.data.mongodb.repository.query.MongoEntityInformation;
 import org.springframework.data.mongodb.repository.support.SimpleMongoRepository;
 
-import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.List;
 
 @Slf4j
-public class BaseMongoRepository<T extends BaseEntity, ID extends Serializable>
-        extends SimpleMongoRepository<T, ID> implements IRepository<T, ID> {
+public class BaseMongoRepository<T extends BaseEntity>
+        extends SimpleMongoRepository<T, String> implements IRepository<T> {
 
     private final MongoOperations mongoOperations;
-    private final MongoEntityInformation<T, ID> entityInformation;
+    private final MongoEntityInformation<T, String> entityInformation;
 
-    public BaseMongoRepository(MongoEntityInformation<T, ID> metadata,
+    public BaseMongoRepository(MongoEntityInformation<T, String> metadata,
                                MongoOperations mongoOperations) {
         super(metadata, mongoOperations);
         this.mongoOperations = mongoOperations;
@@ -40,16 +39,18 @@ public class BaseMongoRepository<T extends BaseEntity, ID extends Serializable>
 
     @Override
     public Page<T> findByDeletedFalse(Pageable pageable) {
-        return null;
+        Query query = Query.query(Criteria.where("deleted").is(false));
+        return findAll(query, pageable);
     }
 
     @Override
     public List<T> findByVersionCodeGreaterThan(String versionCode) {
-        return List.of();
+        Query query = Query.query(Criteria.where("versionCode").gt(versionCode));
+        return mongoOperations.find(query, entityInformation.getJavaType());
     }
 
     @Override
-    public void softDelete(ID id) {
+    public void softDelete(String id) {
         Query query = Query.query(Criteria.where("id").is(id));
         Update update = Update.update("deleted", true)
                 .set("updateTime", LocalDateTime.now());
@@ -57,7 +58,7 @@ public class BaseMongoRepository<T extends BaseEntity, ID extends Serializable>
     }
 
     @Override
-    public void softDelete(List<ID> ids) {
+    public void softDelete(List<String> ids) {
         Query query = Query.query(Criteria.where("id").in(ids));
         Update update = Update.update("deleted", true)
                 .set("updateTime", LocalDateTime.now());
@@ -65,10 +66,17 @@ public class BaseMongoRepository<T extends BaseEntity, ID extends Serializable>
     }
 
     @Override
-    public void updateStatus(ID id, String status) {
+    public void updateStatus(String id, String status) {
         Query query = Query.query(Criteria.where("id").is(id));
         Update update = Update.update("status", status)
                 .set("updateTime", LocalDateTime.now());
         mongoOperations.updateFirst(query, update, entityInformation.getJavaType());
+    }
+
+    protected Page<T> findAll(Query query, Pageable pageable) {
+        long total = mongoOperations.count(query, entityInformation.getJavaType());
+        List<T> content = mongoOperations.find(query.with(pageable),
+                entityInformation.getJavaType());
+        return org.springframework.data.domain.PageImpl.of(content, pageable, total);
     }
 }

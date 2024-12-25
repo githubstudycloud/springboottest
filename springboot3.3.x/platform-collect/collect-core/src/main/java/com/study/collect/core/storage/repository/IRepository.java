@@ -6,13 +6,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.data.repository.NoRepositoryBean;
 
-import java.io.Serializable;
 import java.util.List;
 
 @NoRepositoryBean
-public interface IRepository<T extends BaseEntity, ID extends Serializable>
-        extends MongoRepository<T, ID> {
-
+public interface IRepository<T extends BaseEntity> extends MongoRepository<T, String> {
     /**
      * 根据业务编码查询
      */
@@ -31,15 +28,15 @@ public interface IRepository<T extends BaseEntity, ID extends Serializable>
     /**
      * 软删除
      */
-    void softDelete(ID id);
+    void softDelete(String id);
 
     /**
      * 批量软删除
      */
-    void softDelete(List<ID> ids);
+    void softDelete(List<String> ids);
 
     /**
      * 更新状态
      */
-    void updateStatus(ID id, String status);
+    void updateStatus(String id, String status);
 }

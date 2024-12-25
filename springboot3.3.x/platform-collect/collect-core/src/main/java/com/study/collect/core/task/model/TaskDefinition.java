@@ -2,7 +2,7 @@ package com.study.collect.core.task.model;
 
 // 任务定义
 
-import com.study.collect.core.task.definition.ShardingConfig;
+
 import lombok.Data;
 
 import java.util.Map;

@@ -1,12 +1,7 @@
 package com.study.collect.core.storage.entity;
 
 import lombok.Data;
-import org.springframework.data.annotation.CreatedBy;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.Id;
-import org.springframework.data.annotation.LastModifiedBy;
-import org.springframework.data.annotation.LastModifiedDate;
-import org.springframework.data.annotation.Version;
+import org.springframework.data.annotation.*;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
