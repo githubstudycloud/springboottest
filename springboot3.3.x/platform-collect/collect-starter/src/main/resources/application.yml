@@ -5,14 +5,20 @@ spring:
   application:
     name: platform-collect
 
+
   # 允许bean覆盖(解决taskScheduler冲突)
   main:
     allow-bean-definition-overriding: true
+  mvc:
+    throw-exception-if-no-handler-found: true
+  web:
+    resources:
+      add-mappings: false
 
   # 数据源配置
   datasource:
     driver-class-name: org.mariadb.jdbc.Driver
-    url: jdbc:mariadb://192.168.80.137:3306/test?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
+    url: jdbc:mariadb://192.168.80.137:3306/collect?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
     username: root
     password: 123456
 
@@ -48,6 +54,17 @@ spring:
     port: 5672
     username: admin
     password: 123456
+    listener:
+      simple:
+        # 配置消费者
+        retry:
+          enabled: true
+          initial-interval: 1000
+          max-attempts: 3
+          max-interval: 10000
+          multiplier: 2.0
+        # 设置手动确认
+        acknowledge-mode: manual
 
 # 监控端点配置
 management:

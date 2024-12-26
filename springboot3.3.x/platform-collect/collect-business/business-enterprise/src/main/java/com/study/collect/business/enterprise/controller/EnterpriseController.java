@@ -8,10 +8,12 @@ import com.study.collect.business.enterprise.service.EnterpriseService;
 import com.study.collect.common.model.Response;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+@Validated  // 添加此注解
 @RestController
 @RequestMapping("/api/enterprise")
 @RequiredArgsConstructor

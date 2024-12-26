@@ -3,7 +3,7 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.study.collect.core.task.mapper.TaskLogMapper">
 
-    <insert id="insert" parameterType="TaskLog">
+    <insert id="insert" parameterType="com.study.collect.core.task.entity.TaskLog">
         INSERT INTO task_log (
             instance_id, task_code, log_type, log_content
         ) VALUES (

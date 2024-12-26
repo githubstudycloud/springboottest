@@ -28,7 +28,7 @@
         WHERE instance_id = #{instanceId}
     </update>
 
-    <select id="selectRunning" resultType="TaskInstance">
+    <select id="selectRunning" resultType="com.study.collect.core.task.entity.TaskInstance">
         SELECT * FROM task_instance WHERE status = 1
     </select>
 </mapper>

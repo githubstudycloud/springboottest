@@ -11,6 +11,7 @@ import com.study.collect.core.task.service.TaskExecuteService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -32,17 +33,31 @@ public class TaskConsumer {
         this.handlerManager = handlerManager;
     }
 
-    @RabbitListener(queues = "${collect.mq.rabbit.task.queue}")
-    public void onTaskMessage(TaskMessage message) {
+    @RabbitListener(
+            queues = "${collect.mq.rabbit.task.queue}",
+            containerFactory = "rabbitListenerContainerFactory"
+    )
+    public void onTaskMessage(@Payload TaskMessage message) {
         String instanceId = message.getInstanceId();
-        log.info("Received task message: instanceId={}, taskCode={}, shard={}/{}",
-                instanceId,
-                message.getTaskId(),
-                message.getShardIndex() + 1,
-                message.getShardTotal()
-        );
-
         try {
+            log.info("Received task message: instanceId={}, taskCode={}, shard={}/{}",
+                    message.getInstanceId(),
+                    message.getTaskId(),
+                    message.getShardIndex() + 1,
+                    message.getShardTotal()
+            );
+
+//    @RabbitListener(queues = "${collect.mq.rabbit.task.queue}")
+//    public void onTaskMessage(TaskMessage message) {
+
+//        log.info("Received task message: instanceId={}, taskCode={}, shard={}/{}",
+//                instanceId,
+//                message.getTaskId(),
+//                message.getShardIndex() + 1,
+//                message.getShardTotal()
+//        );
+//
+//        try {
             // 执行任务
             Object result = executeTask(message);
 
@@ -80,9 +95,15 @@ public class TaskConsumer {
         // 执行任务
         TaskResult result = handler.execute(context);
 
-        if (!result.getSuccess()) {
+        if (result.getSuccess()) {
+            // 发送成功结果
+            sendSuccessResult(message, result.getData());
+        } else {
+            // 发送失败结果
+            sendFailureResult(message, result.getErrorMessage());
             throw new RuntimeException(result.getErrorMessage());
         }
+
 
         return result.getData();
     }
