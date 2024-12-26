@@ -1,0 +1,63 @@
+# Single Node MongoDB
+version: '3.8'
+services:
+  mongodb-single:
+    image: mongo:4.4
+    container_name: mongodb-single
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin123
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    command: ["--auth"]
+
+volumes:
+  mongodb_data:
+
+---
+# MongoDB Cluster
+version: '3.8'
+services:
+  mongors1n1:
+    container_name: mongors1n1
+    image: mongo:4.4
+    command: ["--replSet", "rs1", "--bind_ip_all", "--port", "27017"]
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongors1n1_data:/data/db
+    networks:
+      - mongo-cluster
+
+  mongors1n2:
+    container_name: mongors1n2
+    image: mongo:4.4
+    command: ["--replSet", "rs1", "--bind_ip_all", "--port", "27017"]
+    ports:
+      - "27018:27017"
+    volumes:
+      - mongors1n2_data:/data/db
+    networks:
+      - mongo-cluster
+
+  mongors1n3:
+    container_name: mongors1n3
+    image: mongo:4.4
+    command: ["--replSet", "rs1", "--bind_ip_all", "--port", "27017"]
+    ports:
+      - "27019:27017"
+    volumes:
+      - mongors1n3_data:/data/db
+    networks:
+      - mongo-cluster
+
+volumes:
+  mongors1n1_data:
+  mongors1n2_data:
+  mongors1n3_data:
+
+networks:
+  mongo-cluster:
+    driver: bridge

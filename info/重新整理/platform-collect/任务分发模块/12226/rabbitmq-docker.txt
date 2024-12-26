@@ -1,0 +1,87 @@
+# Single Node docker-compose.yml
+version: '3.8'
+services:
+  rabbitmq:
+    image: rabbitmq:3.12-management
+    container_name: rabbitmq-single
+    environment:
+      - RABBITMQ_DEFAULT_USER=admin
+      - RABBITMQ_DEFAULT_PASS=admin123
+    ports:
+      - "5672:5672"   # AMQP port
+      - "15672:15672" # Management UI port
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "status"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+volumes:
+  rabbitmq_data:
+
+---
+# Cluster docker-compose.yml
+version: '3.8'
+services:
+  rabbitmq1:
+    image: rabbitmq:3.12-management
+    hostname: rabbitmq1
+    container_name: rabbitmq1
+    environment:
+      - RABBITMQ_ERLANG_COOKIE=SWQOKODSQALRPCLNMEQG
+      - RABBITMQ_DEFAULT_USER=admin
+      - RABBITMQ_DEFAULT_PASS=admin123
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq1_data:/var/lib/rabbitmq
+
+  rabbitmq2:
+    image: rabbitmq:3.12-management
+    hostname: rabbitmq2
+    container_name: rabbitmq2
+    environment:
+      - RABBITMQ_ERLANG_COOKIE=SWQOKODSQALRPCLNMEQG
+      - RABBITMQ_DEFAULT_USER=admin
+      - RABBITMQ_DEFAULT_PASS=admin123
+    ports:
+      - "5673:5672"
+      - "15673:15672"
+    volumes:
+      - rabbitmq2_data:/var/lib/rabbitmq
+    depends_on:
+      - rabbitmq1
+
+  rabbitmq3:
+    image: rabbitmq:3.12-management
+    hostname: rabbitmq3
+    container_name: rabbitmq3
+    environment:
+      - RABBITMQ_ERLANG_COOKIE=SWQOKODSQALRPCLNMEQG
+      - RABBITMQ_DEFAULT_USER=admin
+      - RABBITMQ_DEFAULT_PASS=admin123
+    ports:
+      - "5674:5672"
+      - "15674:15672"
+    volumes:
+      - rabbitmq3_data:/var/lib/rabbitmq
+    depends_on:
+      - rabbitmq1
+
+volumes:
+  rabbitmq1_data:
+  rabbitmq2_data:
+  rabbitmq3_data:
+
+# Cluster setup commands (run after containers are up):
+# docker exec -it rabbitmq2 rabbitmqctl stop_app
+# docker exec -it rabbitmq2 rabbitmqctl reset
+# docker exec -it rabbitmq2 rabbitmqctl join_cluster rabbit@rabbitmq1
+# docker exec -it rabbitmq2 rabbitmqctl start_app
+# docker exec -it rabbitmq3 rabbitmqctl stop_app
+# docker exec -it rabbitmq3 rabbitmqctl reset
+# docker exec -it rabbitmq3 rabbitmqctl join_cluster rabbit@rabbitmq1
+# docker exec -it rabbitmq3 rabbitmqctl start_app
