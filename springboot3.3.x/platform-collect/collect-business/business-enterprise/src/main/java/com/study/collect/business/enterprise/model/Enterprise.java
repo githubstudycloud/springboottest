@@ -13,9 +13,6 @@ import java.time.LocalDateTime;
 @Data
 @Document(collection = "enterprise")
 public class Enterprise extends VersionEntity {
-    @Id
-    private String id;
-
     private String code;           // 企业编码
     private String name;          // 企业名称
     private String address;       // 企业地址

@@ -924,9 +924,6 @@ import java.time.LocalDateTime;
 @Data
 @Document(collection = "enterprise")
 public class Enterprise extends VersionEntity {
-    @Id
-    private String id;
-
     private String code;           // 企业编码
     private String name;          // 企业名称
     private String address;       // 企业地址
@@ -2698,16 +2695,52 @@ package com.study.collect.core.collector.factory;
 import com.study.collect.core.collector.ICollector;
 import com.study.collect.core.collector.manager.CollectorManager;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
+import java.util.Set;
+
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class CollectorFactory {
 
     private final CollectorManager collectorManager;
 
+    /**
+     * 创建或获取采集器实例
+     * 首先尝试从CollectorManager获取已注册的采集器
+     * 如果找不到对应的采集器，抛出异常
+     */
     public <T, R> ICollector<T, R> createCollector(String type) {
-        return collectorManager.getCollector(type);
+        // 验证参数
+        if (!StringUtils.hasText(type)) {
+            throw new IllegalArgumentException("采集器类型不能为空");
+        }
+
+        try {
+            // 从CollectorManager获取已注册的采集器
+            return collectorManager.getCollector(type);
+        } catch (IllegalStateException e) {
+            log.error("创建采集器失败: {}", e.getMessage());
+            throw new IllegalArgumentException("无效的采集器类型: " + type);
+        }
+    }
+
+    /**
+     * 检查是否支持指定类型的采集器
+     */
+    public boolean supportsCollectorType(String type) {
+        return collectorManager.hasCollector(type);
+    }
+
+    /**
+     * 获取所有支持的采集器类型
+     */
+    public Set<String> getSupportedCollectorTypes() {
+        return collectorManager.getCollectorTypes();
     }
 }
 ```
@@ -2719,11 +2752,15 @@ package com.study.collect.core.collector.manager;
 
 import com.study.collect.core.collector.ICollector;
 import com.study.collect.core.collector.annotation.Collector;
+import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
 
+import java.util.Collections;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
@@ -2732,31 +2769,66 @@ public class CollectorManager {
 
     private final Map<String, ICollector<?, ?>> collectors = new ConcurrentHashMap<>();
 
-    @Autowired
-    public void registerCollectors(Map<String, Object> beans) {
-        beans.values().stream()
-                .filter(bean -> bean.getClass().isAnnotationPresent(Collector.class))
-                .forEach(bean -> {
-                    Collector annotation = bean.getClass().getAnnotation(Collector.class);
-                    if (annotation.enabled()) {
-                        ICollector<?, ?> collector = (ICollector<?, ?>) bean;
-                        collectors.put(collector.getType(), collector);
-                        log.info("注册采集器: type={}, class={}",
-                                collector.getType(), collector.getClass().getName());
-                    }
-                });
+    @PostConstruct
+    public void init() {
+        registerCollectors();
     }
 
+    @Autowired
+    private ApplicationContext applicationContext;
+
+    /**
+     * 扫描并注册所有带有@Collector注解的采集器
+     */
+    private void registerCollectors() {
+        Map<String, Object> beans = applicationContext.getBeansWithAnnotation(Collector.class);
+        beans.values().forEach(bean -> {
+            Collector annotation = bean.getClass().getAnnotation(Collector.class);
+            if (null != annotation && annotation.enabled()) {
+                ICollector<?, ?> collector = (ICollector<?, ?>) bean;
+                registerCollector(collector.getType(), collector);
+            }
+        });
+    }
+
+    /**
+     * 注册单个采集器
+     */
+    public void registerCollector(String type, ICollector<?, ?> collector) {
+        if (collectors.containsKey(type)) {
+            throw new IllegalStateException("采集器类型已存在: " + type);
+        }
+        collectors.put(type, collector);
+        log.info("注册采集器: type={}, class={}", type, collector.getClass().getName());
+    }
+
+    /**
+     * 检查采集器是否已注册
+     */
+    public boolean hasCollector(String type) {
+        return collectors.containsKey(type);
+    }
+
+    /**
+     * 获取已注册的采集器
+     * 如果采集器未注册，抛出异常
+     */
     @SuppressWarnings("unchecked")
     public <T, R> ICollector<T, R> getCollector(String type) {
         ICollector<?, ?> collector = collectors.get(type);
         if (collector == null) {
-            throw new IllegalArgumentException("未找到采集器: " + type);
+            throw new IllegalStateException("采集器未注册: " + type);
         }
         return (ICollector<T, R>) collector;
     }
-}
 
+    /**
+     * 获取所有已注册的采集器类型
+     */
+    public Set<String> getCollectorTypes() {
+        return Collections.unmodifiableSet(collectors.keySet());
+    }
+}
 ```
 
 ## CollectContext.java
@@ -4507,17 +4579,21 @@ package com.study.collect.core.storage.config;
 
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
+import com.study.collect.core.storage.audit.EntityAuditor;
 import com.study.collect.core.storage.repository.BaseMongoRepository;
 import lombok.Data;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.domain.AuditorAware;
 import org.springframework.data.mongodb.config.AbstractMongoClientConfiguration;
 import org.springframework.data.mongodb.config.EnableMongoAuditing;
+import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.repository.config.EnableMongoRepositories;
 
-@Data
+
 @Configuration
 @EnableMongoAuditing
 @ConditionalOnProperty(prefix = "spring.data.mongodb", name = "enabled", havingValue = "true", matchIfMissing = true)
@@ -4527,8 +4603,9 @@ import org.springframework.data.mongodb.repository.config.EnableMongoRepositorie
 )
 @ConfigurationProperties(prefix = "spring.data.mongodb")
 public class MongoConfig extends AbstractMongoClientConfiguration {
-
+    @Value("${spring.data.mongodb.uri}")
     private String uri;
+    @Value("${spring.data.mongodb.database}")
     private String database;
 
     @Override
@@ -4541,8 +4618,18 @@ public class MongoConfig extends AbstractMongoClientConfiguration {
     public MongoClient mongoClient() {
         return MongoClients.create(uri);
     }
-}
 
+    @Bean
+    public MongoTemplate mongoTemplate(MongoClient mongoClient) {
+        return new MongoTemplate(mongoClient, getDatabaseName());
+    }
+
+//    // 添加审计配置
+//    @Bean
+//    public AuditorAware<String> auditorProvider() {
+//        return new EntityAuditor();
+//    }
+}
 ```
 
 ## BaseEntity.java
@@ -6744,15 +6831,12 @@ public class InstanceIdGenerator {
 package com.study.collect;
 
 import com.study.collect.business.enterprise.config.EnterpriseCollectorProperties;
-import com.study.collect.core.task.scheduler.TaskScheduler;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.cache.annotation.EnableCaching;
-import org.springframework.context.annotation.Bean;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 
 
 @SpringBootApplication
@@ -6767,13 +6851,13 @@ public class CollectApplication {
         SpringApplication.run(CollectApplication.class, args);
     }
 
-    @Bean
-    public ThreadPoolTaskScheduler taskScheduler() {
-        ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
-        scheduler.setPoolSize(10);
-        scheduler.setThreadNamePrefix("TaskScheduler-");
-        return scheduler;
-    }
+//    @Bean
+//    public ThreadPoolTaskScheduler taskScheduler() {
+//        ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
+//        scheduler.setPoolSize(10);
+//        scheduler.setThreadNamePrefix("TaskScheduler-");
+//        return scheduler;
+//    }
 }
 ```
 
@@ -6852,24 +6936,28 @@ spring:
   application:
     name: platform-collect
 
+  # 允许bean覆盖(解决taskScheduler冲突)
+  main:
+    allow-bean-definition-overriding: true
+
   # 数据源配置
   datasource:
     driver-class-name: org.mariadb.jdbc.Driver
     url: jdbc:mariadb://192.168.80.137:3306/test?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
     username: root
     password: 123456
-  # RabbitMQ配置
-  rabbitmq:
-    host: 192.168.80.137
-    port: 5672
-    username: admin
-    password: 123456
+
+  # MongoDB配置
   data:
+    mongodb:
+      uri: mongodb://root:123456@192.168.80.137:27017
+      database: crawler
+      auto-index-creation: true
+
+    # Redis配置
     redis:
-      # 通用配置
       password: 123456
       timeout: 5000
-      # 集群配置（如果使用集群模式，则注释掉host和port）
       cluster:
         nodes:
           - 192.168.80.137:6379
@@ -6878,23 +6966,19 @@ spring:
           - 192.168.80.137:6382
           - 192.168.80.137:6383
           - 192.168.80.137:6384
-      # 连接池配置
       lettuce:
         pool:
-          max-active: 8  # 连接池最大连接数
-          max-idle: 8    # 连接池最大空闲连接数
-          min-idle: 0    # 连接池最小空闲连接数
-          max-wait: 1000 # 连接池最大阻塞等待时间（使用负值表示没有限制）
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+          max-wait: 1000
 
-
-      # 单机配置（如果使用集群模式，则注释掉这部分）
-    #      host: 192.168.80.137
-    #      port: 6379
-    mongodb:
-      uri: mongodb://root:123456@192.168.80.137:27017
-      database: crawler
-      auto-index-creation: true
-
+  # RabbitMQ配置
+  rabbitmq:
+    host: 192.168.80.137
+    port: 5672
+    username: admin
+    password: 123456
 
 # 监控端点配置
 management:
@@ -6913,53 +6997,7 @@ logging:
   file:
     name: logs/collect.log
 
-#collect:
-#  task:
-#    enabled: true  # 是否启用任务
-#    tasks:
-#      - taskId: "enterprise-collect"
-#        taskName: "企业数据采集"
-#        taskHandler: "enterpriseCollectHandler"
-#        cronExpression: "0 0 1 * * ?"
-#        props:
-#          collectType: "enterprise"
-#          batchSize: 100
-#collect:
-#  task:
-#    enabled: true
-#    tasks:
-#      - taskId: "enterprise-collect"
-#        taskName: "企业数据采集"
-#        taskHandler: "enterpriseCollectHandler"
-#        cronExpression: "0 0 1 * * ?"
-#        sharding:
-#          enabled: true
-#          total: 4
-#  mq:
-#    rabbit:
-#      enabled: true
-#      host: 192.168.80.137
-#      port: 5672
-#      username: admin
-#      password: 123456
-#
-#      # 任务队列配置
-#      task:
-#        exchange: collect.task
-#        queue: collect.task.queue
-#        routing-key: collect.task
-#
-#      # 结果队列配置
-#      result:
-#        exchange: collect.result
-#        queue: collect.result.queue
-#        routing-key: collect.result
-#
-#      # 分片配置
-#      sharding:
-#        enabled: true
-#        total: 4      # 分片总数
-
+# 采集任务配置
 collect:
   task:
     enabled: true
@@ -6971,6 +7009,22 @@ collect:
       timeout: 3600
       retry-times: 3
       retry-interval: 300
+
+  mq:
+    rabbit:
+      host: 192.168.80.137
+      port: 5672
+      username: admin
+      password: 123456
+      enabled: true
+      task:
+        exchange: collect.task
+        queue: collect.task.queue
+        routing-key: collect.task
+      result:
+        exchange: collect.result
+        queue: collect.result.queue
+        routing-key: collect.result
 ```
 
 ## sql.sql
