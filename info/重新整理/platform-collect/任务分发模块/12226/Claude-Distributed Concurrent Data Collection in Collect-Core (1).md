@@ -1192,11 +1192,11 @@ Content-Type: application/json
 
 2.  触发数据采集：
 
-```bash
-# 采集单个企业数据
+```http request
+### 采集单个企业数据
 POST http://localhost:8080/api/enterprise/collect?code=000001
 
-# 触发全量采集(不传code)
+### 触发全量采集(不传code)
 POST http://localhost:8080/api/enterprise/collect
 ```
 

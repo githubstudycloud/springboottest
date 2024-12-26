@@ -1,0 +1,40 @@
+
+### 生成100条测试企业数据，编码从000001开始
+POST http://localhost:8080/api/enterprise/generate
+Content-Type: application/json
+
+{
+  "startCode": 1,
+  "count": 100,
+  "industry": "制造业",
+  "regAuthority": "北京"
+}
+```
+
+2.  触发数据采集：
+
+```http request
+### 采集单个企业数据
+POST http://localhost:8080/api/enterprise/collect?code=000001
+
+### 触发全量采集(不传code)
+POST http://localhost:8080/api/enterprise/collect
+```
+
+###3.  查询采集进度：
+
+# taskId是上一步返回的实例ID
+GET http://localhost:8080/api/enterprise/progress/{taskId}
+```
+
+###4.  查询采集结果：
+
+# 分页查询
+GET http://localhost:8080/api/enterprise/page?pageNum=1&pageSize=10&industry=制造业
+
+### 单个查询
+GET http://localhost:8080/api/enterprise/000092
+
+### 增量查询
+GET http://localhost:8080/api/enterprise/increment?version=V20240326120000
+```
