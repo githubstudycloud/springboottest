@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<project version="4">
-  <component name="SqlDialectMappings">
-    <file url="file://$PROJECT_DIR$/springboot3.3.x/platform-collect/collect-core/src/main/resources/mapper/TaskConfigMapper.xml" dialect="MariaDB" />
-    <file url="file://$PROJECT_DIR$/springboot3.3.x/platform-collect/collect-core/src/main/resources/mapper/TaskInstanceMapper.xml" dialect="MariaDB" />
-    <file url="file://$PROJECT_DIR$/springboot3.3.x/platform-collect/collect-core/src/main/resources/mapper/TaskLogMapper.xml" dialect="MariaDB" />
-  </component>
-</project>

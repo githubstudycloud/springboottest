@@ -1,0 +1,2 @@
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+com.study.collect.business.finance.config.FinanceAutoConfiguration

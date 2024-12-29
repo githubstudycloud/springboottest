@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xmlns="http://maven.apache.org/POM/4.0.0"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.study</groupId>
+        <artifactId>platform-collect</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>collect-business</artifactId>
+    <packaging>pom</packaging>
+
+    <modules>
+        <module>business-enterprise</module>
+<!--        <module>business-finance</module>-->
+<!--        <module>business-medical</module>-->
+    </modules>
+
+    <dependencies>
+        <!-- 核心依赖 -->
+        <dependency>
+            <groupId>com.study</groupId>
+            <artifactId>collect-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.study</groupId>
+            <artifactId>collect-common</artifactId>
+        </dependency>
+    </dependencies>
+</project>
