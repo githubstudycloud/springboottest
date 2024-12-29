@@ -19,7 +19,6 @@
           <entry name="$MAVEN_REPOSITORY$/org/mapstruct/mapstruct/1.5.5.Final/mapstruct-1.5.5.Final.jar" />
         </processorPath>
         <module name="business-enterprise" />
-        <module name="collect-core" />
         <module name="collect-common" />
         <module name="collect-starter" />
         <module name="business-finance" />
@@ -27,6 +26,7 @@
     </annotationProcessing>
     <bytecodeTargetLevel>
       <module name="business-medical" target="21" />
+      <module name="collect-core" target="21" />
       <module name="platform-common" target="21" />
       <module name="platform-dashboard" target="21" />
       <module name="platform-gateway" target="21" />
