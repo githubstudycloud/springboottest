@@ -20,6 +20,12 @@ public class MyBatisConfig {
         SqlSessionFactoryBean sessionFactory = new SqlSessionFactoryBean();
         sessionFactory.setDataSource(dataSource);
 
+        // 配置驼峰命名转换
+        org.apache.ibatis.session.Configuration configuration =
+                new org.apache.ibatis.session.Configuration();
+        configuration.setMapUnderscoreToCamelCase(true);
+        sessionFactory.setConfiguration(configuration);
+
         // 设置XML映射文件路径
         PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
         sessionFactory.setMapperLocations(resolver.getResources("classpath*:mapper/*.xml"));
@@ -29,4 +35,5 @@ public class MyBatisConfig {
 
         return sessionFactory.getObject();
     }
+
 }

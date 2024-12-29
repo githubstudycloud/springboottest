@@ -1,0 +1,34 @@
+spring:
+# 生产环境数据源
+datasource:
+url: jdbc:mysql://prod-mysql:3306/collect?useUnicode=true&characterEncoding=utf8
+username: prod
+password: ${MYSQL_PASSWORD}
+
+# 生产环境Redis集群
+redis:
+cluster:
+nodes:
+  - redis-1:6379
+  - redis-2:6379
+  - redis-3:6379
+password: ${REDIS_PASSWORD}
+
+# 生产环境MongoDB副本集
+data:
+mongodb:
+uri: mongodb://mongo-1:27017,mongo-2:27017,mongo-3:27017/collect?replicaSet=rs0
+
+# 生产环境RabbitMQ集群
+rabbitmq:
+addresses: rabbitmq-1:5672,rabbitmq-2:5672,rabbitmq-3:5672
+username: prod
+password: ${RABBITMQ_PASSWORD}
+
+# 生产环境日志
+logging:
+level:
+root: warn
+com.study.collect: info
+file:
+name: /var/log/collect/collect.log
