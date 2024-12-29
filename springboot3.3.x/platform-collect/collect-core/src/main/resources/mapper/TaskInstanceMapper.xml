@@ -3,24 +3,83 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.study.collect.core.task.mapper.TaskInstanceMapper">
 
+    <!-- 结果映射 -->
+    <resultMap id="taskInstanceMap" type="com.study.collect.core.task.entity.TaskInstance">
+        <id column="id" property="id"/>
+        <result column="instance_id" property="instanceId"/>
+        <result column="task_code" property="taskCode"/>
+        <result column="shard_index" property="shardIndex"/>
+        <result column="shard_total" property="shardTotal"/>
+        <result column="shard_param" property="shardParam"/>
+        <result column="status" property="status"/>
+        <result column="error_msg" property="errorMsg"/>
+        <result column="host_name" property="hostName"/>
+        <result column="start_time" property="startTime"/>
+        <result column="end_time" property="endTime"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <!-- 修改所有select的resultType为resultMap -->
+    <select id="selectById" resultMap="taskInstanceMap">
+        SELECT * FROM task_instance WHERE id = #{id}
+    </select>
+
+    <select id="selectByInstanceId" resultMap="taskInstanceMap">
+        SELECT * FROM task_instance WHERE instance_id = #{instanceId}
+    </select>
+
+    <select id="selectRunning" resultMap="taskInstanceMap">
+        SELECT * FROM task_instance WHERE status = 1
+        ORDER BY start_time ASC
+    </select>
+
+    <select id="selectByTaskCode" resultMap="taskInstanceMap">
+        SELECT * FROM task_instance
+        WHERE task_code = #{taskCode}
+        <if test="startTime != null">
+            AND create_time >= #{startTime}
+        </if>
+        <if test="endTime != null">
+            AND create_time &lt;= #{endTime}
+        </if>
+        ORDER BY create_time DESC
+    </select>
+
+    <select id="selectTimeout" resultMap="taskInstanceMap">
+        SELECT * FROM task_instance
+        WHERE status = 1
+          AND start_time &lt; DATE_SUB(NOW(), INTERVAL #{timeoutMinutes} MINUTE)
+    </select>
+
+    <select id="selectByHostName" resultMap="taskInstanceMap">
+        SELECT * FROM task_instance
+        WHERE host_name = #{hostName}
+          AND status = 1
+    </select>
+    <!-- 插入实例 -->
     <insert id="insert" parameterType="TaskInstance" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO task_instance (
             instance_id, task_code, shard_index, shard_total,
-            shard_param, status, host_name, start_time
+            shard_param, status, host_name, start_time,
+            error_msg
         ) VALUES (
                      #{instanceId}, #{taskCode}, #{shardIndex}, #{shardTotal},
-                     #{shardParam}, #{status}, #{hostName}, #{startTime}
+                     #{shardParam}, #{status}, #{hostName}, #{startTime},
+                     #{errorMsg}
                  )
     </insert>
 
+    <!-- 更新状态 -->
     <update id="updateStatus">
         UPDATE task_instance
         SET status = #{status},
-            error_msg = #{errorMsg},
-            update_time = CURRENT_TIMESTAMP
+        <if test="errorMsg != null">error_msg = #{errorMsg},</if>
+        update_time = CURRENT_TIMESTAMP
         WHERE instance_id = #{instanceId}
     </update>
 
+    <!-- 更新结束时间 -->
     <update id="updateEndTime">
         UPDATE task_instance
         SET end_time = #{endTime},
@@ -28,7 +87,60 @@
         WHERE instance_id = #{instanceId}
     </update>
 
-    <select id="selectRunning" resultType="com.study.collect.core.task.entity.TaskInstance">
-        SELECT * FROM task_instance WHERE status = 1
+    <!-- 根据ID查询 -->
+    <select id="selectById" resultType="TaskInstance">
+        SELECT * FROM task_instance WHERE id = #{id}
     </select>
+
+    <!-- 根据实例ID查询 -->
+    <select id="selectByInstanceId" resultType="TaskInstance">
+        SELECT * FROM task_instance WHERE instance_id = #{instanceId}
+    </select>
+
+    <!-- 查询运行中的任务 -->
+    <select id="selectRunning" resultType="TaskInstance">
+        SELECT * FROM task_instance WHERE status = 1
+        ORDER BY start_time ASC
+    </select>
+
+    <!-- 根据任务编码和时间范围查询 -->
+    <select id="selectByTaskCode" resultType="TaskInstance">
+        SELECT * FROM task_instance
+        WHERE task_code = #{taskCode}
+        <if test="startTime != null">
+            AND create_time >= #{startTime}
+        </if>
+        <if test="endTime != null">
+            AND create_time &lt;= #{endTime}
+        </if>
+        ORDER BY create_time DESC
+    </select>
+
+    <!-- 查询超时任务 -->
+    <select id="selectTimeout" resultType="TaskInstance">
+        SELECT * FROM task_instance
+        WHERE status = 1
+          AND start_time &lt; DATE_SUB(NOW(), INTERVAL #{timeoutMinutes} MINUTE)
+    </select>
+
+    <!-- 根据主机名查询任务 -->
+    <select id="selectByHostName" resultType="TaskInstance">
+        SELECT * FROM task_instance
+        WHERE host_name = #{hostName}
+          AND status = 1
+    </select>
+
+    <!-- 根据状态统计任务数 -->
+    <select id="countByStatus" resultType="int">
+        SELECT COUNT(*) FROM task_instance
+        WHERE task_code = #{taskCode}
+          AND status = #{status}
+    </select>
+
+    <!-- 清理历史数据 -->
+    <delete id="cleanHistoryData">
+        DELETE FROM task_instance
+        WHERE create_time &lt; DATE_SUB(NOW(), INTERVAL #{daysBefore} DAY)
+          AND status IN (2, 3, 4, 5)
+    </delete>
 </mapper>

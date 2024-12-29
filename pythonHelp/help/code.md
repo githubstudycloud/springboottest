@@ -23,6 +23,8 @@ platform-collect/
                                                 EnterpriseConfig.java
                                             controller/
                                                 EnterpriseController.java
+                                            handler/
+                                                EnterpriseTaskHandler.java
                                             model/
                                                 Enterprise.java
                                                 request/
@@ -53,15 +55,24 @@ platform-collect/
                                                 FinanceCollector.java
                                             config/
                                                 FinanceAutoConfiguration.java
+                                                FinanceConfiguration.java
+                                                FinanceProperties.java
                                             controller/
                                                 FinanceController.java
                                             model/
                                                 FinanceData.java
+                                                FinanceStockInfo.java
+                                                request/
+                                                    FinanceDataGenerateRequest.java
+                                                    FinanceDataQueryRequest.java
+                                                response/
+                                                    FinanceDataVO.java
                                             processor/
                                                 FinanceProcessor.java
                                             repository/
                                                 FinanceRepository.java
                                             service/
+                                                FinanceDataService.java
                                                 FinanceService.java
                     resources/
                         META-INF/
@@ -109,6 +120,7 @@ platform-collect/
                                 common/
                                     exception/
                                         BaseException.java
+                                        GlobalExceptionHandler.java
                                     model/
                                         Response.java
                                     util/
@@ -146,6 +158,7 @@ platform-collect/
                                         CollectAutoConfiguration.java
                                         package-info.java
                                     mq/
+                                        RabbitMQErrorHandler.java
                                         config/
                                             MQProperties.java
                                             RabbitConfig.java
@@ -266,6 +279,8 @@ platform-collect/
                         TaskConfigMapper.xml
                         TaskInstanceMapper.xml
                         TaskLogMapper.xml
+    collect-info/
+        架构逻辑.md
     collect-starter/
         pom.xml
         src/
@@ -833,10 +848,12 @@ import com.study.collect.business.enterprise.service.EnterpriseService;
 import com.study.collect.common.model.Response;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+@Validated  // 添加此注解
 @RestController
 @RequestMapping("/api/enterprise")
 @RequiredArgsConstructor
@@ -906,6 +923,81 @@ public class EnterpriseController {
 }
 ```
 
+## EnterpriseTaskHandler.java
+
+```java
+package com.study.collect.business.enterprise.handler;
+
+import com.study.collect.business.enterprise.collector.EnterpriseCollector;
+import com.study.collect.business.enterprise.model.Enterprise;
+import com.study.collect.business.enterprise.processor.EnterpriseProcessor;
+import com.study.collect.core.collector.model.CollectContext;
+import com.study.collect.core.collector.model.CollectResult;
+import com.study.collect.core.processor.model.ProcessContext;
+import com.study.collect.core.task.handler.AbstractTaskHandler;
+import com.study.collect.core.task.model.TaskContext;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Component
+@Slf4j
+public class EnterpriseTaskHandler extends AbstractTaskHandler {
+
+    private final EnterpriseCollector collector;
+    private final EnterpriseProcessor processor;
+
+    public EnterpriseTaskHandler(EnterpriseCollector collector,
+                                 EnterpriseProcessor processor) {
+        this.collector = collector;
+        this.processor = processor;
+    }
+
+    @Override
+    public String getType() {
+        // 这个type要和task_config表中的task_code一致
+        return "enterprise";
+    }
+
+    @Override
+    protected Object doExecute(TaskContext context) {
+        try {
+            // 1. 创建采集上下文
+            CollectContext<String> collectContext = new CollectContext<>();
+            collectContext.setTaskId(context.getTaskId());
+            collectContext.setParams(context.getShardParam());
+            collectContext.setShardingId(context.getShardIndex());
+
+            // 2. 执行采集
+            CollectResult<List<Enterprise>> collectResult = collector.collect(collectContext);
+
+            // 3. 如果采集成功，进行处理
+            if (collectResult.isSuccess() && collectResult.getData() != null) {
+                // 创建处理上下文
+                ProcessContext processContext = new ProcessContext();
+                processContext.setTaskId(context.getTaskId());
+
+                // 对采集的每条数据进行处理
+                List<Enterprise> processedData = collectResult.getData().stream()
+                        .map(data -> processor.process(data, processContext))
+                        .collect(Collectors.toList());
+
+                return processedData;
+            } else {
+                throw new RuntimeException("采集失败: " +
+                        collectResult.getErrorMessage());
+            }
+        } catch (Exception e) {
+            log.error("任务执行异常", e);
+            throw new RuntimeException("任务执行失败", e);
+        }
+    }
+}
+
+```
+
 ## Enterprise.java
 
 ```java
@@ -953,14 +1045,14 @@ import lombok.Data;
 @Data
 public class EnterpriseGenerateRequest {
     @NotNull(message = "起始编码不能为空")
-    private Integer startCode;      // 起始编码
+    private Integer startCode;
 
     @NotNull(message = "生成数量不能为空")
     @Max(value = 1000, message = "单次生成数量不能超过1000")
-    private Integer count;          // 生成数量
+    private Integer count;
 
-    private String industry;        // 指定行业(可选)
-    private String regAuthority;    // 指定注册机构(可选)
+    private String industry;
+    private String regAuthority;
 }
 ```
 
@@ -1463,6 +1555,7 @@ com.study.collect.business.enterprise.config.EnterpriseAutoConfiguration
 ## FinanceCollector.java
 
 ```java
+// FinanceCollector.java
 package com.study.collect.business.finance.collector;
 
 import com.study.collect.business.finance.model.FinanceData;
@@ -1470,70 +1563,143 @@ import com.study.collect.core.collector.AbstractCollector;
 import com.study.collect.core.collector.annotation.Collector;
 import com.study.collect.core.collector.exception.CollectException;
 import com.study.collect.core.collector.model.CollectContext;
-import lombok.RequiredArgsConstructor;
+import com.study.collect.core.storage.cache.annotation.Cache;
+import com.study.collect.core.storage.cache.annotation.CacheLock;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+import java.util.concurrent.TimeUnit;
 
+@Slf4j
 @Collector(type = "finance")
 @Component
-@RequiredArgsConstructor
-public class FinanceCollector extends AbstractCollector<String, FinanceData> {
+public class FinanceCollector extends AbstractCollector<String, List<FinanceData>> {
 
-    private static final String CACHE_PREFIX = "finance:stock:";
     private final RedisTemplate<String, Object> redisTemplate;
+    private final Random random = new Random();
+
+    public FinanceCollector(RedisTemplate<String, Object> redisTemplate) {
+        this.redisTemplate = redisTemplate;
+    }
 
     @Override
     protected void preProcess(CollectContext<String> context) {
-        // 检查缓存是否存在
-        String key = CACHE_PREFIX + context.getParams();
-        if (Boolean.TRUE.equals(redisTemplate.hasKey(key))) {
-            throw new CollectException("Data already collected: " + context.getParams());
+        // 分片参数验证
+        validateShardingParams(context);
+        // 准备采集环境
+        prepareCollectEnvironment(context);
+    }
+
+    @Override
+    @Cache(key = "finance:stock:#{context.params}", expire = 300)
+    @CacheLock(key = "lock:finance:#{context.params}", waitTime = 3)
+    protected List<FinanceData> doCollect(CollectContext<String> context) {
+        String stockCode = context.getParams();
+        Integer shardIndex = context.getShardIndex();
+        Integer shardTotal = context.getShardTotal();
+
+        // 获取待处理的时间范围
+        LocalDateTime[] timeRange = getTimeRange(context);
+        LocalDateTime startTime = timeRange[0];
+        LocalDateTime endTime = timeRange[1];
+
+        // 根据分片计算当前分片的时间范围
+        LocalDateTime shardStartTime = calculateShardTime(startTime, endTime, shardIndex, shardTotal);
+        LocalDateTime shardEndTime = calculateShardTime(startTime, endTime, shardIndex + 1, shardTotal);
+
+        // 生成该分片的数据
+        return generateFinanceData(stockCode, shardStartTime, shardEndTime);
+    }
+
+    @Override
+    protected void postProcess(List<FinanceData> data) {
+        // 数据校验和补充
+        data.forEach(this::enrichFinanceData);
+    }
+
+    private void validateShardingParams(CollectContext<String> context) {
+        if (context.getShardIndex() == null || context.getShardTotal() == null) {
+            throw new CollectException("分片参数不完整");
+        }
+        if (context.getShardIndex() >= context.getShardTotal()) {
+            throw new CollectException("分片索引超出范围");
         }
     }
 
-    @Override
-    protected FinanceData doCollect(CollectContext<String> context) {
-        //        // 模拟从外部API获取数据
-        FinanceData data = collectFromExternalApi(context.getParams());
-
-        // 缓存数据
-        String key = CACHE_PREFIX + context.getParams();
-        redisTemplate.opsForValue().set(key, data);
-
-        return data;
+    private void prepareCollectEnvironment(CollectContext<String> context) {
+        // 准备采集环境,如设置超时时间等
+        String cacheKey = "finance:collect:" + context.getParams();
+        redisTemplate.opsForValue().set(cacheKey, true, 5, TimeUnit.MINUTES);
     }
 
-    @Override
-    protected void postProcess(FinanceData data) {
-        // 计算衍生指标
-        calculateIndicators(data);
+    private LocalDateTime[] getTimeRange(CollectContext<String> context) {
+        // 从上下文中获取时间范围,如果没有则使用默认范围
+        LocalDateTime endTime = LocalDateTime.now();
+        LocalDateTime startTime = endTime.minusHours(24);
+        return new LocalDateTime[]{startTime, endTime};
     }
 
-    private FinanceData collectFromExternalApi(String stockCode) {
-        // 模拟外部API调用
-        FinanceData data = new FinanceData();
-        data.setStockCode(stockCode);
-        data.setTradeTime(LocalDateTime.now());
-        return data;
+    private LocalDateTime calculateShardTime(LocalDateTime startTime, LocalDateTime endTime,
+                                             int shardIndex, int shardTotal) {
+        long totalSeconds = java.time.Duration.between(startTime, endTime).getSeconds();
+        long shardSeconds = totalSeconds / shardTotal;
+        return startTime.plusSeconds(shardSeconds * shardIndex);
     }
 
-    private void calculateIndicators(FinanceData data) {
-        // 计算交易金额
-        if (data.getPrice() != null && data.getVolume() != null) {
+    private List<FinanceData> generateFinanceData(String stockCode,
+                                                  LocalDateTime startTime,
+                                                  LocalDateTime endTime) {
+        List<FinanceData> dataList = new ArrayList<>();
+        LocalDateTime currentTime = startTime;
+
+        while (currentTime.isBefore(endTime)) {
+            FinanceData data = new FinanceData();
+            data.setStockCode(stockCode);
+            data.setTradeTime(currentTime);
+
+            // 生成模拟交易数据
+            data.setPrice(generateRandomPrice());
+            data.setVolume(generateRandomVolume());
             data.setAmount(data.getPrice().multiply(data.getVolume()));
+
+            dataList.add(data);
+            currentTime = currentTime.plusMinutes(1);
         }
+
+        return dataList;
     }
 
-    @Override
-    public FinanceData collect(String param) {
-        return null;
+    private BigDecimal generateRandomPrice() {
+        double basePrice = 100.0;
+        double variation = (random.nextDouble() - 0.5) * 2.0; // -1.0 到 1.0 之间的随机变化
+        return BigDecimal.valueOf(basePrice * (1 + variation))
+                .setScale(2, RoundingMode.HALF_UP);
     }
 
-    @Override
-    public String getType() {
-        return "finance";
+    private BigDecimal generateRandomVolume() {
+        double baseVolume = 10000.0;
+        double variation = random.nextDouble() * 0.5; // 0 到 0.5 之间的随机变化
+        return BigDecimal.valueOf(baseVolume * (1 + variation))
+                .setScale(0, RoundingMode.HALF_UP);
+    }
+
+    private void enrichFinanceData(FinanceData data) {
+        // 补充股票名称
+        data.setStockName(getStockName(data.getStockCode()));
+        // 设置创建时间
+        data.setCreateTime(LocalDateTime.now());
+    }
+
+    private String getStockName(String stockCode) {
+        // 模拟从缓存或其他服务获取股票名称
+        return "Stock_" + stockCode;
     }
 }
 ```
@@ -1553,27 +1719,128 @@ public class FinanceAutoConfiguration {
 
 ```
 
+## FinanceConfiguration.java
+
+```java
+package com.study.collect.business.finance.config;
+
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.index.Index;
+import org.springframework.data.mongodb.core.index.IndexOperations;
+
+import java.util.concurrent.TimeUnit;
+
+@Configuration
+@EnableConfigurationProperties(FinanceProperties.class)
+public class FinanceConfiguration {
+
+    @Bean
+    public void ensureIndexes(MongoTemplate mongoTemplate) {
+        IndexOperations indexOps = mongoTemplate.indexOps("finance_data");
+
+        // 创建复合索引
+        indexOps.ensureIndex(new Index()
+                .on("stockCode", org.springframework.data.domain.Sort.Direction.ASC)
+                .on("tradeTime", org.springframework.data.domain.Sort.Direction.DESC));
+
+        // 创建TTL索引
+        indexOps.ensureIndex(new Index()
+                .on("createTime", org.springframework.data.domain.Sort.Direction.ASC)
+                .expire(7, TimeUnit.DAYS));
+    }
+}
+
+```
+
+## FinanceProperties.java
+
+```java
+package com.study.collect.business.finance.config;
+
+import lombok.Data;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+
+@Data
+@ConfigurationProperties(prefix = "finance")
+public class FinanceProperties {
+
+    private Collector collector = new Collector();
+    private Cache cache = new Cache();
+
+    @Data
+    public static class Collector {
+        private int batchSize = 1000;
+        private int threadPoolSize = 5;
+        private long timeoutSeconds = 300;
+    }
+
+    @Data
+    public static class Cache {
+        private long expireSeconds = 300;
+        private String prefix = "finance:";
+    }
+}
+```
+
 ## FinanceController.java
 
 ```java
-package com.study.collect.business.finance.controller;
+// FinanceDataController.java
+package com.study.collect.business.finance.api.controller;
 
+import com.study.collect.business.finance.api.model.request.FinanceDataGenerateRequest;
+import com.study.collect.business.finance.api.model.request.FinanceDataQueryRequest;
+import com.study.collect.business.finance.api.model.response.FinanceDataVO;
+import com.study.collect.business.finance.service.FinanceCollectService;
+import com.study.collect.business.finance.service.FinanceDataService;
+import com.study.collect.common.model.Response;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.data.domain.Page;
+import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/finance")
 @RequiredArgsConstructor
-public class FinanceController {
+public class FinanceDataController {
 
-//    private final EnterpriseService enterpriseService;
-//
-//    @GetMapping("/collect/{code}")
-//    public Response<Enterprise> collect(@PathVariable String code) {
-//        Enterprise enterprise = enterpriseService.collectAndProcess(code);
-//        return Response.success(enterprise);
-//    }
+    private final FinanceCollectService collectService;
+    private final FinanceDataService dataService;
+
+    @PostMapping("/generate")
+    public Response<String> generateData(@Valid @RequestBody FinanceDataGenerateRequest request) {
+        String taskId = collectService.generateFinanceData(request);
+        return Response.success(taskId);
+    }
+
+    @GetMapping("/query")
+    public Response<Page<FinanceDataVO>> queryData(FinanceDataQueryRequest request) {
+        Page<FinanceDataVO> result = dataService.queryFinanceData(request);
+        return Response.success(result);
+    }
+
+    @GetMapping("/stats/{stockCode}")
+    public Response<FinanceDataVO> getStockStats(
+            @PathVariable String stockCode,
+            @RequestParam(required = false) String statsType) {
+        FinanceDataVO stats = dataService.getStockStats(stockCode, statsType);
+        return Response.success(stats);
+    }
+
+    @GetMapping("/realtime/{stockCode}")
+    public Response<FinanceDataVO> getRealtimeData(@PathVariable String stockCode) {
+        FinanceDataVO data = dataService.getRealtimeData(stockCode);
+        return Response.success(data);
+    }
+
+    @PostMapping("/sync/{stockCode}")
+    public Response<Boolean> syncStockData(@PathVariable String stockCode) {
+        collectService.syncStockData(stockCode);
+        return Response.success(true);
+    }
 }
 ```
 
@@ -1606,6 +1873,129 @@ public class FinanceData {
     private LocalDateTime createTime;
 }
 
+```
+
+## FinanceStockInfo.java
+
+```java
+package com.study.collect.business.finance.model;
+
+import lombok.Data;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+import java.time.LocalDateTime;
+
+@Data
+@Document(collection = "finance_stock_info")
+public class FinanceStockInfo {
+    @Id
+    private String id;
+    private String stockCode;      // 股票代码
+    private String stockName;      // 股票名称
+    private String industry;       // 所属行业
+    private String market;         // 所属市场(主板/创业板等)
+    private Boolean enabled;       // 是否启用
+    private LocalDateTime listDate;// 上市日期
+    private LocalDateTime createTime;
+    private LocalDateTime updateTime;
+}
+```
+
+## FinanceDataGenerateRequest.java
+
+```java
+// FinanceDataGenerateRequest.java
+package com.study.collect.business.finance.api.model.request;
+
+import lombok.Data;
+import java.time.LocalDateTime;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
+
+@Data
+public class FinanceDataGenerateRequest {
+    @NotNull(message = "股票代码不能为空")
+    private String stockCode;
+
+    @NotNull(message = "数据量不能为空")
+    @Min(value = 1, message = "数据量必须大于0")
+    private Integer dataCount;
+
+    private LocalDateTime startTime;
+    private LocalDateTime endTime;
+
+    // 可选的数据生成参数
+    private Double minPrice;
+    private Double maxPrice;
+    private Double minVolume;
+    private Double maxVolume;
+}
+```
+
+## FinanceDataQueryRequest.java
+
+```java
+// FinanceDataQueryRequest.java
+package com.study.collect.business.finance.api.model.request;
+
+import lombok.Data;
+import java.time.LocalDateTime;
+import org.springframework.format.annotation.DateTimeFormat;
+
+@Data
+public class FinanceDataQueryRequest {
+    private String stockCode;
+
+    @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime startTime;
+
+    @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime endTime;
+
+    private Integer pageNum = 1;
+    private Integer pageSize = 10;
+
+    // 排序参数
+    private String sortField;
+    private String sortOrder;
+
+    // 聚合查询参数
+    private Boolean needStats = false;
+    private String statsType; // min,max,avg,sum
+}
+```
+
+## FinanceDataVO.java
+
+```java
+// FinanceDataVO.java
+package com.study.collect.business.finance.api.model.response;
+
+import lombok.Data;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+@Data
+public class FinanceDataVO {
+    private String id;
+    private String stockCode;
+    private String stockName;
+    private BigDecimal price;
+    private BigDecimal volume;
+    private BigDecimal amount;
+    private LocalDateTime tradeTime;
+
+    // 统计相关字段
+    private BigDecimal highPrice;
+    private BigDecimal lowPrice;
+    private BigDecimal avgPrice;
+    private BigDecimal totalVolume;
+    private BigDecimal totalAmount;
+
+    // 涨跌幅等计算字段
+    private BigDecimal priceChange;
+    private BigDecimal priceChangePercent;
+}
 ```
 
 ## FinanceProcessor.java
@@ -1688,90 +2078,306 @@ public class FinanceProcessor extends AbstractProcessor<FinanceData> {
 ## FinanceRepository.java
 
 ```java
+// FinanceRepository.java
 package com.study.collect.business.finance.repository;
-
 
 import com.study.collect.business.finance.model.FinanceData;
 import com.study.collect.core.storage.repository.IRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.data.mongodb.repository.Query;
 
-import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 
-public interface FinanceRepository extends IRepository<FinanceData, String> {
+public interface FinanceRepository extends IRepository<FinanceData, String>, MongoRepository<FinanceData, String> {
 
-    // 方式一：方法名约定
+    // 基础查询方法
     List<FinanceData> findByStockCode(String stockCode);
 
-    // 方式二：使用@Query注解
-    @Query("{'tradeDate': {$gte: ?0, $lte: ?1}}")
-    List<FinanceData> findByTradeDateBetween(String startDate, String endDate);
+    @Query("{'stockCode': ?0, 'tradeTime': {'$gte': ?1, '$lte': ?2}}")
+    Page<FinanceData> findByConditions(String stockCode, LocalDateTime startTime, LocalDateTime endTime, Pageable pageable);
 
-    // 添加特定业务方法
-    @Query(value = "{'amount': {$gt: ?0}}", sort = "{'tradeDate': -1}")
-    List<FinanceData> findLargeTransactions(BigDecimal threshold);
+    // 获取最新数据
+    @Query(value = "{'stockCode': ?0}", sort = "{'tradeTime': -1}")
+    FinanceData findLatestByStockCode(String stockCode);
+
+    // 获取指定时间之前的最新数据
+    @Query(value = "{'stockCode': ?0, 'tradeTime': {'$lt': ?1}}", sort = "{'tradeTime': -1}")
+    FinanceData findPreviousByStockCode(String stockCode, LocalDateTime tradeTime);
+
+    // 批量操作方法
+    @Query(value = "{'stockCode': ?0, 'tradeTime': {'$gte': ?1, '$lte': ?2}}",
+            sort = "{'tradeTime': 1}")
+    List<FinanceData> findByStockCodeAndTimeBetween(String stockCode, LocalDateTime startTime, LocalDateTime endTime);
+
+    // 统计查询
+    @Query(value = "{'stockCode': ?0}",
+            count = true)
+    long countByStockCode(String stockCode);
+
+    // 自定义更新操作
+    @Query(value = "{'stockCode': ?0}",
+            fields = "{'price': 1, 'volume': 1, 'amount': 1}")
+    List<FinanceData> findStatsDataByStockCode(String stockCode);
 }
+```
+
+## FinanceDataService.java
+
+```java
+// FinanceDataService.java
+package com.study.collect.business.finance.service;
+
+import com.study.collect.business.finance.api.model.request.FinanceDataQueryRequest;
+import com.study.collect.business.finance.api.model.response.FinanceDataVO;
+import com.study.collect.business.finance.model.FinanceData;
+import com.study.collect.business.finance.repository.FinanceRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Service;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+public class FinanceDataService {
+
+    private final FinanceRepository repository;
+
+    public Page<FinanceDataVO> queryFinanceData(FinanceDataQueryRequest request) {
+        // 构建分页和排序参数
+        Sort sort = buildSort(request);
+        PageRequest pageRequest = PageRequest.of(
+                request.getPageNum() - 1,
+                request.getPageSize(),
+                sort
+        );
+
+        // 执行查询
+        Page<FinanceData> dataPage = repository.findByConditions(
+                request.getStockCode(),
+                request.getStartTime(),
+                request.getEndTime(),
+                pageRequest
+        );
+
+        // 转换为VO
+        return dataPage.map(this::convertToVO);
+    }
+
+    public FinanceDataVO getStockStats(String stockCode, String statsType) {
+        FinanceDataVO stats = new FinanceDataVO();
+        stats.setStockCode(stockCode);
+
+        List<FinanceData> dataList = repository.findByStockCode(stockCode);
+        if (dataList.isEmpty()) {
+            return stats;
+        }
+
+        // 计算统计数据
+        switch (statsType) {
+            case "price" -> calculatePriceStats(dataList, stats);
+            case "volume" -> calculateVolumeStats(dataList, stats);
+            case "amount" -> calculateAmountStats(dataList, stats);
+            default -> calculateAllStats(dataList, stats);
+        }
+
+        return stats;
+    }
+
+    public FinanceDataVO getRealtimeData(String stockCode) {
+        FinanceData latestData = repository.findLatestByStockCode(stockCode);
+        if (latestData == null) {
+            return new FinanceDataVO();
+        }
+
+        FinanceDataVO vo = convertToVO(latestData);
+
+        // 计算涨跌幅
+        FinanceData previousData = repository.findPreviousByStockCode(stockCode, latestData.getTradeTime());
+        if (previousData != null) {
+            calculatePriceChange(vo, latestData, previousData);
+        }
+
+        return vo;
+    }
+
+    private Sort buildSort(FinanceDataQueryRequest request) {
+        if (request.getSortField() != null && request.getSortOrder() != null) {
+            Sort.Direction direction = "desc".equalsIgnoreCase(request.getSortOrder()) ?
+                    Sort.Direction.DESC : Sort.Direction.ASC;
+            return Sort.by(direction, request.getSortField());
+        }
+        return Sort.by(Sort.Direction.DESC, "tradeTime");
+    }
+
+    private FinanceDataVO convertToVO(FinanceData data) {
+        FinanceDataVO vo = new FinanceDataVO();
+        vo.setId(data.getId());
+        vo.setStockCode(data.getStockCode());
+        vo.setStockName(data.getStockName());
+        vo.setPrice(data.getPrice());
+        vo.setVolume(data.getVolume());
+        vo.setAmount(data.getAmount());
+        vo.setTradeTime(data.getTradeTime());
+        return vo;
+    }
+
+    private void calculatePriceChange(FinanceDataVO vo, FinanceData current, FinanceData previous) {
+        BigDecimal priceChange = current.getPrice().subtract(previous.getPrice());
+        vo.setPriceChange(priceChange);
+
+        BigDecimal changePercent = priceChange
+                .multiply(BigDecimal.valueOf(100))
+                .divide(previous.getPrice(), 2, RoundingMode.HALF_UP);
+        vo.setPriceChangePercent(changePercent);
+    }
+
+    private void calculatePriceStats(List<FinanceData> dataList, FinanceDataVO stats) {
+        stats.setHighPrice(findMaxPrice(dataList));
+        stats.setLowPrice(findMinPrice(dataList));
+        stats.setAvgPrice(calculateAveragePrice(dataList));
+    }
+
+    private void calculateVolumeStats(List<FinanceData> dataList, FinanceDataVO stats) {
+        stats.setTotalVolume(calculateTotalVolume(dataList));
+    }
+
+    private void calculateAmountStats(List<FinanceData> dataList, FinanceDataVO stats) {
+        stats.setTotalAmount(calculateTotalAmount(dataList));
+    }
+
+    private void calculateAllStats(List<FinanceData> dataList, FinanceDataVO stats) {
+        calculatePriceStats(dataList, stats);
+        calculateVolumeStats(dataList, stats);
+        calculateAmountStats(dataList, stats);
+    }
+
+    // 辅助计算方法
+    private BigDecimal findMaxPrice(List<FinanceData> dataList) {
+        return dataList.stream()
+                .map(FinanceData::getPrice)
+                .max(BigDecimal::compareTo)
+                .orElse(BigDecimal.ZERO);
+    }
+
+    private BigDecimal findMinPrice(List<FinanceData> dataList) {
+        return dataList.stream()
+                .map(FinanceData::getPrice)
+                .min(BigDecimal::compareTo)
+                .orElse(BigDecimal.ZERO);
+    }
+
+//    private BigDecimal calculateAveragePrice(List<FinanceData> dataList) {
+//        return dataList.stream()
+//                .map(FinanceData::getPrice)
+//                .reduce(BigDecimal.ZERO, BigDecimal::add)
+//                .divide(BigDecimal.valueOf
+
+                        // FinanceDataService.java (续)
+        private BigDecimal calculateAveragePrice(List<FinanceData> dataList) {
+            return dataList.stream()
+                    .map(FinanceData::getPrice)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add)
+                    .divide(BigDecimal.valueOf(dataList.size()), 2, RoundingMode.HALF_UP);
+        }
+
+        private BigDecimal calculateTotalVolume(List<FinanceData> dataList) {
+            return dataList.stream()
+                    .map(FinanceData::getVolume)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+        }
+
+        private BigDecimal calculateTotalAmount(List<FinanceData> dataList) {
+            return dataList.stream()
+                    .map(FinanceData::getAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+        }
+    }
 ```
 
 ## FinanceService.java
 
 ```java
+// FinanceCollectService.java
 package com.study.collect.business.finance.service;
 
+import com.study.collect.business.finance.api.model.request.FinanceDataGenerateRequest;
 import com.study.collect.business.finance.collector.FinanceCollector;
 import com.study.collect.business.finance.model.FinanceData;
-import com.study.collect.business.finance.processor.FinanceProcessor;
 import com.study.collect.business.finance.repository.FinanceRepository;
-import com.study.collect.core.processor.model.ProcessContext;
+import com.study.collect.core.collector.model.CollectContext;
+import com.study.collect.core.task.model.TaskContext;
+import com.study.collect.core.task.model.TaskResult;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
-public class FinanceService {
+public class FinanceCollectService {
 
     private final FinanceCollector collector;
-    private final FinanceProcessor processor;
+    private final FinanceRepository repository;
 
-    private final FinanceRepository financeRepository;
+    public String generateFinanceData(FinanceDataGenerateRequest request) {
+        String taskId = UUID.randomUUID().toString();
 
-    public FinanceData collectStockData(String stockCode) {
-        // 1. 采集数据
-        FinanceData data = collector.collect(stockCode);
+        // 创建采集上下文
+        CollectContext<String> context = new CollectContext<>();
+        context.setTaskId(taskId);
+        context.setParams(request.getStockCode());
 
-        // 2. 处理数据
-        data = processor.process(data, new ProcessContext());
+        // 执行采集
+        List<FinanceData> dataList = collector.collect(context);
 
-        // 3. 保存数据
-        return financeRepository.save(data);
+        // 保存数据
+        repository.saveAll(dataList);
+
+        return taskId;
     }
 
+    public void syncStockData(String stockCode) {
+        // 设置分片采集上下文
+        CollectContext<String> context = new CollectContext<>();
+        context.setTaskId(UUID.randomUUID().toString());
+        context.setParams(stockCode);
+        context.setShardIndex(0);
+        context.setShardTotal(1);
 
-    // 使用基础功能
-    public FinanceData save(FinanceData data) {
-        return financeRepository.save(data);
+        // 执行采集和保存
+        List<FinanceData> dataList = collector.collect(context);
+        repository.saveAll(dataList);
     }
 
-    // 使用通用方法
-    public FinanceData getByCode(String code) {
-        return financeRepository.findByCode(code);
-    }
+    public TaskResult executeTask(TaskContext context) {
+        try {
+            // 将任务上下文转换为采集上下文
+            CollectContext<String> collectContext = new CollectContext<>();
+            collectContext.setTaskId(context.getTaskId());
+            collectContext.setParams((String) context.getParameter("stockCode"));
+            collectContext.setShardIndex(context.getShardIndex());
+            collectContext.setShardTotal(context.getShardTotal());
 
-    // 使用业务方法
-    public List<FinanceData> getByStockCode(String stockCode) {
-        return financeRepository.findByStockCode(stockCode);
-    }
+            // 执行采集
+            List<FinanceData> dataList = collector.collect(collectContext);
+            repository.saveAll(dataList);
 
-    // 软删除
-    public void removeData(String id) {
-        financeRepository.softDelete(id);
-    }
-
-    // 状态更新
-    public void changeStatus(String id, String status) {
-        financeRepository.updateStatus(id, status);
+            return TaskResult.success(context.getTaskId(), dataList.size());
+        } catch (Exception e) {
+            log.error("Task execution failed: {}", context.getTaskId(), e);
+            return TaskResult.failure(context.getTaskId(), e.getMessage());
+        }
     }
 }
 ```
@@ -2218,6 +2824,10 @@ com.study.collect.business.medical.config.MedicalAutoConfiguration
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-web</artifactId>
+        </dependency>
     </dependencies>
 </project>
 ```
@@ -2256,6 +2866,76 @@ public abstract class BaseException extends RuntimeException {
 }
 ```
 
+## GlobalExceptionHandler.java
+
+```java
+package com.study.collect.common.exception;
+
+import com.study.collect.common.model.Response;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.validation.BindException;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+// 2. 创建全局异常处理器
+@RestControllerAdvice
+@Slf4j
+public class GlobalExceptionHandler {
+
+    // 处理参数验证异常
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public Response<Void> handleValidationExceptions(MethodArgumentNotValidException ex) {
+//        List<String> errors = ex.getBindingResult()
+//                .getFieldErrors()
+//                .stream()
+//                .map(FieldError::getDefaultMessage)
+//                .collect(Collectors.toList());
+//
+//        return Response.error("400", String.join(", ", errors));
+//    }
+//
+//    @ExceptionHandler(MethodArgumentNotValidException.class)
+//    public Response<Void> handleValidationExceptions(MethodArgumentNotValidException ex) {
+        List<String> errors = ex.getBindingResult()
+                .getFieldErrors()
+                .stream()
+                .map(fieldError ->
+                        String.format("%s: %s",
+                                fieldError.getField(),
+                                fieldError.getDefaultMessage()))
+                .collect(Collectors.toList());
+
+        return Response.error("400", "参数验证失败", errors);
+    }
+
+    // 处理参数绑定异常
+    @ExceptionHandler(BindException.class)
+    public Response<Void> handleBindException(BindException ex) {
+        List<String> errors = ex.getBindingResult()
+                .getFieldErrors()
+                .stream()
+                .map(FieldError::getDefaultMessage)
+                .collect(Collectors.toList());
+
+        return Response.error("400", String.join(", ", errors));
+    }
+
+
+    // 处理其他异常
+    @ExceptionHandler(Exception.class)
+    public Response<Void> handleAllExceptions(Exception ex) {
+        log.error("系统异常", ex);
+        return Response.error("500", "系统异常");
+    }
+}
+
+```
+
 ## Response.java
 
 ```java
@@ -2263,11 +2943,15 @@ package com.study.collect.common.model;
 
 import lombok.Data;
 
+import java.util.List;
+
 @Data
 public class Response<T> {
     private String code;
     private String message;
     private T data;
+
+    private List<String> errors;  // 添加错误详情字段
 
     public static <T> Response<T> success(T data) {
         Response<T> response = new Response<>();
@@ -2281,6 +2965,14 @@ public class Response<T> {
         Response<T> response = new Response<>();
         response.setCode(code);
         response.setMessage(message);
+        return response;
+    }
+
+    public static <T> Response<T> error(String code, String message, List<String> errors) {
+        Response<T> response = new Response<>();
+        response.setCode(code);
+        response.setMessage(message);
+        response.setErrors(errors);
         return response;
     }
 }
@@ -2971,6 +3663,34 @@ public class CollectAutoConfiguration {
 package com.study.collect.core.config;
 ```
 
+## RabbitMQErrorHandler.java
+
+```java
+package com.study.collect.core.mq;
+
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.support.ListenerExecutionFailedException;
+import org.springframework.stereotype.Component;
+
+@Component
+@Slf4j
+public class RabbitMQErrorHandler implements ErrorHandler {
+
+    @Override
+    public void handleError(Throwable t) {
+        log.error("RabbitMQ message processing error", t);
+
+        if (t instanceof MessageConversionException) {
+            // 消息转换错误处理
+            log.error("Message conversion failed", t);
+        } else if (t instanceof ListenerExecutionFailedException) {
+            // 监听器执行错误处理
+            log.error("Listener execution failed", t);
+        }
+    }
+}
+```
+
 ## MQProperties.java
 
 ```java
@@ -3069,6 +3789,7 @@ public class MQProperties {
 package com.study.collect.core.mq.config;
 
 import org.springframework.amqp.core.*;
+import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
@@ -3108,8 +3829,23 @@ public class RabbitConfig {
     @Bean
     public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory) {
         RabbitTemplate template = new RabbitTemplate(connectionFactory);
-        template.setMessageConverter(new Jackson2JsonMessageConverter());
+        // 配置消息转换器
+        Jackson2JsonMessageConverter messageConverter = new Jackson2JsonMessageConverter();
+        template.setMessageConverter(messageConverter);
         return template;
+    }
+
+    @Bean
+    public SimpleRabbitListenerContainerFactory rabbitListenerContainerFactory(
+            ConnectionFactory connectionFactory) {
+        SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
+        factory.setConnectionFactory(connectionFactory);
+
+        // 为消费者配置相同的消息转换器
+        Jackson2JsonMessageConverter messageConverter = new Jackson2JsonMessageConverter();
+        factory.setMessageConverter(messageConverter);
+
+        return factory;
     }
 }
 ```
@@ -3130,6 +3866,7 @@ import com.study.collect.core.task.service.TaskExecuteService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -3151,17 +3888,31 @@ public class TaskConsumer {
         this.handlerManager = handlerManager;
     }
 
-    @RabbitListener(queues = "${collect.mq.rabbit.task.queue}")
-    public void onTaskMessage(TaskMessage message) {
+    @RabbitListener(
+            queues = "${collect.mq.rabbit.task.queue}",
+            containerFactory = "rabbitListenerContainerFactory"
+    )
+    public void onTaskMessage(@Payload TaskMessage message) {
         String instanceId = message.getInstanceId();
-        log.info("Received task message: instanceId={}, taskCode={}, shard={}/{}",
-                instanceId,
-                message.getTaskId(),
-                message.getShardIndex() + 1,
-                message.getShardTotal()
-        );
-
         try {
+            log.info("Received task message: instanceId={}, taskCode={}, shard={}/{}",
+                    message.getInstanceId(),
+                    message.getTaskId(),
+                    message.getShardIndex() + 1,
+                    message.getShardTotal()
+            );
+
+//    @RabbitListener(queues = "${collect.mq.rabbit.task.queue}")
+//    public void onTaskMessage(TaskMessage message) {
+
+//        log.info("Received task message: instanceId={}, taskCode={}, shard={}/{}",
+//                instanceId,
+//                message.getTaskId(),
+//                message.getShardIndex() + 1,
+//                message.getShardTotal()
+//        );
+//
+//        try {
             // 执行任务
             Object result = executeTask(message);
 
@@ -3199,9 +3950,15 @@ public class TaskConsumer {
         // 执行任务
         TaskResult result = handler.execute(context);
 
-        if (!result.getSuccess()) {
+        if (result.getSuccess()) {
+            // 发送成功结果
+            sendSuccessResult(message, result.getData());
+        } else {
+            // 发送失败结果
+            sendFailureResult(message, result.getErrorMessage());
             throw new RuntimeException(result.getErrorMessage());
         }
+
 
         return result.getData();
     }
@@ -3319,11 +4076,13 @@ public abstract class BaseMessage implements Serializable {
 ```java
 package com.study.collect.core.mq.message;
 
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
 @Data
 @EqualsAndHashCode(callSuper = true)
+@JsonTypeInfo(use = JsonTypeInfo.Id.CLASS)
 public class TaskMessage extends BaseMessage {
     private String taskId;           // 任务编码
     private String instanceId;       // 实例ID
@@ -3376,6 +4135,8 @@ import com.study.collect.core.mq.config.MQProperties;
 import com.study.collect.core.mq.message.TaskMessage;
 import com.study.collect.core.mq.message.TaskResultMessage;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.core.Message;
+import org.springframework.amqp.core.MessageProperties;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -3393,14 +4154,44 @@ public class TaskProducer {
         this.mqProperties = mqProperties;
     }
 
+//    public void sendTask(TaskMessage message) {
+//        try {
+//            MQProperties.RabbitMQ.Queue taskQueue = mqProperties.getRabbit().getTask();
+//            rabbitTemplate.convertAndSend(
+//                    taskQueue.getExchange(),
+//                    taskQueue.getRoutingKey(),
+//                    message
+//            );
+//            log.info("Task message sent: instanceId={}, taskCode={}, shard={}/{}",
+//                    message.getInstanceId(),
+//                    message.getTaskId(),
+//                    message.getShardIndex() + 1,
+//                    message.getShardTotal()
+//            );
+//        } catch (Exception e) {
+//            log.error("Failed to send task message: " + message.getInstanceId(), e);
+//            throw new RuntimeException("Message sending failed", e);
+//        }
+//    }
+
     public void sendTask(TaskMessage message) {
         try {
             MQProperties.RabbitMQ.Queue taskQueue = mqProperties.getRabbit().getTask();
-            rabbitTemplate.convertAndSend(
+
+            // 设置消息属性
+            MessageProperties props = new MessageProperties();
+            props.setContentType(MessageProperties.CONTENT_TYPE_JSON);
+            props.getHeaders().put("__TypeId__", TaskMessage.class.getName());
+
+            Message amqpMessage = rabbitTemplate.getMessageConverter()
+                    .toMessage(message, props);
+
+            rabbitTemplate.send(
                     taskQueue.getExchange(),
                     taskQueue.getRoutingKey(),
-                    message
+                    amqpMessage
             );
+
             log.info("Task message sent: instanceId={}, taskCode={}, shard={}/{}",
                     message.getInstanceId(),
                     message.getTaskId(),
@@ -3412,6 +4203,7 @@ public class TaskProducer {
             throw new RuntimeException("Message sending failed", e);
         }
     }
+
 
     public void sendResult(TaskResultMessage message) {
         try {
@@ -5154,6 +5946,12 @@ public class MyBatisConfig {
         SqlSessionFactoryBean sessionFactory = new SqlSessionFactoryBean();
         sessionFactory.setDataSource(dataSource);
 
+        // 配置驼峰命名转换
+        org.apache.ibatis.session.Configuration configuration =
+                new org.apache.ibatis.session.Configuration();
+        configuration.setMapUnderscoreToCamelCase(true);
+        sessionFactory.setConfiguration(configuration);
+
         // 设置XML映射文件路径
         PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
         sessionFactory.setMapperLocations(resolver.getResources("classpath*:mapper/*.xml"));
@@ -5163,6 +5961,7 @@ public class MyBatisConfig {
 
         return sessionFactory.getObject();
     }
+
 }
 
 ```
@@ -5568,6 +6367,7 @@ public interface TaskHandler {
 package com.study.collect.core.task.handler;
 
 import jakarta.annotation.PostConstruct;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 //import javax.annotation.PostConstruct;
@@ -5575,10 +6375,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @Component
 public class TaskHandlerManager {
 
-    private final Map<String, TaskHandler> handlerMap = new HashMap<>();
+//    private final Map<String, TaskHandler> handlerMap = new HashMap<>();
 
     @Autowired
     private List<TaskHandler> handlers;
@@ -5586,6 +6387,24 @@ public class TaskHandlerManager {
     @PostConstruct
     public void init() {
         handlers.forEach(handler -> handlerMap.put(handler.getType(), handler));
+    }
+
+//    public TaskHandler getHandler(String type) {
+//        TaskHandler handler = handlerMap.get(type);
+//        if (handler == null) {
+//            throw new IllegalArgumentException("未找到任务处理器: " + type);
+//        }
+//        return handler;
+//    }
+
+    private final Map<String, TaskHandler> handlerMap = new HashMap<>();
+
+    @Autowired
+    public TaskHandlerManager(List<TaskHandler> handlers) {
+        handlers.forEach(handler -> {
+            handlerMap.put(handler.getType(), handler);
+            log.info("注册任务处理器: {}", handler.getType());
+        });
     }
 
     public TaskHandler getHandler(String type) {
@@ -5596,6 +6415,7 @@ public class TaskHandlerManager {
         return handler;
     }
 }
+
 ```
 
 ## TaskConfigMapper.java
@@ -5606,22 +6426,25 @@ package com.study.collect.core.task.mapper;
 import com.study.collect.core.task.entity.TaskConfig;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+
 import java.util.List;
+
 
 @Mapper
 public interface TaskConfigMapper {
-
     void insert(TaskConfig config);
-
     void update(TaskConfig config);
-
-    TaskConfig selectById(@Param("id") Long id);
-
-    TaskConfig selectByCode(@Param("taskCode") String taskCode);
-
+    TaskConfig selectById(Long id);
+    TaskConfig selectByCode(String taskCode);
     List<TaskConfig> selectEnabled();
-
     void updateStatus(@Param("taskCode") String taskCode, @Param("status") Integer status);
+    void deleteByCode(String taskCode);
+    List<TaskConfig> selectPage(@Param("taskName") String taskName,
+                                @Param("status") Integer status,
+                                @Param("offset") int offset,
+                                @Param("limit") int limit);
+    long countTotal(@Param("taskName") String taskName,
+                    @Param("status") Integer status);
 }
 ```
 
@@ -5638,25 +6461,23 @@ import java.util.List;
 
 @Mapper
 public interface TaskInstanceMapper {
-
     void insert(TaskInstance instance);
-
     void updateStatus(@Param("instanceId") String instanceId,
                       @Param("status") Integer status,
                       @Param("errorMsg") String errorMsg);
-
     void updateEndTime(@Param("instanceId") String instanceId,
                        @Param("endTime") LocalDateTime endTime);
-
-    TaskInstance selectById(@Param("id") Long id);
-
-    TaskInstance selectByInstanceId(@Param("instanceId") String instanceId);
-
+    TaskInstance selectById(Long id);
+    TaskInstance selectByInstanceId(String instanceId);
     List<TaskInstance> selectRunning();
-
     List<TaskInstance> selectByTaskCode(@Param("taskCode") String taskCode,
                                         @Param("startTime") LocalDateTime startTime,
                                         @Param("endTime") LocalDateTime endTime);
+    List<TaskInstance> selectTimeout(@Param("timeoutMinutes") int timeoutMinutes);
+    List<TaskInstance> selectByHostName(String hostName);
+    int countByStatus(@Param("taskCode") String taskCode,
+                      @Param("status") Integer status);
+    int cleanHistoryData(@Param("daysBefore") int daysBefore);
 }
 ```
 
@@ -5672,16 +6493,17 @@ import java.util.List;
 
 @Mapper
 public interface TaskLogMapper {
-
     void insert(TaskLog log);
-
     void batchInsert(@Param("logs") List<TaskLog> logs);
-
-    List<TaskLog> selectByInstanceId(@Param("instanceId") String instanceId);
-
+    List<TaskLog> selectByInstanceId(String instanceId);
     List<TaskLog> selectByTaskCode(@Param("taskCode") String taskCode,
                                    @Param("logType") Integer logType,
                                    @Param("limit") Integer limit);
+    List<TaskLog> selectLatestErrors(@Param("limit") int limit);
+    int countLogs(@Param("taskCode") String taskCode,
+                  @Param("logType") Integer logType);
+    int cleanHistoryLogs(@Param("daysBefore") int daysBefore);
+    void deleteByInstanceId(String instanceId);
 }
 ```
 
@@ -6612,43 +7434,148 @@ public class InstanceIdGenerator {
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.study.collect.core.task.mapper.TaskConfigMapper">
 
+    <!-- 结果映射 -->
+    <resultMap id="taskConfigMap" type="com.study.collect.core.task.entity.TaskConfig">
+        <id column="id" property="id"/>
+        <result column="task_code" property="taskCode"/>
+        <result column="task_name" property="taskName"/>
+        <result column="task_handler" property="taskHandler"/>
+        <result column="task_param" property="taskParam"/>
+        <result column="cron_expr" property="cronExpr"/>
+        <result column="shard_total" property="shardTotal"/>
+        <result column="retry_times" property="retryTimes"/>
+        <result column="retry_interval" property="retryInterval"/>
+        <result column="timeout" property="timeout"/>
+        <result column="status" property="status"/>
+        <result column="remark" property="remark"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <!-- 修改所有select的resultType为resultMap -->
+    <select id="selectById" resultMap="taskConfigMap">
+        SELECT *
+        FROM task_config
+        WHERE id = #{id}
+    </select>
+
+    <select id="selectByCode" resultMap="taskConfigMap">
+        SELECT *
+        FROM task_config
+        WHERE task_code = #{taskCode}
+    </select>
+
+    <select id="selectEnabled" resultMap="taskConfigMap">
+        SELECT *
+        FROM task_config
+        WHERE status = 1
+    </select>
+
+    <select id="selectPage" resultMap="taskConfigMap">
+        SELECT * FROM task_config
+        <where>
+            <if test="taskName != null and taskName != ''">
+                AND task_name LIKE CONCAT('%', #{taskName}, '%')
+            </if>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+        </where>
+        ORDER BY create_time DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <!-- 插入配置 -->
     <insert id="insert" parameterType="TaskConfig" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO task_config (
-            task_code, task_name, task_handler, task_param,
-            cron_expr, shard_total, retry_times, retry_interval,
-            timeout, status, remark
-        ) VALUES (
-                     #{taskCode}, #{taskName}, #{taskHandler}, #{taskParam},
-                     #{cronExpr}, #{shardTotal}, #{retryTimes}, #{retryInterval},
-                     #{timeout}, #{status}, #{remark}
-                 )
+        INSERT INTO task_config (task_code, task_name, task_handler, task_param,
+                                 cron_expr, shard_total, retry_times, retry_interval,
+                                 timeout, status, remark)
+        VALUES (#{taskCode}, #{taskName}, #{taskHandler}, #{taskParam},
+                #{cronExpr}, #{shardTotal}, #{retryTimes}, #{retryInterval},
+                #{timeout}, #{status}, #{remark})
     </insert>
 
+    <!-- 更新配置 -->
     <update id="update" parameterType="TaskConfig">
         UPDATE task_config
-        SET task_name = #{taskName},
-            task_handler = #{taskHandler},
-            task_param = #{taskParam},
-            cron_expr = #{cronExpr},
-            shard_total = #{shardTotal},
-            retry_times = #{retryTimes},
-            retry_interval = #{retryInterval},
-            timeout = #{timeout},
-            status = #{status},
-            remark = #{remark}
+        <set>
+            <if test="taskName != null">task_name = #{taskName},</if>
+            <if test="taskHandler != null">task_handler = #{taskHandler},</if>
+            <if test="taskParam != null">task_param = #{taskParam},</if>
+            <if test="cronExpr != null">cron_expr = #{cronExpr},</if>
+            <if test="shardTotal != null">shard_total = #{shardTotal},</if>
+            <if test="retryTimes != null">retry_times = #{retryTimes},</if>
+            <if test="retryInterval != null">retry_interval = #{retryInterval},</if>
+            <if test="timeout != null">timeout = #{timeout},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            update_time = CURRENT_TIMESTAMP
+        </set>
         WHERE task_code = #{taskCode}
     </update>
 
+    <!-- 根据ID查询 -->
     <select id="selectById" resultType="TaskConfig">
-        SELECT * FROM task_config WHERE id = #{id}
+        SELECT *
+        FROM task_config
+        WHERE id = #{id}
     </select>
 
+    <!-- 根据编码查询 -->
     <select id="selectByCode" resultType="TaskConfig">
-        SELECT * FROM task_config WHERE task_code = #{taskCode}
+        SELECT *
+        FROM task_config
+        WHERE task_code = #{taskCode}
     </select>
 
+    <!-- 查询所有启用的配置 -->
     <select id="selectEnabled" resultType="TaskConfig">
-        SELECT * FROM task_config WHERE status = 1
+        SELECT *
+        FROM task_config
+        WHERE status = 1
+    </select>
+
+    <!-- 更新状态 -->
+    <update id="updateStatus">
+        UPDATE task_config
+        SET status      = #{status},
+            update_time = CURRENT_TIMESTAMP
+        WHERE task_code = #{taskCode}
+    </update>
+
+    <!-- 删除配置 -->
+    <delete id="deleteByCode">
+        DELETE
+        FROM task_config
+        WHERE task_code = #{taskCode}
+    </delete>
+
+    <!-- 分页查询 -->
+    <select id="selectPage" resultType="TaskConfig">
+        SELECT * FROM task_config
+        <where>
+            <if test="taskName != null and taskName != ''">
+                AND task_name LIKE CONCAT('%', #{taskName}, '%')
+            </if>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+        </where>
+        ORDER BY create_time DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <!-- 统计总数 -->
+    <select id="countTotal" resultType="long">
+        SELECT COUNT(*) FROM task_config
+        <where>
+            <if test="taskName != null and taskName != ''">
+                AND task_name LIKE CONCAT('%', #{taskName}, '%')
+            </if>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+        </where>
     </select>
 </mapper>
 ```
@@ -6661,24 +7588,83 @@ public class InstanceIdGenerator {
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.study.collect.core.task.mapper.TaskInstanceMapper">
 
+    <!-- 结果映射 -->
+    <resultMap id="taskInstanceMap" type="com.study.collect.core.task.entity.TaskInstance">
+        <id column="id" property="id"/>
+        <result column="instance_id" property="instanceId"/>
+        <result column="task_code" property="taskCode"/>
+        <result column="shard_index" property="shardIndex"/>
+        <result column="shard_total" property="shardTotal"/>
+        <result column="shard_param" property="shardParam"/>
+        <result column="status" property="status"/>
+        <result column="error_msg" property="errorMsg"/>
+        <result column="host_name" property="hostName"/>
+        <result column="start_time" property="startTime"/>
+        <result column="end_time" property="endTime"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <!-- 修改所有select的resultType为resultMap -->
+    <select id="selectById" resultMap="taskInstanceMap">
+        SELECT * FROM task_instance WHERE id = #{id}
+    </select>
+
+    <select id="selectByInstanceId" resultMap="taskInstanceMap">
+        SELECT * FROM task_instance WHERE instance_id = #{instanceId}
+    </select>
+
+    <select id="selectRunning" resultMap="taskInstanceMap">
+        SELECT * FROM task_instance WHERE status = 1
+        ORDER BY start_time ASC
+    </select>
+
+    <select id="selectByTaskCode" resultMap="taskInstanceMap">
+        SELECT * FROM task_instance
+        WHERE task_code = #{taskCode}
+        <if test="startTime != null">
+            AND create_time >= #{startTime}
+        </if>
+        <if test="endTime != null">
+            AND create_time &lt;= #{endTime}
+        </if>
+        ORDER BY create_time DESC
+    </select>
+
+    <select id="selectTimeout" resultMap="taskInstanceMap">
+        SELECT * FROM task_instance
+        WHERE status = 1
+          AND start_time &lt; DATE_SUB(NOW(), INTERVAL #{timeoutMinutes} MINUTE)
+    </select>
+
+    <select id="selectByHostName" resultMap="taskInstanceMap">
+        SELECT * FROM task_instance
+        WHERE host_name = #{hostName}
+          AND status = 1
+    </select>
+    <!-- 插入实例 -->
     <insert id="insert" parameterType="TaskInstance" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO task_instance (
             instance_id, task_code, shard_index, shard_total,
-            shard_param, status, host_name, start_time
+            shard_param, status, host_name, start_time,
+            error_msg
         ) VALUES (
                      #{instanceId}, #{taskCode}, #{shardIndex}, #{shardTotal},
-                     #{shardParam}, #{status}, #{hostName}, #{startTime}
+                     #{shardParam}, #{status}, #{hostName}, #{startTime},
+                     #{errorMsg}
                  )
     </insert>
 
+    <!-- 更新状态 -->
     <update id="updateStatus">
         UPDATE task_instance
         SET status = #{status},
-            error_msg = #{errorMsg},
-            update_time = CURRENT_TIMESTAMP
+        <if test="errorMsg != null">error_msg = #{errorMsg},</if>
+        update_time = CURRENT_TIMESTAMP
         WHERE instance_id = #{instanceId}
     </update>
 
+    <!-- 更新结束时间 -->
     <update id="updateEndTime">
         UPDATE task_instance
         SET end_time = #{endTime},
@@ -6686,9 +7672,62 @@ public class InstanceIdGenerator {
         WHERE instance_id = #{instanceId}
     </update>
 
+    <!-- 根据ID查询 -->
+    <select id="selectById" resultType="TaskInstance">
+        SELECT * FROM task_instance WHERE id = #{id}
+    </select>
+
+    <!-- 根据实例ID查询 -->
+    <select id="selectByInstanceId" resultType="TaskInstance">
+        SELECT * FROM task_instance WHERE instance_id = #{instanceId}
+    </select>
+
+    <!-- 查询运行中的任务 -->
     <select id="selectRunning" resultType="TaskInstance">
         SELECT * FROM task_instance WHERE status = 1
+        ORDER BY start_time ASC
     </select>
+
+    <!-- 根据任务编码和时间范围查询 -->
+    <select id="selectByTaskCode" resultType="TaskInstance">
+        SELECT * FROM task_instance
+        WHERE task_code = #{taskCode}
+        <if test="startTime != null">
+            AND create_time >= #{startTime}
+        </if>
+        <if test="endTime != null">
+            AND create_time &lt;= #{endTime}
+        </if>
+        ORDER BY create_time DESC
+    </select>
+
+    <!-- 查询超时任务 -->
+    <select id="selectTimeout" resultType="TaskInstance">
+        SELECT * FROM task_instance
+        WHERE status = 1
+          AND start_time &lt; DATE_SUB(NOW(), INTERVAL #{timeoutMinutes} MINUTE)
+    </select>
+
+    <!-- 根据主机名查询任务 -->
+    <select id="selectByHostName" resultType="TaskInstance">
+        SELECT * FROM task_instance
+        WHERE host_name = #{hostName}
+          AND status = 1
+    </select>
+
+    <!-- 根据状态统计任务数 -->
+    <select id="countByStatus" resultType="int">
+        SELECT COUNT(*) FROM task_instance
+        WHERE task_code = #{taskCode}
+          AND status = #{status}
+    </select>
+
+    <!-- 清理历史数据 -->
+    <delete id="cleanHistoryData">
+        DELETE FROM task_instance
+        WHERE create_time &lt; DATE_SUB(NOW(), INTERVAL #{daysBefore} DAY)
+          AND status IN (2, 3, 4, 5)
+    </delete>
 </mapper>
 ```
 
@@ -6700,6 +7739,42 @@ public class InstanceIdGenerator {
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.study.collect.core.task.mapper.TaskLogMapper">
 
+    <!-- 结果映射 -->
+    <resultMap id="taskLogMap" type="com.study.collect.core.task.entity.TaskLog">
+        <id column="id" property="id"/>
+        <result column="instance_id" property="instanceId"/>
+        <result column="task_code" property="taskCode"/>
+        <result column="log_type" property="logType"/>
+        <result column="log_content" property="logContent"/>
+        <result column="create_time" property="createTime"/>
+    </resultMap>
+
+    <!-- 修改所有select的resultType为resultMap -->
+    <select id="selectByInstanceId" resultMap="taskLogMap">
+        SELECT * FROM task_log
+        WHERE instance_id = #{instanceId}
+        ORDER BY create_time ASC
+    </select>
+
+    <select id="selectByTaskCode" resultMap="taskLogMap">
+        SELECT * FROM task_log
+        WHERE task_code = #{taskCode}
+        <if test="logType != null">
+            AND log_type = #{logType}
+        </if>
+        ORDER BY create_time DESC
+        <if test="limit != null">
+            LIMIT #{limit}
+        </if>
+    </select>
+
+    <select id="selectLatestErrors" resultMap="taskLogMap">
+        SELECT * FROM task_log
+        WHERE log_type = 5
+        ORDER BY create_time DESC
+        LIMIT #{limit}
+    </select>
+    <!-- 插入日志 -->
     <insert id="insert" parameterType="TaskLog">
         INSERT INTO task_log (
             instance_id, task_code, log_type, log_content
@@ -6708,6 +7783,7 @@ public class InstanceIdGenerator {
                  )
     </insert>
 
+    <!-- 批量插入 -->
     <insert id="batchInsert">
         INSERT INTO task_log (
         instance_id, task_code, log_type, log_content
@@ -6717,12 +7793,89 @@ public class InstanceIdGenerator {
         </foreach>
     </insert>
 
+    <!-- 根据实例ID查询 -->
     <select id="selectByInstanceId" resultType="TaskLog">
         SELECT * FROM task_log
         WHERE instance_id = #{instanceId}
         ORDER BY create_time ASC
     </select>
+
+    <!-- 根据任务编码和日志类型查询 -->
+    <select id="selectByTaskCode" resultType="TaskLog">
+        SELECT * FROM task_log
+        WHERE task_code = #{taskCode}
+        <if test="logType != null">
+            AND log_type = #{logType}
+        </if>
+        ORDER BY create_time DESC
+        <if test="limit != null">
+            LIMIT #{limit}
+        </if>
+    </select>
+
+    <!-- 查询最新的错误日志 -->
+    <select id="selectLatestErrors" resultType="TaskLog">
+        SELECT * FROM task_log
+        WHERE log_type = 5
+        ORDER BY create_time DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 统计日志数量 -->
+    <select id="countLogs" resultType="int">
+        SELECT COUNT(*) FROM task_log
+        WHERE task_code = #{taskCode}
+        <if test="logType != null">
+            AND log_type = #{logType}
+        </if>
+    </select>
+
+    <!-- 清理历史日志 -->
+    <delete id="cleanHistoryLogs">
+        DELETE FROM task_log
+        WHERE create_time &lt; DATE_SUB(NOW(), INTERVAL #{daysBefore} DAY)
+    </delete>
+
+    <!-- 根据实例ID删除日志 -->
+    <delete id="deleteByInstanceId">
+        DELETE FROM task_log WHERE instance_id = #{instanceId}
+    </delete>
 </mapper>
+```
+
+## 架构逻辑.md
+
+```markdown
+5. 完整的处理流程：
+```
+1. RabbitMQ接收消息 
+   -> TaskConsumer处理消息
+   -> TaskHandlerManager找到对应Handler
+   -> EnterpriseTaskHandler执行任务
+   -> 调用Collector采集数据
+   -> 调用Processor处理数据
+   -> 返回处理结果
+```
+
+6. 数据流转示意图：
+```
+TaskMessage(MQ) -> TaskContext -> CollectContext -> CollectResult 
+-> ProcessContext -> ProcessedData -> TaskResult -> ResultMessage(MQ)
+```
+
+这样实现后，系统就能够：
+1. 根据消息中的taskId找到对应的处理器
+2. 自动完成数据采集和处理
+3. 支持分片并行处理
+4. 处理异常情况
+5. 返回处理结果
+
+需要注意的是：
+1. Handler的type要和配置的task_code一致
+2. 确保所需的Collector和Processor都已实现
+3. 正确处理异常和错误情况
+4. 适当的日志记录
+5. 合理的事务处理
 ```
 
 ## pom.xml
@@ -6936,14 +8089,20 @@ spring:
   application:
     name: platform-collect
 
+
   # 允许bean覆盖(解决taskScheduler冲突)
   main:
     allow-bean-definition-overriding: true
+  mvc:
+    throw-exception-if-no-handler-found: true
+  web:
+    resources:
+      add-mappings: false
 
   # 数据源配置
   datasource:
     driver-class-name: org.mariadb.jdbc.Driver
-    url: jdbc:mariadb://192.168.80.137:3306/test?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
+    url: jdbc:mariadb://192.168.80.137:3306/collect?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
     username: root
     password: 123456
 
@@ -6979,6 +8138,17 @@ spring:
     port: 5672
     username: admin
     password: 123456
+    listener:
+      simple:
+        # 配置消费者
+        retry:
+          enabled: true
+          initial-interval: 1000
+          max-attempts: 3
+          max-interval: 10000
+          multiplier: 2.0
+        # 设置手动确认
+        acknowledge-mode: manual
 
 # 监控端点配置
 management:
