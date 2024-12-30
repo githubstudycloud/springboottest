@@ -1,0 +1,79 @@
+# mongod.conf
+storage:
+  dbPath: /data/db
+  journal:
+    enabled: true
+  wiredTiger:
+    engineConfig:
+      cacheSizeGB: 0.5
+      journalCompressor: snappy
+    collectionConfig:
+      blockCompressor: snappy
+
+systemLog:
+  destination: file
+  logAppend: true
+  path: /var/log/mongodb/mongod.log
+
+net:
+  port: 27017
+  bindIp: 0.0.0.0
+
+replication:
+  replSetName: rs0
+
+operationProfiling:
+  mode: slowOp
+  slowOpThresholdMs: 100
+
+setParameter:
+  internalQueryExecMaxBlockingSortBytes: 33554432
+  maxTransactionLockRequestTimeoutMillis: 5000
+  cursorTimeoutMillis: 300000
+
+# init-replica.js
+config = {
+    "_id": "rs0",
+    "version": 1,
+    "members": [
+        {
+            "_id": 0,
+            "host": "mongo1:27017",
+            "priority": 2
+        },
+        {
+            "_id": 1,
+            "host": "mongo2:27017",
+            "priority": 1
+        },
+        {
+            "_id": 2,
+            "host": "mongo3:27017",
+            "priority": 1
+        }
+    ]
+}
+
+rs.initiate(config)
+
+// 等待复制集初始化完成
+sleep(1000)
+
+// 创建应用用户
+db.getSiblingDB("admin").createUser({
+    user: "appuser",
+    pwd: "app_password",
+    roles: [
+        { role: "readWrite", db: "collect_db" }
+    ]
+})
+
+// 创建监控用户
+db.getSiblingDB("admin").createUser({
+    user: "monitor",
+    pwd: "monitor_password",
+    roles: [
+        { role: "clusterMonitor", db: "admin" },
+        { role: "readAnyDatabase", db: "admin" }
+    ]
+})

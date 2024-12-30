@@ -1,0 +1,96 @@
+import org.springframework.data.mongodb.repository.MongoRepository;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import lombok.RequiredArgsConstructor;
+import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+// 首先定义Repository接口
+public interface YourEntityRepository<T, ID> extends MongoRepository<T, ID> {
+}
+
+@Service
+@Slf4j
+@RequiredArgsConstructor
+public class MongoBulkService<T, ID> {
+    
+    private final YourEntityRepository<T, ID> repository;
+    
+    @Data
+    public static class BulkResult {
+        private int insertedCount = 0;
+        private int updatedCount = 0;
+        private List<String> errors = new ArrayList<>();
+    }
+    
+    /**
+     * 批量保存或更新数据
+     */
+    public ResponseEntity<?> bulkSaveOrUpdate(List<T> entities) {
+        try {
+            if (entities == null || entities.isEmpty()) {
+                return ResponseEntity.badRequest().body("Empty entity list");
+            }
+
+            BulkResult result = new BulkResult();
+            
+            try {
+                // 使用saveAll方法执行批量操作
+                List<T> savedEntities = repository.saveAll(entities);
+                
+                // 计算新增和更新的数量
+                result.setInsertedCount(savedEntities.size());
+                
+                return ResponseEntity.ok(result);
+                
+            } catch (Exception e) {
+                log.error("Failed to save entities", e);
+                result.getErrors().add(e.getMessage());
+                return ResponseEntity.internalServerError().body(result);
+            }
+        } catch (Exception e) {
+            log.error("Bulk operation failed", e);
+            return ResponseEntity.internalServerError().body(e.getMessage());
+        }
+    }
+    
+    /**
+     * 批量保存或更新数据并返回结果
+     */
+    public List<T> saveAll(List<T> entities) {
+        return repository.saveAll(entities);
+    }
+    
+    /**
+     * 批量删除
+     */
+    public void deleteAll(List<T> entities) {
+        repository.deleteAll(entities);
+    }
+    
+    /**
+     * 批量删除（根据ID）
+     */
+    public void deleteAllById(Iterable<ID> ids) {
+        repository.deleteAllById(ids);
+    }
+}
+
+// 示例实体类
+@Data
+@Document(collection = "your_collection")
+class YourEntity {
+    @Id
+    private String id;
+    // 其他字段...
+}
+
+// 示例Repository实现
+@Repository
+interface YourEntityRepositoryImpl extends YourEntityRepository<YourEntity, String> {
+}
