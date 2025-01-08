@@ -1,0 +1,662 @@
+当然，你可以创建一个工具类来管理 Spring Boot 3.2.9 中使用 JDK 21 的虚拟线程或平台线程的分页分批任务，并实现动态线程限制和监控。下面是一个示例工具类的设计思路和关键代码片段，它结合了 Spring 的 `ThreadPoolTaskExecutor` 和 Java 21 的虚拟线程特性（如果需要）。
+
+**设计思路：**
+
+1.  **线程池管理：** 使用 Spring 的 `ThreadPoolTaskExecutor` 来管理线程池。这允许你配置核心线程数、最大线程数、队列容量等，并方便地切换到虚拟线程（通过配置）。
+2.  **分页分批逻辑：** 提供一个方法来接收任务列表和批次大小，并将其分割成多个批次。
+3.  **任务执行：** 使用 `ExecutorService` 提交每个批次的任务。
+4.  **动态线程限制：** 实现一个方法来动态调整线程池的最大线程数。
+5.  **监控：** 使用 `CountDownLatch` 或其他同步机制来跟踪任务的完成情况，并记录任务的开始、结束时间和进度。
+
+**代码示例（概念性）：**
+
+```java
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
+
+public class BatchTaskExecutor {
+
+    private final ThreadPoolTaskExecutor executor;
+    private final AtomicInteger runningTasks = new AtomicInteger(0);
+
+    public BatchTaskExecutor(int corePoolSize, int maxPoolSize, int queueCapacity, boolean useVirtualThreads) {
+        this.executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(corePoolSize);
+        executor.setMaxPoolSize(maxPoolSize);
+        executor.setQueueCapacity(queueCapacity);
+        if (useVirtualThreads) {
+            executor.setTaskExecutor(Executors.newVirtualThreadPerTaskExecutor()); // 使用虚拟线程
+        }
+        executor.initialize();
+    }
+
+    public <T> void executeBatches(List<T> tasks, int batchSize, BatchTask<T> batchTask) {
+        int totalTasks = tasks.size();
+        int numBatches = (int) Math.ceil((double) totalTasks / batchSize);
+
+        for (int i = 0; i < numBatches; i++) {
+            int start = i * batchSize;
+            int end = Math.min((i + 1) * batchSize, totalTasks);
+            List<T> batch = tasks.subList(start, end);
+
+            CountDownLatch latch = new CountDownLatch(batch.size());
+
+            for (T task : batch) {
+                runningTasks.incrementAndGet();
+                executor.submit(() -> {
+                    long startTime = System.currentTimeMillis();
+                    try {
+                        batchTask.execute(task);
+                    } finally {
+                        long endTime = System.currentTimeMillis();
+                        System.out.println("Task finished in " + (endTime - startTime) + "ms. Running tasks: " + runningTasks.decrementAndGet());
+                        latch.countDown();
+                    }
+                });
+            }
+          try {
+            latch.await(); // 等待当前批次完成
+            System.out.println("Batch " + (i + 1) + " completed.");
+          } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+          }
+        }
+        System.out.println("All batches completed.");
+    }
+
+    public void setMaxThreads(int maxThreads) {
+        executor.setMaxPoolSize(maxThreads);
+    }
+
+    public interface BatchTask<T> {
+        void execute(T task);
+    }
+
+    public static void main(String[] args) {
+        // 示例用法
+        BatchTaskExecutor executor = new BatchTaskExecutor(2, 10, 1000, true); // 使用虚拟线程
+        List<Integer> numbers = new ArrayList<>();
+        for (int i = 0; i < 100; i++) {
+            numbers.add(i);
+        }
+
+        executor.executeBatches(numbers, 10, number -> {
+            // 这里执行你的任务逻辑
+            System.out.println("Processing number: " + number + " in thread " + Thread.currentThread().getName());
+            try {
+                Thread.sleep(100); // 模拟任务执行时间
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        executor.setMaxThreads(5); // 动态调整线程数
+        executor.executeBatches(numbers, 5, number -> {
+            System.out.println("Processing number: " + number + " in thread " + Thread.currentThread().getName());
+            try {
+                Thread.sleep(100); // 模拟任务执行时间
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
+
+    }
+}
+```
+
+**关键改进和说明：**
+
+*   **虚拟线程支持：** 通过 `Executors.newVirtualThreadPerTaskExecutor()` 可以方便地切换到虚拟线程。
+*   **任务执行时间监控：** 增加了任务执行时间的监控，并输出。
+*   **运行任务数监控：** 使用 `AtomicInteger` 跟踪正在运行的任务数。
+*   **批次完成提示：** 增加了批次完成的提示信息。
+*   **`CountDownLatch`的使用：** 使用`CountDownLatch`来确保每个批次内的所有任务都完成后再进行下一个批次，这比简单的休眠更可靠。
+*   **接口`BatchTask`：** 使用接口使代码更具通用性，你可以定义不同的任务逻辑。
+*   **动态调整线程数：** 提供了`setMaxThreads`方法来动态调整最大线程数。
+
+**使用注意：**
+
+*   根据你的实际任务类型和服务器资源，调整线程池的参数（核心线程数、最大线程数、队列容量）。
+*   如果你的任务是 I/O 密集型的，虚拟线程通常能提供更好的性能。如果是 CPU 密集型的，平台线程可能更合适。
+*   监控部分可以根据需要进行扩展，例如记录更详细的日志或使用监控工具。
+
+这个工具类提供了一个基础框架，你可以根据你的具体需求进行修改和扩展。希望这个详细的解释和示例代码能够帮助你！
+在之前的回答基础上，我们来进一步完善这个工具类，以支持多级嵌套线程、更灵活的配置和参数传递，以及配合分页工具类。
+
+**核心改进：**
+
+1.  **嵌套线程支持：** 改进任务执行逻辑，允许任务内部再提交子任务，并正确跟踪所有任务的完成情况。
+2.  **更灵活的配置：** 使用 `BatchTaskConfig` 类来封装配置参数，方便传递和修改。
+3.  **外部参数传递：** 允许 `BatchTask` 接口接收外部参数。
+4.  **分页工具类：** 提供一个简单的分页工具类。
+5.  **多版本并发触发处理：** 使用 `ConcurrentHashMap` 存储每个版本的执行状态，防止重复执行和数据混乱。
+
+**代码示例（概念性）：**
+
+```java
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
+
+// 分页工具类
+class PageUtils {
+    public static <T> List<List<T>> splitListIntoPages(List<T> list, int pageSize) {
+        List<List<T>> pages = new ArrayList<>();
+        int totalItems = list.size();
+        int numPages = (int) Math.ceil((double) totalItems / pageSize);
+
+        for (int i = 0; i < numPages; i++) {
+            int start = i * pageSize;
+            int end = Math.min((i + 1) * pageSize, totalItems);
+            pages.add(list.subList(start, end));
+        }
+        return pages;
+    }
+}
+
+class BatchTaskConfig {
+    public int corePoolSize = 2;
+    public int maxPoolSize = 10;
+    public int queueCapacity = 1000;
+    public boolean useVirtualThreads = true;
+
+    // 可以添加更多配置，例如线程名称前缀等
+    public String threadNamePrefix = "batch-task-";
+}
+
+public class BatchTaskExecutor {
+
+    private final ConcurrentHashMap<String, Boolean> runningVersions = new ConcurrentHashMap<>(); // 存储正在运行的版本
+    private final ThreadPoolTaskExecutor executor;
+    private final AtomicInteger runningTasks = new AtomicInteger(0);
+
+    public BatchTaskExecutor(BatchTaskConfig config) {
+        this.executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(config.corePoolSize);
+        executor.setMaxPoolSize(config.maxPoolSize);
+        executor.setQueueCapacity(config.queueCapacity);
+        if (config.useVirtualThreads) {
+            executor.setTaskExecutor(Executors.newVirtualThreadPerTaskExecutor());
+        }
+        executor.setThreadNamePrefix(config.threadNamePrefix);
+        executor.initialize();
+    }
+
+    public <T, P> void executeBatchesWithNesting(String version, List<T> tasks, int batchSize, BatchTask<T, P> batchTask, P params) {
+        if (runningVersions.putIfAbsent(version, true) != null) {
+            System.out.println("Version " + version + " is already running.");
+            return; // 阻止重复执行
+        }
+
+        try {
+            List<List<T>> pages = PageUtils.splitListIntoPages(tasks, batchSize);
+            CountDownLatch mainLatch = new CountDownLatch(pages.size());
+
+            for (List<T> page : pages) {
+                runningTasks.incrementAndGet();
+                executor.submit(() -> {
+                    try {
+                      batchTask.execute(page, params, this); // 传入executor自身，支持嵌套
+                    } finally {
+                        runningTasks.decrementAndGet();
+                        mainLatch.countDown();
+                    }
+                });
+            }
+            mainLatch.await();
+            System.out.println("Version " + version + " completed.");
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } finally {
+            runningVersions.remove(version); // 移除版本状态
+        }
+    }
+
+    public <T, P> void submitTask(Runnable task) {
+        executor.submit(task);
+    }
+
+    public void setMaxThreads(int maxThreads) {
+        executor.setMaxPoolSize(maxThreads);
+    }
+
+    public interface BatchTask<T, P> {
+        void execute(List<T> tasks, P params, BatchTaskExecutor executor);
+    }
+
+    public static void main(String[] args) {
+        BatchTaskConfig config = new BatchTaskConfig();
+        BatchTaskExecutor executor = new BatchTaskExecutor(config);
+        List<String> versions = List.of("v1", "v2","v3");
+        for(String version: versions) {
+            List<Integer> data = new ArrayList<>();
+            for(int i=0; i<1000; i++) data.add(i);
+            executor.executeBatchesWithNesting(version,data,50, (tasks, versionInner, batchTaskExecutor) -> {
+                System.out.println("Version :"+versionInner+ "outer task: "+ tasks.size() + " Thread: "+ Thread.currentThread().getName());
+                List<List<Integer>> pages = PageUtils.splitListIntoPages(tasks, 10);
+                CountDownLatch innerLatch = new CountDownLatch(pages.size());
+                for(List<Integer> page: pages){
+                    batchTaskExecutor.submitTask(() -> {
+                        System.out.println("Version :"+versionInner+ "inner task: "+ page.size() + " Thread: "+ Thread.currentThread().getName());
+                        innerLatch.countDown();
+                    });
+                }
+                innerLatch.await();
+            }, version);
+        }
+    }
+}
+```
+
+**关键改进和说明：**
+
+*   **`ConcurrentHashMap` `runningVersions`：** 用于存储正在运行的版本，防止同一版本重复执行。使用 `putIfAbsent` 进行原子性检查和添加。
+*   **`BatchTaskConfig` 类：** 用于封装配置参数，更易于管理和传递。
+*   **`PageUtils` 类：** 提供分页功能，将列表分割成指定大小的子列表。
+*   **`executeBatchesWithNesting` 方法：** 增加了 `version` 参数，用于标识不同的任务。使用 `CountDownLatch` 正确处理嵌套任务的完成。将`BatchTaskExecutor`实例传递到`BatchTask`中，允许在任务内部提交子任务。
+*   **`BatchTask` 接口：** 增加了 `params` 参数，用于传递外部参数。
+*   **`submitTask`方法** 用于提交子任务，简化代码。
+*   **示例 `main` 方法：** 演示了如何使用嵌套任务和版本控制。
+
+**配置参数和动态变量：**
+
+*   **配置参数：** 封装在 `BatchTaskConfig` 类中，包括核心线程数、最大线程数、队列容量、是否使用虚拟线程等。你可以根据需要添加更多配置，例如线程名称前缀、拒绝策略等。
+*   **动态变量：** 通过 `params` 参数传递到 `BatchTask` 接口的 `execute` 方法中。你可以传递任何类型的对象作为参数。
+*   **版本控制：** 使用 `runningVersions` 维护正在运行的版本状态，防止重复执行。
+
+**使用方法：**
+
+1.  创建 `BatchTaskConfig` 对象并配置参数。
+2.  创建 `BatchTaskExecutor` 对象，传入配置对象。
+3.  实现 `BatchTask` 接口，编写任务执行逻辑。在 `execute` 方法中，你可以使用 `params` 参数获取外部传入的参数，并使用传入的`BatchTaskExecutor`实例提交子任务。
+4.  调用 `executeBatchesWithNesting` 方法执行任务，传入版本号、任务列表、批次大小、`BatchTask` 实现和外部参数。
+
+这个改进后的工具类更加强大和灵活，能够满足更复杂的多线程任务处理需求。你可以根据你的具体需求进行调整和扩展。希望这个更全面的解释和示例代码能够帮助你！
+好的，我来总结一下之前讨论的内容，并提供一个最全面的工具类设计，以满足你提出的所有需求，包括多级嵌套线程、灵活配置、外部参数传递、分页处理、版本并发控制以及监控。
+
+**最终版工具类设计：**
+
+```java
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiConsumer;
+
+// 分页工具类
+class PageUtils {
+    public static <T> List<List<T>> splitListIntoPages(List<T> list, int pageSize) {
+        List<List<T>> pages = new ArrayList<>();
+        if(list == null || list.isEmpty()) return pages;
+        int totalItems = list.size();
+        int numPages = (int) Math.ceil((double) totalItems / pageSize);
+
+        for (int i = 0; i < numPages; i++) {
+            int start = i * pageSize;
+            int end = Math.min((i + 1) * pageSize, totalItems);
+            pages.add(list.subList(start, end));
+        }
+        return pages;
+    }
+}
+
+class BatchTaskConfig {
+    public int corePoolSize = 2;
+    public int maxPoolSize = 10;
+    public int queueCapacity = 1000;
+    public boolean useVirtualThreads = true;
+    public String threadNamePrefix = "batch-task-";
+    public BiConsumer<String, String> logConsumer = (level, message) -> System.out.println(level + ": " + message); // 日志Consumer
+
+    public BatchTaskConfig setCorePoolSize(int corePoolSize) {
+        this.corePoolSize = corePoolSize;
+        return this;
+    }
+
+    public BatchTaskConfig setMaxPoolSize(int maxPoolSize) {
+        this.maxPoolSize = maxPoolSize;
+        return this;
+    }
+
+    public BatchTaskConfig setQueueCapacity(int queueCapacity) {
+        this.queueCapacity = queueCapacity;
+        return this;
+    }
+    public BatchTaskConfig setLogConsumer(BiConsumer<String, String> logConsumer) {
+        this.logConsumer = logConsumer;
+        return this;
+    }
+        public BatchTaskConfig setUseVirtualThreads(boolean useVirtualThreads) {
+        this.useVirtualThreads = useVirtualThreads;
+        return this;
+    }
+}
+
+public class BatchTaskExecutor {
+
+    private final ConcurrentHashMap<String, Boolean> runningVersions = new ConcurrentHashMap<>();
+    private final ThreadPoolTaskExecutor executor;
+    private final AtomicInteger runningTasks = new AtomicInteger(0);
+    private final BatchTaskConfig config;
+
+    public BatchTaskExecutor(BatchTaskConfig config) {
+        this.config = config;
+        this.executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(config.corePoolSize);
+        executor.setMaxPoolSize(config.maxPoolSize);
+        executor.setQueueCapacity(config.queueCapacity);
+        if (config.useVirtualThreads) {
+            executor.setTaskExecutor(Executors.newVirtualThreadPerTaskExecutor());
+        }
+        executor.setThreadNamePrefix(config.threadNamePrefix);
+        executor.initialize();
+    }
+
+    public <T, P> void executeBatchesWithNesting(String version, List<T> tasks, int batchSize, BatchTask<T, P> batchTask, P params) {
+        if (runningVersions.putIfAbsent(version, true) != null) {
+            config.logConsumer.accept("WARN", "Version " + version + " is already running.");
+            return;
+        }
+
+        try {
+            List<List<T>> pages = PageUtils.splitListIntoPages(tasks, batchSize);
+            if (pages.isEmpty()) {
+                config.logConsumer.accept("INFO","Version " + version + " no data to process.");
+                return;
+            }
+            CountDownLatch mainLatch = new CountDownLatch(pages.size());
+
+            for (List<T> page : pages) {
+                runningTasks.incrementAndGet();
+                executor.submit(() -> {
+                    long startTime = System.currentTimeMillis();
+                    try {
+                        batchTask.execute(page, params, this);
+                    } catch (Exception e) {
+                        config.logConsumer.accept("ERROR", "Version " + version + " task execution error: " + e.getMessage());
+                    } finally {
+                        long endTime = System.currentTimeMillis();
+                        config.logConsumer.accept("INFO", "Version "+ version +" Task finished in " + (endTime - startTime) + "ms. Running tasks: " + runningTasks.decrementAndGet());
+                        mainLatch.countDown();
+                    }
+                });
+            }
+            mainLatch.await();
+            config.logConsumer.accept("INFO", "Version " + version + " completed.");
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            config.logConsumer.accept("ERROR", "Version " + version + " interrupted: " + e.getMessage());
+        } finally {
+            runningVersions.remove(version);
+        }
+    }
+
+    public <T, P> void submitTask(Runnable task) {
+        executor.submit(task);
+    }
+
+    public void setMaxThreads(int maxThreads) {
+        executor.setMaxPoolSize(maxThreads);
+    }
+
+    public interface BatchTask<T, P> {
+        void execute(List<T> tasks, P params, BatchTaskExecutor executor) throws Exception;
+    }
+
+    public static void main(String[] args) throws InterruptedException {
+        BatchTaskConfig config = new BatchTaskConfig().setCorePoolSize(4).setMaxPoolSize(20).setQueueCapacity(2000).setUseVirtualThreads(true);
+        config.setLogConsumer((level, message) -> {
+            System.out.println(String.format("[%s] %s %s", level, Thread.currentThread().getName(), message));
+        });
+        BatchTaskExecutor executor = new BatchTaskExecutor(config);
+        List<String> versions = List.of("v1", "v2","v3");
+        for(String version: versions) {
+            List<Integer> data = new ArrayList<>();
+            for(int i=0; i<1000; i++) data.add(i);
+            executor.executeBatchesWithNesting(version,data,50, (tasks, versionInner, batchTaskExecutor) -> {
+                System.out.println("Version :"+versionInner+ "outer task: "+ tasks.size() + " Thread: "+ Thread.currentThread().getName());
+                List<List<Integer>> pages = PageUtils.splitListIntoPages(tasks, 10);
+                CountDownLatch innerLatch = new CountDownLatch(pages.size());
+                for(List<Integer> page: pages){
+                    batchTaskExecutor.submitTask(() -> {
+                        System.out.println("Version :"+versionInner+ "inner task: "+ page.size() + " Thread: "+ Thread.currentThread().getName());
+                        try {
+                            Thread.sleep(100);
+                        } catch (InterruptedException e) {
+                            throw new RuntimeException(e);
+                        }
+                        innerLatch.countDown();
+                    });
+                }
+                innerLatch.await();
+            }, version);
+        }
+        Thread.sleep(1000);
+        System.out.println("main thread end");
+    }
+}
+```
+
+**关键改进和说明：**
+
+*   **更完善的 `BatchTaskConfig`：** 使用链式调用设置配置，并添加了日志Consumer，方便自定义日志输出。
+*   **空数据处理：** `PageUtils` 增加了对空列表的处理，避免空指针异常。
+*   **更详细的日志：** 使用 `BiConsumer<String, String>` 类型的 `logConsumer` 灵活记录日志，包括任务开始、结束、耗时、运行任务数、版本完成、错误信息等。并且日志中添加了线程名，方便排查问题。
+*   **异常处理：** 在任务执行过程中添加了 `try-catch` 块，捕获并记录异常，防止任务执行中断整个流程。
+*   **`main` 方法改进：** 演示了如何使用新的配置方式和日志记录。
+*   **`BatchTask` 接口添加异常声明** 方便任务中抛出异常。
+
+**总结：**
+
+这个版本是目前最全面的设计，它涵盖了你提出的所有需求：
+
+*   **多级嵌套线程：** 通过将 `BatchTaskExecutor` 实例传递给 `BatchTask`，支持任务内部提交子任务，并使用 `CountDownLatch` 正确处理嵌套任务的完成。
+*   **灵活配置：** 使用 `BatchTaskConfig` 类封装配置参数，方便传递和修改。
+*   **外部参数传递：** `BatchTask` 接口添加了 `P params` 参数，用于传递外部参数。
+好的，我们继续完善并总结之前的讨论，提供一个最全面的工具类设计，以满足所有提出的需求，包括多级嵌套线程、灵活配置、外部参数传递、分页处理、版本并发控制以及监控和更完善的日志记录。
+
+**最终完善版工具类设计：**
+
+```java
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+
+// 分页工具类
+class PageUtils {
+    public static <T> List<List<T>> splitListIntoPages(List<T> list, int pageSize) {
+        List<List<T>> pages = new ArrayList<>();
+        if (list == null || list.isEmpty()) return pages;
+        int totalItems = list.size();
+        int numPages = (int) Math.ceil((double) totalItems / pageSize);
+
+        for (int i = 0; i < numPages; i++) {
+            int start = i * pageSize;
+            int end = Math.min((i + 1) * pageSize, totalItems);
+            pages.add(list.subList(start, end));
+        }
+        return pages;
+    }
+}
+
+class BatchTaskConfig {
+    public int corePoolSize = 2;
+    public int maxPoolSize = 10;
+    public int queueCapacity = 1000;
+    public boolean useVirtualThreads = true;
+    public String threadNamePrefix = "batch-task-";
+    public BiConsumer<String, String> logConsumer = (level, message) -> System.out.println(String.format("[%s] %s %s", level, Thread.currentThread().getName(), message));
+    public Consumer<Throwable> exceptionHandler = Throwable::printStackTrace; // 异常处理器
+
+    public BatchTaskConfig setCorePoolSize(int corePoolSize) {
+        this.corePoolSize = corePoolSize;
+        return this;
+    }
+
+    public BatchTaskConfig setMaxPoolSize(int maxPoolSize) {
+        this.maxPoolSize = maxPoolSize;
+        return this;
+    }
+
+    public BatchTaskConfig setQueueCapacity(int queueCapacity) {
+        this.queueCapacity = queueCapacity;
+        return this;
+    }
+
+    public BatchTaskConfig setUseVirtualThreads(boolean useVirtualThreads) {
+        this.useVirtualThreads = useVirtualThreads;
+        return this;
+    }
+
+    public BatchTaskConfig setThreadNamePrefix(String threadNamePrefix) {
+      this.threadNamePrefix = threadNamePrefix;
+      return this;
+    }
+
+    public BatchTaskConfig setLogConsumer(BiConsumer<String, String> logConsumer) {
+        this.logConsumer = logConsumer;
+        return this;
+    }
+
+    public BatchTaskConfig setExceptionHandler(Consumer<Throwable> exceptionHandler) {
+        this.exceptionHandler = exceptionHandler;
+        return this;
+    }
+}
+
+public class BatchTaskExecutor {
+
+    private final ConcurrentHashMap<String, Boolean> runningVersions = new ConcurrentHashMap<>();
+    private final ThreadPoolTaskExecutor executor;
+    private final AtomicInteger runningTasks = new AtomicInteger(0);
+    private final BatchTaskConfig config;
+
+    public BatchTaskExecutor(BatchTaskConfig config) {
+        this.config = config;
+        this.executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(config.corePoolSize);
+        executor.setMaxPoolSize(config.maxPoolSize);
+        executor.setQueueCapacity(config.queueCapacity);
+        if (config.useVirtualThreads) {
+            executor.setTaskExecutor(Executors.newVirtualThreadPerTaskExecutor());
+        }
+        executor.setThreadNamePrefix(config.threadNamePrefix);
+        executor.initialize();
+    }
+
+    public <T, P> void executeBatchesWithNesting(String version, List<T> tasks, int batchSize, BatchTask<T, P> batchTask, P params) {
+        if (runningVersions.putIfAbsent(version, true) != null) {
+            config.logConsumer.accept("WARN", "Version " + version + " is already running.");
+            return;
+        }
+
+        try {
+            List<List<T>> pages = PageUtils.splitListIntoPages(tasks, batchSize);
+            if (pages.isEmpty()) {
+                config.logConsumer.accept("INFO", "Version " + version + " no data to process.");
+                return;
+            }
+            CountDownLatch mainLatch = new CountDownLatch(pages.size());
+
+            config.logConsumer.accept("INFO", "Version " + version + " start process, total pages: " + pages.size());
+            long startTime = System.currentTimeMillis();
+
+            for (List<T> page : pages) {
+                runningTasks.incrementAndGet();
+                executor.submit(() -> {
+                    long taskStartTime = System.currentTimeMillis();
+                    try {
+                        batchTask.execute(page, params, this);
+                    } catch (Throwable e) {
+                        config.logConsumer.accept("ERROR", "Version " + version + " task execution error: " + e.getMessage());
+                        config.exceptionHandler.accept(e); // 使用配置的异常处理器
+                    } finally {
+                        long taskEndTime = System.currentTimeMillis();
+                        config.logConsumer.accept("INFO", "Version " + version + " Task finished in " + (taskEndTime - taskStartTime) + "ms. Running tasks: " + runningTasks.decrementAndGet());
+                        mainLatch.countDown();
+                    }
+                });
+            }
+            mainLatch.await();
+            long endTime = System.currentTimeMillis();
+            config.logConsumer.accept("INFO", "Version " + version + " completed, total time: " + (endTime - startTime) + "ms.");
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            config.logConsumer.accept("ERROR", "Version " + version + " interrupted: " + e.getMessage());
+            config.exceptionHandler.accept(e);
+        } finally {
+            runningVersions.remove(version);
+        }
+    }
+
+    public <T, P> void submitTask(Runnable task) {
+        executor.submit(task);
+    }
+
+    public void setMaxThreads(int maxThreads) {
+        executor.setMaxPoolSize(maxThreads);
+    }
+
+    public interface BatchTask<T, P> {
+        void execute(List<T> tasks, P params, BatchTaskExecutor executor) throws Exception;
+    }
+
+    public static void main(String[] args) throws InterruptedException {
+        BatchTaskConfig config = new BatchTaskConfig()
+                .setCorePoolSize(4)
+                .setMaxPoolSize(20)
+                .setQueueCapacity(2000)
+                .setUseVirtualThreads(true)
+                .setThreadNamePrefix("my-batch-task-")
+                .setLogConsumer((level, message) -> System.out.println(String.format("[%s] %s %s", level, Thread.currentThread().getName(), message)))
+                .setExceptionHandler(e -> {
+                    System.err.println("Global Exception Handler catch exception:");
+                    e.printStackTrace();
+                });
+
+        BatchTaskExecutor executor = new BatchTaskExecutor(config);
+        List<String> versions = List.of("v1", "v2", "v3");
+        for (String version : versions) {
+            List<Integer> data = new ArrayList<>();
+            for (int i = 0; i < 1000; i++) data.add(i);
+            executor.executeBatchesWithNesting(version, data, 50, (tasks, versionInner, batchTaskExecutor) -> {
+                System.out.println("Version :" + versionInner + " outer task: " + tasks.size() + " Thread: " + Thread.currentThread().getName());
+                List<List<Integer>> pages = PageUtils.splitListIntoPages(tasks, 10);
+                CountDownLatch innerLatch = new CountDownLatch(pages.size());
+                for (List<Integer> page : pages) {
+                    batchTaskExecutor.submitTask(() -> {
+                        System.out.println("Version :" + versionInner + " inner task: " + page.size() + " Thread: " + Thread.currentThread().getName());
+                        try {
+                            Thread.sleep(100);
+                        } catch (InterruptedException e) {
+                            throw new RuntimeException(e);
+                        }
+                        innerLatch.countDown();
+                    });
+                }
+                innerLatch.await();
+            }, version);
+        }
+        Thread.sleep(1000);
+        System.out.println("main thread end");
+    }
+}
+```
+
+**本次更新的重点：**
+
+*   **更强大的日志记录：**
+    *   使用 `BiConsumer<String, String>` 类型的 `logConsumer`，支持自定义日志输出格式。

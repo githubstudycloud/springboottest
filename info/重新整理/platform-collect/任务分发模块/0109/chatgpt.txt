@@ -1,0 +1,763 @@
+下面提供一个思路示例，展示如何在 **Spring Boot 3.2+**（OpenJDK 21，包含了 Project Loom 虚拟线程的正式支持）环境下，快速实现“分页/分批”执行任务的工具类。它具备以下特点：
+
+1. **支持虚拟线程或传统线程池**（可根据需要切换）；
+2. **可设置（并且动态调整）并行度上限**，防止对数据库等中间件造成过度压力；
+3. **支持监听任务进度**、线程开始结束等信息；
+4. **可用于通用的分页/分批执行场景**。
+
+由于每个项目对于分页方式、数据源获取和异常处理需求不同，以下示例仅提供核心的思路和基本代码结构，供您在项目里进行定制、扩展。
+
+---
+
+## 1. 核心思路
+
+1. **分页获取数据**
+   - 通过一个自定义的 `pageSupplier` 方法或接口，按照指定的分页大小获取下一批数据。若没有更多数据则停止。
+   - 每一批数据都作为一个独立任务，提交到线程池中异步执行。
+
+2. **使用虚拟线程或自定义线程池**
+   - 需要动态控制并发量时，可结合 **Semaphore**（信号量）或可动态调整池大小的 `ThreadPoolExecutor` 来做限流。
+   - 如果想简单起见、并且大多数情况下只要保证一个全局并行度，就可直接用 `Executors.newVirtualThreadPerTaskExecutor()` + Semaphore 的组合。Semaphore 会保证同一时刻执行的任务数量在一定范围内。
+
+3. **监控任务开始/结束和进度**
+   - 在每个“分批任务”提交到线程池时，记录其开始时间；在任务执行完毕时记录结束时间；
+   - 通过计数器统计已完成的任务数、总任务数，计算进度；
+   - 可在每个任务内部或统一的回调监听中进行日志打印、事件发布等操作。
+
+---
+
+## 2. 示例代码
+
+下面给出一个**示例工具类**，名为 `BatchTaskExecutor`，使用 Java 21 的虚拟线程特性，支持在任务执行前后记录信息，并且允许在运行过程中动态调整最大并发量。
+
+### 2.1. 工具类定义
+
+```java
+package com.example.demo.utils;
+
+import java.util.List;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
+
+/**
+ * 使用虚拟线程进行分页分批任务执行的工具类
+ * @param <T> 分批数据中的单条记录类型
+ */
+public class BatchTaskExecutor<T> implements AutoCloseable {
+
+    /**
+     * 当前正在执行或即将执行的任务数，不一定全部处于 running 状态
+     */
+    private final AtomicInteger totalBatches = new AtomicInteger(0);
+
+    /**
+     * 已完成的任务数（成功或失败都会在此计数）
+     */
+    private final AtomicInteger completedBatches = new AtomicInteger(0);
+
+    /**
+     * 用于限制同一时刻并行执行的任务数
+     */
+    private final Semaphore concurrencyLimit;
+
+    /**
+     * 具体提交任务的线程池（此处使用虚拟线程池）
+     */
+    private final ExecutorService executorService;
+
+    /**
+     * 构造方法
+     *
+     * @param maxConcurrency 并行执行上限
+     */
+    public BatchTaskExecutor(int maxConcurrency) {
+        // 创建一个“自带虚拟线程”的线程池
+        this.executorService = Executors.newVirtualThreadPerTaskExecutor();
+        // 用信号量限制同一时刻可执行的最大任务数
+        this.concurrencyLimit = new Semaphore(maxConcurrency);
+    }
+
+    /**
+     * 动态设置并行度上限（可在任务执行过程中进行调整）
+     *
+     * @param newLimit 新的并行度上限
+     */
+    public void updateMaxConcurrency(int newLimit) {
+        int diff = newLimit - concurrencyLimit.availablePermits();
+        // 如果大于 0，释放 diff 个许可；小于 0，则从已可用许可中减去
+        if (diff > 0) {
+            concurrencyLimit.release(diff);
+        } else {
+            // 一次先 acquire 掉 -diff 个许可（可能会阻塞，但可以按需优化处理）
+            try {
+                concurrencyLimit.acquire(-diff);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+
+    /**
+     * 分批执行主逻辑
+     *
+     * @param pageSupplier  分页获取数据的方法，
+     *                      每次调用获取下一批数据，如果为空或 size = 0 则认为结束。
+     * @param batchConsumer 对每一批数据的处理逻辑
+     */
+    public void executeInBatches(Supplier<List<T>> pageSupplier,
+                                 Consumer<List<T>> batchConsumer) {
+
+        while (true) {
+            // 1. 获取下一批数据
+            List<T> batchData = pageSupplier.get();
+            if (batchData == null || batchData.isEmpty()) {
+                // 没有更多数据，退出循环
+                break;
+            }
+
+            // 2. 信号量：限制同一时刻处理的批次数
+            try {
+                concurrencyLimit.acquire();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break; // 可视需求决定是否继续或停止
+            }
+
+            // 3. 记录任务数
+            totalBatches.incrementAndGet();
+
+            // 4. 提交到虚拟线程池执行
+            executorService.submit(() -> {
+                // 4.1. 任务开始（可结合日志或自定义监听）
+                long start = System.currentTimeMillis();
+                System.out.println("Batch start. Thread: " + Thread.currentThread().getName());
+
+                try {
+                    // 4.2. 处理数据
+                    batchConsumer.accept(batchData);
+                } finally {
+                    // 4.3. 释放信号量
+                    concurrencyLimit.release();
+
+                    // 4.4. 记录完成数、记录结束时间等
+                    int currentCompleted = completedBatches.incrementAndGet();
+                    long end = System.currentTimeMillis();
+                    System.out.println("Batch completed. Thread: "
+                            + Thread.currentThread().getName()
+                            + ", cost: " + (end - start) + " ms");
+                    System.out.println("Progress: " + currentCompleted + "/" + totalBatches.get());
+                }
+            });
+        }
+    }
+
+    /**
+     * 关闭线程池，等待任务执行完毕
+     */
+    @Override
+    public void close() {
+        executorService.shutdown();
+        try {
+            if (!executorService.awaitTermination(10, TimeUnit.MINUTES)) {
+                executorService.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            executorService.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
+    }
+}
+```
+
+### 2.2. 使用示例
+
+```java
+package com.example.demo;
+
+import com.example.demo.utils.BatchTaskExecutor;
+import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
+
+@Service
+public class DemoBatchService {
+
+    public void runBatchTaskDemo() {
+        // 模拟数据库中有 103 条记录
+        int totalCount = 103;
+        int pageSize   = 10;
+
+        // 构造分页获取数据的 Supplier
+        AtomicInteger offset = new AtomicInteger(0);
+        Supplier<List<String>> pageSupplier = () -> {
+            int start = offset.get();
+            if (start >= totalCount) {
+                return new ArrayList<>();
+            }
+
+            int end = Math.min(start + pageSize, totalCount);
+            // 这里模拟生成一个数据列表
+            List<String> batchData = new ArrayList<>();
+            for (int i = start; i < end; i++) {
+                batchData.add("Record-" + i);
+            }
+
+            // 更新 offset
+            offset.addAndGet(pageSize);
+            return batchData;
+        };
+
+        // 构造对每批数据的处理逻辑
+        // 实际项目中可替换为：保存数据 / 调用下游API 等等
+        var batchConsumer = (List<String> batch) -> {
+            // 假装处理要花一点时间
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            System.out.println("Processing batch: " + batch);
+        };
+
+        // 创建工具类并执行
+        // 这里最大并行度设置为 5
+        try (BatchTaskExecutor<String> executor = new BatchTaskExecutor<>(5)) {
+
+            // 可以在任务执行过程中，随时修改并行度上限
+            // executor.updateMaxConcurrency(10);
+
+            executor.executeInBatches(pageSupplier, batchConsumer);
+        }
+    }
+}
+```
+
+1. **`pageSupplier.get()`** 每次返回下一批数据，如果返回为空列表就停止了分批执行；
+2. **`batchConsumer.accept(batchData)`** 就是处理每一批数据的具体逻辑；
+3. `Semaphore` 用于限制同一时刻并发运行的批次数；
+4. 虚拟线程池 (`Executors.newVirtualThreadPerTaskExecutor()`) 让每批数据的处理都能独立“上线程”，且极大降低传统线程上下文切换开销；
+5. `updateMaxConcurrency` 可在**任务执行过程中**动态调整并发度上限。
+
+---
+
+## 3. 常见扩展点
+
+1. **分页方式**
+   - 可能需要自定义数据库分页 SQL (例如 `SELECT ... LIMIT x, y`) 或者配合 Spring Data JPA/Redis/ES 等方式获取。
+2. **错误重试**
+   - 若某批次处理失败，可记录并进行重试，或者将失败的数据收集起来做后续处理。
+3. **任务监听与事件发布**
+   - 可以在 “开始/结束/异常” 处增加更丰富的业务逻辑，比如事件发布到消息队列、将执行记录存入数据库、结合 Spring Actuator 暴露监控指标等。
+4. **动态分发多种类型的任务**
+   - 可以将不同类型的批量数据处理都放入同一个虚拟线程池中，但需要合理管理优先级和最大并行度。
+
+---
+
+## 4. 总结
+
+通过以上示例可以看出，利用 Java 21 的 **虚拟线程**（Project Loom）技术，配合 Spring Boot 3.2+，可以非常简洁地实现大规模的并发批量处理。同时，为了不对数据库或下游服务造成过多压力，我们在批次级别使用 **Semaphore** 控制并发，支持在运行过程中**动态调整并行度**。
+
+若需要对线程开始、结束以及进度进行更细粒度或可视化的监控，可以在执行任务的前后或线程工厂里增加自定义的 **监听或日志** 逻辑，也可以结合 Spring 的 **Actuator** 来统一暴露健康指标和监控信息。根据自己项目的需求进行灵活扩展，就能打造一个高效可控、可观测的分批并发执行框架。下面给你一个思路参考，既能应对“多级并发”场景（例如**大版本** → **小版本** → **分页** → **批量处理**），又能在运行过程中灵活设置/传入各种配置参数，并对进度、线程开始/结束进行监控。由于每个项目对并发策略、分页逻辑、异常处理都不尽相同，以下示例会尽量给出一个**可高度定制**的思路和示例代码，你可以在此基础上进行修改、扩展。
+
+                                                                                                                                                    ---
+
+                                                                                                                                                    ## 1. 多级并发的核心思路
+
+                                                                                                                                                    ### 1.1. “多级嵌套” vs. “层级调度”
+
+                                                                                                                                                    很多人遇到“大线程套小线程，再套线程”的需求时，第一反应是用嵌套的方式：先并发处理**大版本**，然后在大版本的线程里再创建小版本的并发，接着在小版本并发里继续分页并发……这样很容易出现：
+                                                                                                                                                    1. 线程管理复杂；
+                                                                                                                                                    2. 监控或中断不方便；
+                                                                                                                                                    3. 多级信号量/线程池干扰；
+                                                                                                                                                    4. 外层线程退出或异常处理时，难以及时对内层线程进行处理。
+
+                                                                                                                                                    #### 解决思路：**统一调度 + 分级限流**
+
+                                                                                                                                                    - 可以用一个**统一的“调度器”**（比如一个能同时管理N级“任务”的并发框架）来调度所有大版本、小版本以及分页任务；
+                                                                                                                                                    - 每个层级都可以有自己的并发限制（如：同一时刻最多处理多少个大版本；每个大版本下最多并行多少小版本；对分页批量又有一个单独限流）；
+                                                                                                                                                    - 如果需要全局限流（例如整个服务同一时刻最多只开启 X 个线程），也可以有一个**全局的信号量**或线程池上限；
+                                                                                                                                                    - 如果一个大版本出错，如何快速取消 / 中断其下属的小版本或者分页任务，也可以通过统一调度更方便地做**级联取消**。
+
+                                                                                                                                                    ### 1.2. Java 21 与结构化并发（Structured Concurrency）
+
+                                                                                                                                                    Java 21 引入了**结构化并发（Structured Concurrency）**预览特性，典型用法是 `StructuredTaskScope`。好处是：
+                                                                                                                                                    1. 可以在一个“结构化作用域”里启动若干子任务；
+                                                                                                                                                    2. 作用域结束时，可以汇总所有子任务的结果或抛出的异常，做统一处理；
+                                                                                                                                                    3. 如果有子任务抛出异常，可选择立即取消其它子任务（`ShutdownOnFailure`），或等待所有完成后再处理（`ShutdownOnSuccess`）；
+                                                                                                                                                    4. 方便做分层管理、异常处理和资源回收。
+
+                                                                                                                                                    如果你的场景非常复杂、嵌套多层，但又想写成“自上而下结构化”的风格，Java 21 的结构化并发是一个很好的选择。但它目前还是预览特性，需要加编译和运行参数(`--enable-preview`)；另外，如果你想要“像线程池那样灵活地调度”，尤其需要任务层级动态限流/动态调整线程数时，还需要自己结合信号量、或把结构化并发和传统 `ExecutorService` 结合起来使用。
+
+                                                                                                                                                    ### 1.3. 动态配置与监控
+
+                                                                                                                                                    - **动态配置**：
+                                                                                                                                                      1. 并发度限制可抽象为一个接口或一个“配置类”`ConcurrencyConfig`，把大版本、小版本、分页等不同层级的并发限制都放在一起；
+                                                                                                                                                      2. 在运行前或运行过程中，可以修改这些配置；
+                                                                                                                                                      3. 任务执行时，先根据当前配置获取到对应的“信号量”或“线程池”大小，然后再提交。
+
+                                                                                                                                                    - **监控**：
+                                                                                                                                                      1. 可在每个层级的任务开始和结束时进行回调、记录到数据库、或者用日志打印；
+                                                                                                                                                      2. 可以在外层定义一个“全局进度记录”对象，用 `AtomicInteger` 等并发类来记录已完成的任务数、总任务数；
+                                                                                                                                                      3. 如果需要更高级的可视化或报警机制，可将每个层级的进度和任务状态上报到监控平台（如 Prometheus + Grafana），或者结合 Spring Boot Actuator 提供自定义指标（`MeterRegistry`）。
+
+                                                                                                                                                    ---
+
+                                                                                                                                                    ## 2. 示例代码：可配置 + 多级并发 + 分页处理
+
+                                                                                                                                                    下面给出一个相对完整的示例，模拟以下场景：
+
+                                                                                                                                                    1. 接口被调用时，传入**多个版本**（List<String> versions）；
+                                                                                                                                                    2. 对每个版本查询到**多个小版本**；
+                                                                                                                                                    3. 对每个“小版本”执行分页获取并发处理；
+                                                                                                                                                    4. 所有任务都采用**统一的工具类**管理与调度，并可以在过程里**动态调整**并发限制；
+                                                                                                                                                    5. 对每个任务的开始/结束进行监控，计算进度；
+                                                                                                                                                    6. 使用**虚拟线程**执行（OpenJDK 21 + Spring Boot 3.2.9）。
+
+                                                                                                                                                    > **注意**：以下代码是一个思路演示，里面的分页查数据库、小版本查询只是模拟；真实项目中请替换成自己的业务逻辑。
+
+                                                                                                                                                    ### 2.1. 先定义一个“配置类”+“上下文”对象
+
+                                                                                                                                                    我们先弄一个 `ConcurrencyConfig`，里面放本次任务（或全局）的并发限制参数。也可以把它做成可动态变更的 `@Component` 或者放到配置中心，由任务执行时读出来。
+
+                                                                                                                                                    ```java
+                                                                                                                                                    package com.example.demo.concurrency;
+
+                                                                                                                                                    public class ConcurrencyConfig {
+                                                                                                                                                        // 大版本并发上限
+                                                                                                                                                        private int maxMajorConcurrency;
+                                                                                                                                                        // 小版本并发上限
+                                                                                                                                                        private int maxMinorConcurrency;
+                                                                                                                                                        // 分页（单个小版本下）并发上限
+                                                                                                                                                        private int maxPagingConcurrency;
+
+                                                                                                                                                        public ConcurrencyConfig(int maxMajorConcurrency, int maxMinorConcurrency, int maxPagingConcurrency) {
+                                                                                                                                                            this.maxMajorConcurrency = maxMajorConcurrency;
+                                                                                                                                                            this.maxMinorConcurrency = maxMinorConcurrency;
+                                                                                                                                                            this.maxPagingConcurrency = maxPagingConcurrency;
+                                                                                                                                                        }
+
+                                                                                                                                                        // getter & setter（用于动态变更）
+                                                                                                                                                        public int getMaxMajorConcurrency() { return maxMajorConcurrency; }
+                                                                                                                                                        public void setMaxMajorConcurrency(int maxMajorConcurrency) { this.maxMajorConcurrency = maxMajorConcurrency; }
+
+                                                                                                                                                        public int getMaxMinorConcurrency() { return maxMinorConcurrency; }
+                                                                                                                                                        public void setMaxMinorConcurrency(int maxMinorConcurrency) { this.maxMinorConcurrency = maxMinorConcurrency; }
+
+                                                                                                                                                        public int getMaxPagingConcurrency() { return maxPagingConcurrency; }
+                                                                                                                                                        public void setMaxPagingConcurrency(int maxPagingConcurrency) { this.maxPagingConcurrency = maxPagingConcurrency; }
+                                                                                                                                                    }
+                                                                                                                                                    ```
+
+                                                                                                                                                    再来一个“上下文”对象 `TaskContext`，用来在执行过程中保存各种统计信息、日志回调等：
+
+                                                                                                                                                    ```java
+                                                                                                                                                    package com.example.demo.concurrency;
+
+                                                                                                                                                    import java.util.concurrent.atomic.AtomicInteger;
+
+                                                                                                                                                    public class TaskContext {
+                                                                                                                                                        // 总任务数
+                                                                                                                                                        private final AtomicInteger totalTasks = new AtomicInteger(0);
+                                                                                                                                                        // 已完成任务数
+                                                                                                                                                        private final AtomicInteger completedTasks = new AtomicInteger(0);
+
+                                                                                                                                                        public void incrementTotal() {
+                                                                                                                                                            totalTasks.incrementAndGet();
+                                                                                                                                                        }
+
+                                                                                                                                                        public void incrementCompleted() {
+                                                                                                                                                            completedTasks.incrementAndGet();
+                                                                                                                                                        }
+
+                                                                                                                                                        public int getTotal() {
+                                                                                                                                                            return totalTasks.get();
+                                                                                                                                                        }
+
+                                                                                                                                                        public int getCompleted() {
+                                                                                                                                                            return completedTasks.get();
+                                                                                                                                                        }
+
+                                                                                                                                                        // 额外的监控字段或回调...
+                                                                                                                                                    }
+                                                                                                                                                    ```
+
+                                                                                                                                                    ### 2.2. 编写一个统一的执行工具：`MultiLevelBatchExecutor`
+
+                                                                                                                                                    这个执行器要能同时处理多个层级，支持：
+                                                                                                                                                    1. 传入 `ConcurrencyConfig` 做分级限流；
+                                                                                                                                                    2. 可以在执行过程中再读一下最新配置，以支持**动态调整**（简单起见，这里只在新的任务提交时生效）；
+                                                                                                                                                    3. 提供回调函数，记录开始/结束等信息；
+                                                                                                                                                    4. 还是采用虚拟线程 + 信号量（`Semaphore`）的方式来限制并发。
+
+                                                                                                                                                    示例代码如下（只演示关键思路，写得比较长，实际项目可自行拆分、精简）：
+
+                                                                                                                                                    ```java
+                                                                                                                                                    package com.example.demo.concurrency;
+
+                                                                                                                                                    import java.time.Duration;
+                                                                                                                                                    import java.time.Instant;
+                                                                                                                                                    import java.util.List;
+                                                                                                                                                    import java.util.concurrent.*;
+                                                                                                                                                    import java.util.function.Supplier;
+                                                                                                                                                    import java.util.stream.Collectors;
+
+                                                                                                                                                    /**
+                                                                                                                                                     * 示例：多级并发执行器
+                                                                                                                                                     */
+                                                                                                                                                    public class MultiLevelBatchExecutor implements AutoCloseable {
+
+                                                                                                                                                        // 用于执行所有任务的虚拟线程池
+                                                                                                                                                        private final ExecutorService executor;
+                                                                                                                                                        // 大版本层级信号量
+                                                                                                                                                        private final Semaphore majorSemaphore;
+                                                                                                                                                        // 小版本层级信号量
+                                                                                                                                                        private final Semaphore minorSemaphore;
+                                                                                                                                                        // 分页层级信号量
+                                                                                                                                                        private final Semaphore pageSemaphore;
+
+                                                                                                                                                        // 当前的并发配置，可以在运行时替换
+                                                                                                                                                        private volatile ConcurrencyConfig concurrencyConfig;
+
+                                                                                                                                                        // 可以外部传入或在内部创建
+                                                                                                                                                        private final TaskContext context;
+
+                                                                                                                                                        public MultiLevelBatchExecutor(ConcurrencyConfig config, TaskContext context) {
+                                                                                                                                                            this.concurrencyConfig = config;
+                                                                                                                                                            this.context = context;
+                                                                                                                                                            this.executor = Executors.newVirtualThreadPerTaskExecutor();
+                                                                                                                                                            // 初始化信号量
+                                                                                                                                                            this.majorSemaphore = new Semaphore(config.getMaxMajorConcurrency());
+                                                                                                                                                            this.minorSemaphore = new Semaphore(config.getMaxMinorConcurrency());
+                                                                                                                                                            this.pageSemaphore  = new Semaphore(config.getMaxPagingConcurrency());
+                                                                                                                                                        }
+
+                                                                                                                                                        /**
+                                                                                                                                                         * 动态更新并发配置
+                                                                                                                                                         */
+                                                                                                                                                        public void updateConfig(ConcurrencyConfig newConfig) {
+                                                                                                                                                            this.concurrencyConfig = newConfig;
+                                                                                                                                                            // 下次提交新任务时，可以根据新配置来调节信号量
+                                                                                                                                                            // 此处只是简单示例，如果要实时调整正在执行的任务，需要进一步设计
+                                                                                                                                                            adjustSemaphore(majorSemaphore, newConfig.getMaxMajorConcurrency());
+                                                                                                                                                            adjustSemaphore(minorSemaphore, newConfig.getMaxMinorConcurrency());
+                                                                                                                                                            adjustSemaphore(pageSemaphore,  newConfig.getMaxPagingConcurrency());
+                                                                                                                                                        }
+
+                                                                                                                                                        private void adjustSemaphore(Semaphore semaphore, int newLimit) {
+                                                                                                                                                            int diff = newLimit - semaphore.availablePermits();
+                                                                                                                                                            if (diff > 0) {
+                                                                                                                                                                semaphore.release(diff);
+                                                                                                                                                            } else if (diff < 0) {
+                                                                                                                                                                try {
+                                                                                                                                                                    semaphore.acquire(-diff);
+                                                                                                                                                                } catch (InterruptedException e) {
+                                                                                                                                                                    Thread.currentThread().interrupt();
+                                                                                                                                                                }
+                                                                                                                                                            }
+                                                                                                                                                        }
+
+                                                                                                                                                        /**
+                                                                                                                                                         * 关闭线程池
+                                                                                                                                                         */
+                                                                                                                                                        @Override
+                                                                                                                                                        public void close() {
+                                                                                                                                                            executor.shutdown();
+                                                                                                                                                            try {
+                                                                                                                                                                if (!executor.awaitTermination(5, TimeUnit.MINUTES)) {
+                                                                                                                                                                    executor.shutdownNow();
+                                                                                                                                                                }
+                                                                                                                                                            } catch (InterruptedException e) {
+                                                                                                                                                                executor.shutdownNow();
+                                                                                                                                                                Thread.currentThread().interrupt();
+                                                                                                                                                            }
+                                                                                                                                                        }
+
+                                                                                                                                                        /**
+                                                                                                                                                         * 最外层：对多个大版本进行并发处理
+                                                                                                                                                         */
+                                                                                                                                                        public void executeForVersions(List<String> versions) {
+                                                                                                                                                            // 统计要处理多少大版本
+                                                                                                                                                            context.incrementTotal();  // 你也可以把 totalTasks += versions.size()
+
+                                                                                                                                                            for (String version : versions) {
+                                                                                                                                                                // 并发执行每个大版本
+                                                                                                                                                                majorSemaphoreAcquireThenRun(version);
+                                                                                                                                                            }
+                                                                                                                                                        }
+
+                                                                                                                                                        /**
+                                                                                                                                                         * 并发处理单个大版本
+                                                                                                                                                         */
+                                                                                                                                                        private void majorSemaphoreAcquireThenRun(String version) {
+                                                                                                                                                            try {
+                                                                                                                                                                majorSemaphore.acquire();
+                                                                                                                                                            } catch (InterruptedException e) {
+                                                                                                                                                                Thread.currentThread().interrupt();
+                                                                                                                                                                return;
+                                                                                                                                                            }
+
+                                                                                                                                                            // 提交到虚拟线程去做
+                                                                                                                                                            executor.submit(() -> {
+                                                                                                                                                                Instant start = Instant.now();
+                                                                                                                                                                System.out.println("[Major] Start version: " + version);
+
+                                                                                                                                                                try {
+                                                                                                                                                                    // 这里做：查询小版本列表并发执行
+                                                                                                                                                                    List<String> minorVersions = getMinorVersions(version);
+                                                                                                                                                                    executeForMinorVersions(version, minorVersions);
+
+                                                                                                                                                                } finally {
+                                                                                                                                                                    majorSemaphore.release();
+                                                                                                                                                                    context.incrementCompleted();
+                                                                                                                                                                    Instant end = Instant.now();
+                                                                                                                                                                    System.out.println("[Major] End version: " + version + ", cost: " + Duration.between(start, end).toMillis() + " ms");
+                                                                                                                                                                    System.out.println("Overall progress: " + context.getCompleted() + "/" + context.getTotal());
+                                                                                                                                                                }
+                                                                                                                                                            });
+                                                                                                                                                        }
+
+                                                                                                                                                        /**
+                                                                                                                                                         * 第二层：对某个大版本下的多个“小版本”并发执行
+                                                                                                                                                         */
+                                                                                                                                                        private void executeForMinorVersions(String majorVersion, List<String> minorVersions) {
+                                                                                                                                                            // 可以给 context.incrementTotal() + minorVersions.size()，本示例从简
+                                                                                                                                                            for (String minorVer : minorVersions) {
+                                                                                                                                                                try {
+                                                                                                                                                                    minorSemaphore.acquire();
+                                                                                                                                                                } catch (InterruptedException e) {
+                                                                                                                                                                    Thread.currentThread().interrupt();
+                                                                                                                                                                    continue;
+                                                                                                                                                                }
+
+                                                                                                                                                                executor.submit(() -> {
+                                                                                                                                                                    Instant start = Instant.now();
+                                                                                                                                                                    System.out.println("  [Minor] Start minor: " + minorVer + " under " + majorVersion);
+
+                                                                                                                                                                    try {
+                                                                                                                                                                        // 第三层：分页并发处理
+                                                                                                                                                                        executePagingTask(minorVer);
+
+                                                                                                                                                                    } finally {
+                                                                                                                                                                        minorSemaphore.release();
+                                                                                                                                                                        Instant end = Instant.now();
+                                                                                                                                                                        System.out.println("  [Minor] End minor: " + minorVer
+                                                                                                                                                                                           + " cost: " + Duration.between(start, end).toMillis() + " ms");
+                                                                                                                                                                    }
+                                                                                                                                                                });
+                                                                                                                                                            }
+                                                                                                                                                        }
+
+                                                                                                                                                        /**
+                                                                                                                                                         * 第三层：分页并发处理
+                                                                                                                                                         */
+                                                                                                                                                        private void executePagingTask(String minorVer) {
+                                                                                                                                                            // 示例：分页大小 500，一直到查不到数据
+                                                                                                                                                            Supplier<List<String>> pageSupplier = new Supplier<>() {
+                                                                                                                                                                private int offset = 0;
+                                                                                                                                                                private final int pageSize = 500;
+
+                                                                                                                                                                @Override
+                                                                                                                                                                public List<String> get() {
+                                                                                                                                                                    // 模拟查数据库
+                                                                                                                                                                    if (offset >= 1500) { // 假设这个 minor 最多 1500 条
+                                                                                                                                                                        return List.of();
+                                                                                                                                                                    }
+                                                                                                                                                                    int start = offset;
+                                                                                                                                                                    int end = Math.min(start + pageSize, 1500);
+                                                                                                                                                                    offset += pageSize;
+                                                                                                                                                                    return range(start, end).stream()
+                                                                                                                                                                           .map(i -> "Record-" + i + " of minorVer: " + minorVer)
+                                                                                                                                                                           .collect(Collectors.toList());
+                                                                                                                                                                }
+                                                                                                                                                            };
+
+                                                                                                                                                            while (true) {
+                                                                                                                                                                List<String> batchData = pageSupplier.get();
+                                                                                                                                                                if (batchData.isEmpty()) {
+                                                                                                                                                                    break;
+                                                                                                                                                                }
+
+                                                                                                                                                                try {
+                                                                                                                                                                    pageSemaphore.acquire();
+                                                                                                                                                                } catch (InterruptedException e) {
+                                                                                                                                                                    Thread.currentThread().interrupt();
+                                                                                                                                                                    break;
+                                                                                                                                                                }
+
+                                                                                                                                                                executor.submit(() -> {
+                                                                                                                                                                    long startTime = System.currentTimeMillis();
+                                                                                                                                                                    System.out.println("    [Page] Start batch with " + batchData.size() + " records in " + minorVer);
+
+                                                                                                                                                                    try {
+                                                                                                                                                                        // 这里就是批量处理
+                                                                                                                                                                        processBatch(batchData);
+                                                                                                                                                                    } finally {
+                                                                                                                                                                        pageSemaphore.release();
+                                                                                                                                                                        long endTime = System.currentTimeMillis();
+                                                                                                                                                                        System.out.println("    [Page] End batch, cost: " + (endTime - startTime) + " ms");
+                                                                                                                                                                    }
+                                                                                                                                                                });
+                                                                                                                                                            }
+                                                                                                                                                        }
+
+                                                                                                                                                        // 批量处理，模拟耗时
+                                                                                                                                                        private void processBatch(List<String> batch) {
+                                                                                                                                                            try {
+                                                                                                                                                                Thread.sleep(100); // 模拟处理
+                                                                                                                                                            } catch (InterruptedException e) {
+                                                                                                                                                                Thread.currentThread().interrupt();
+                                                                                                                                                            }
+                                                                                                                                                        }
+
+                                                                                                                                                        // 模拟得到小版本列表
+                                                                                                                                                        private List<String> getMinorVersions(String majorVer) {
+                                                                                                                                                            return List.of(majorVer + ".1", majorVer + ".2", majorVer + ".3");
+                                                                                                                                                        }
+
+                                                                                                                                                        // 模拟构造一个范围的List
+                                                                                                                                                        private List<Integer> range(int start, int end) {
+                                                                                                                                                            return java.util.stream.IntStream.range(start, end)
+                                                                                                                                                                    .boxed()
+                                                                                                                                                                    .collect(Collectors.toList());
+                                                                                                                                                        }
+                                                                                                                                                    }
+                                                                                                                                                    ```
+
+                                                                                                                                                    主要要点：
+
+                                                                                                                                                    1. **信号量分层**：
+                                                                                                                                                       - `majorSemaphore` 用来限制同一时刻能并发执行多少个大版本；
+                                                                                                                                                       - `minorSemaphore` 用来限制同一时刻能并发执行多少个小版本；
+                                                                                                                                                       - `pageSemaphore` 用来限制同一时刻能并发进行多少个分页批次。
+                                                                                                                                                       这样就算“嵌套”再多层，也能保持可控的并发度，不会一下子创建几百几千个线程搞垮系统或数据库。
+
+                                                                                                                                                    2. **executor** 为**虚拟线程池**：
+                                                                                                                                                       - `Executors.newVirtualThreadPerTaskExecutor()`
+                                                                                                                                                       - 这样我们提交多少任务都不会像传统线程那样有巨大开销，适合这类高并发 I/O 场景。
+
+                                                                                                                                                    3. **动态更新配置**：
+                                                                                                                                                       - `updateConfig(...)` 会重新调整信号量可用许可；下次提交新任务就会按新限流生效。
+                                                                                                                                                       - 若要对已在执行中的任务进行更强的干预，例如强制取消/暂停，需要更多设计（比如 `StructuredTaskScope` + cancellation，或者 `CompletableFuture.cancel` 等）。
+
+                                                                                                                                                    4. **多级日志和进度**：
+                                                                                                                                                       - 在大版本、 小版本、分页等不同层级打印日志；
+                                                                                                                                                       - `TaskContext` 可以记录进度或做一些全局统计，也可以额外引入计数器/监听器来统计每个版本、每个小版本的执行情况。
+
+                                                                                                                                                    ### 2.3. 在 Spring 里使用
+
+                                                                                                                                                    可以在一个 Spring Service 里注入或创建 `MultiLevelBatchExecutor`，然后在接口被调用时执行。例如：
+
+                                                                                                                                                    ```java
+                                                                                                                                                    package com.example.demo.service;
+
+                                                                                                                                                    import com.example.demo.concurrency.ConcurrencyConfig;
+                                                                                                                                                    import com.example.demo.concurrency.MultiLevelBatchExecutor;
+                                                                                                                                                    import com.example.demo.concurrency.TaskContext;
+                                                                                                                                                    import org.springframework.stereotype.Service;
+
+                                                                                                                                                    import java.util.List;
+
+                                                                                                                                                    @Service
+                                                                                                                                                    public class MyBatchService {
+
+                                                                                                                                                        public void handleVersions(List<String> versions) {
+                                                                                                                                                            // 1. 构造并发配置（可以来自 application.yml 或数据库/配置中心）
+                                                                                                                                                            ConcurrencyConfig config = new ConcurrencyConfig(
+                                                                                                                                                                    2,  // 同时处理大版本的并发数
+                                                                                                                                                                    5,  // 同时处理小版本的并发数
+                                                                                                                                                                    10  // 同时分页并发数
+                                                                                                                                                            );
+
+                                                                                                                                                            // 2. 上下文（用于记录全局统计或回调）
+                                                                                                                                                            TaskContext context = new TaskContext();
+                                                                                                                                                            // 可以在这里 context.incrementTotal() += versions.size()
+
+                                                                                                                                                            // 3. 创建执行器并执行
+                                                                                                                                                            try (MultiLevelBatchExecutor executor = new MultiLevelBatchExecutor(config, context)) {
+                                                                                                                                                                executor.executeForVersions(versions);
+
+                                                                                                                                                                // 也可以在运行过程随时修改配置
+                                                                                                                                                                // config.setMaxMajorConcurrency(3);
+                                                                                                                                                                // executor.updateConfig(config);
+
+                                                                                                                                                                // executor.close() 会等待所有任务结束
+                                                                                                                                                            }
+
+                                                                                                                                                            // 4. 执行完毕，查看统计
+                                                                                                                                                            System.out.println("All tasks done. Completed: " + context.getCompleted());
+                                                                                                                                                        }
+                                                                                                                                                    }
+                                                                                                                                                    ```
+
+                                                                                                                                                    当你的 API 被外部不断传入**不同版本列表**时，可以：
+                                                                                                                                                    1. 每次创建一个新的 `MultiLevelBatchExecutor`，去调度本次的请求；
+                                                                                                                                                    2. 或者有一个“全局单例”的执行器，把新版本列表的处理也提交进去（这样可以实现真正的**全局限流**，防止多个接口调用之间互相打架）。
+                                                                                                                                                       - 如果要在整个系统层面做限流，就需要**共用**同一个（或一组）信号量+线程池；
+                                                                                                                                                       - 但要注意队列长度、资源隔离、是否会被长任务堵塞等问题，可能还需要队列管理、任务优先级等更复杂的功能。
+
+                                                                                                                                                    ---
+
+                                                                                                                                                    ## 3. 分页工具类的配合
+
+                                                                                                                                                    如果你的分页获取逻辑常常复用（如：按 offset/limit 从数据库捞数据），可以单独封装一个 `PagingUtils`：
+
+                                                                                                                                                    ```java
+                                                                                                                                                    public class PagingUtils {
+                                                                                                                                                        public static <T> Supplier<List<T>> createOffsetPagingSupplier(
+                                                                                                                                                                int pageSize,
+                                                                                                                                                                DataFetcher<T> fetcher
+                                                                                                                                                        ) {
+                                                                                                                                                            // fetcher 自己定义接口: DataFetcher#fetch(offset, limit) => List<T>
+                                                                                                                                                            return new Supplier<>() {
+                                                                                                                                                                private int offset = 0;
+                                                                                                                                                                @Override
+                                                                                                                                                                public List<T> get() {
+                                                                                                                                                                    List<T> data = fetcher.fetch(offset, pageSize);
+                                                                                                                                                                    if (data.isEmpty()) {
+                                                                                                                                                                        return data;
+                                                                                                                                                                    }
+                                                                                                                                                                    offset += pageSize;
+                                                                                                                                                                    return data;
+                                                                                                                                                                }
+                                                                                                                                                            };
+                                                                                                                                                        }
+
+                                                                                                                                                        @FunctionalInterface
+                                                                                                                                                        public interface DataFetcher<T> {
+                                                                                                                                                            List<T> fetch(int offset, int limit);
+                                                                                                                                                        }
+                                                                                                                                                    }
+                                                                                                                                                    ```
+
+                                                                                                                                                    这样你就可以在“分页层级”里直接：
+
+                                                                                                                                                    ```java
+                                                                                                                                                    Supplier<List<String>> pageSupplier = PagingUtils.createOffsetPagingSupplier(
+                                                                                                                                                        500,
+                                                                                                                                                        (offset, limit) -> {
+                                                                                                                                                            // 真实查询数据库
+                                                                                                                                                            return myMapper.queryData(minorVersion, offset, limit);
+                                                                                                                                                        }
+                                                                                                                                                    );
+                                                                                                                                                    ```
+
+                                                                                                                                                    然后 while 循环用 `pageSupplier.get()` 即可。
+
+                                                                                                                                                    ---
+
+                                                                                                                                                    ## 4. 总结与建议
+
+                                                                                                                                                    1. **分层信号量限流**：针对不同层级（大版本 / 小版本 / 分页），分别持有不同的并发上限；必要时加一个全局限流；
+                                                                                                                                                    2. **虚拟线程**：Java 21 虚拟线程相对传统线程成本更低，但也不要盲目无限开，需要配合数据库/中间件的实际承受能力做限制；
+                                                                                                                                                    3. **结构化并发**：如果对多层嵌套并发的资源管理、异常处理要求很高，可考虑 Java 21 的 `StructuredTaskScope`；
+                                                                                                                                                    4. **动态配置**：把并发参数、分页大小等都做成可配置项，通过 `updateConfig` 或者统一配置中心来实现“随时可改”；
+                                                                                                                                                    5. **监控与日志**：在每个层级的任务前后，做好日志输出或事件回调，可结合 Spring Boot Actuator、Micrometer 做更精细的指标监控；
+                                                                                                                                                    6. **防止线程炸裂**：即使用虚拟线程也要注意：无限量并发可能让下游数据库或外部接口不堪重负，所以分层限流非常重要；
+                                                                                                                                                    7. **上下文传递**：如果有复杂的“分层进度管理”，可以在提交任务时传递一个上下文对象，随时更新进度，或者做持久化。
+
+                                                                                                                                                    通过以上方式，你可以在同一个工具类/执行器中，管理多级并发（大版本 → 小版本 → 分页 → 批次），并且在运行时根据需求随时调整“各层并发限制”，也能对每一个线程开始、结束进行监控，实现高度灵活且可观测的批处理框架。祝你开发顺利!
