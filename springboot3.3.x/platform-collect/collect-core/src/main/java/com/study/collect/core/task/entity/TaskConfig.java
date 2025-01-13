@@ -3,6 +3,9 @@ package com.study.collect.core.task.entity;
 import lombok.Data;
 import java.time.LocalDateTime;
 
+/**
+ * 任务配置
+ */
 @Data
 public class TaskConfig {
     private Long id;

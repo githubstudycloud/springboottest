@@ -3,6 +3,9 @@ package com.study.collect.core.task.handler;
 import com.study.collect.core.task.model.TaskContext;
 import com.study.collect.core.task.model.TaskResult;
 
+/**
+ * 任务处理器
+ */
 public interface TaskHandler {
     /**
      * 执行任务

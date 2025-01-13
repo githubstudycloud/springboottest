@@ -9,6 +9,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * 任务处理器管理器
+ */
 @Slf4j
 @Component
 public class TaskHandlerManager {

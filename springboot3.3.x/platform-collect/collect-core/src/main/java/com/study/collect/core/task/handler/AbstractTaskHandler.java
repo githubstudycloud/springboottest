@@ -4,6 +4,9 @@ import com.study.collect.core.task.model.TaskContext;
 import com.study.collect.core.task.model.TaskResult;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * 任务处理器抽象类
+ */
 @Slf4j
 public abstract class AbstractTaskHandler implements TaskHandler {
 
