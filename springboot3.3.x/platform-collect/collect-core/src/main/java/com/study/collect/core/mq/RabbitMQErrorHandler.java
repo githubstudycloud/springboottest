@@ -2,7 +2,9 @@ package com.study.collect.core.mq;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.support.ListenerExecutionFailedException;
+import org.springframework.amqp.support.converter.MessageConversionException;
 import org.springframework.stereotype.Component;
+import org.springframework.util.ErrorHandler;
 
 @Component
 @Slf4j

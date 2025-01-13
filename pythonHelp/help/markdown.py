@@ -70,7 +70,7 @@ LANGUAGE_MAP = {
 # 要忽略的文件夹和文件类型
 # IGNORE_FOLDERS = {'.git', '.idea', 'node_modules', '__pycache__', 'venv', 'target', 'build', 'test'}
 # IGNORE_FOLDERS = {'.git', '.idea', 'node_modules', '__pycache__', 'venv', 'target', 'build', 'test','platform-collect','platform-dashboard','platform-gateway'}
-IGNORE_FOLDERS = {'.git', '.idea', 'node_modules', '__pycache__', 'venv', 'target', 'build', 'test','platform-scheduler','platform-dashboard','platform-gateway'}
+IGNORE_FOLDERS = {'.git', '.idea', 'node_modules', '__pycache__', 'venv', 'target', 'build', 'test','platform-scheduler','platform-dashboard','platform-gateway','business-enterprise','business-finance','business-medical'}
 IGNORE_EXTENSIONS = {'.pyc', '.class', '.o', '.log', '.jar', '.war', '.ear'}
 
 def get_language(file_path):
@@ -132,7 +132,8 @@ def save_markdown(content, output_file):
 
 # 使用示例
 # root_directory = "E:\\idea5\\java\\springboot3.3.x"
-root_directory = "E:\\idea\\java\\springboottestWork1\\springboot3.3.x\\platform-collect"
+# root_directory = "E:\\idea\\java\\springboottestWork1\\springboot3.3.x\\platform-collect"
+root_directory = "E:\\idea\\java\\springboottestWork3\\springboot3.3.x\\platform-collect"
 # root_directory = "E:\\idea\\java\\springboottest\\springboot3.3.x"
 output_file = "project_overview.md"
 

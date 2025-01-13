@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
-        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.study.collect.core.task.mapper.TaskLogMapper">
 
     <!-- 结果映射 -->
@@ -13,31 +12,6 @@
         <result column="create_time" property="createTime"/>
     </resultMap>
 
-    <!-- 修改所有select的resultType为resultMap -->
-    <select id="selectByInstanceId" resultMap="taskLogMap">
-        SELECT * FROM task_log
-        WHERE instance_id = #{instanceId}
-        ORDER BY create_time ASC
-    </select>
-
-    <select id="selectByTaskCode" resultMap="taskLogMap">
-        SELECT * FROM task_log
-        WHERE task_code = #{taskCode}
-        <if test="logType != null">
-            AND log_type = #{logType}
-        </if>
-        ORDER BY create_time DESC
-        <if test="limit != null">
-            LIMIT #{limit}
-        </if>
-    </select>
-
-    <select id="selectLatestErrors" resultMap="taskLogMap">
-        SELECT * FROM task_log
-        WHERE log_type = 5
-        ORDER BY create_time DESC
-        LIMIT #{limit}
-    </select>
     <!-- 插入日志 -->
     <insert id="insert" parameterType="TaskLog">
         INSERT INTO task_log (
@@ -58,14 +32,14 @@
     </insert>
 
     <!-- 根据实例ID查询 -->
-    <select id="selectByInstanceId" resultType="TaskLog">
+    <select id="selectByInstanceId" resultMap="taskLogMap">
         SELECT * FROM task_log
         WHERE instance_id = #{instanceId}
         ORDER BY create_time ASC
     </select>
 
     <!-- 根据任务编码和日志类型查询 -->
-    <select id="selectByTaskCode" resultType="TaskLog">
+    <select id="selectByTaskCode" resultMap="taskLogMap">
         SELECT * FROM task_log
         WHERE task_code = #{taskCode}
         <if test="logType != null">
@@ -78,20 +52,11 @@
     </select>
 
     <!-- 查询最新的错误日志 -->
-    <select id="selectLatestErrors" resultType="TaskLog">
+    <select id="selectLatestErrors" resultMap="taskLogMap">
         SELECT * FROM task_log
         WHERE log_type = 5
         ORDER BY create_time DESC
-        LIMIT #{limit}
-    </select>
-
-    <!-- 统计日志数量 -->
-    <select id="countLogs" resultType="int">
-        SELECT COUNT(*) FROM task_log
-        WHERE task_code = #{taskCode}
-        <if test="logType != null">
-            AND log_type = #{logType}
-        </if>
+            LIMIT #{limit}
     </select>
 
     <!-- 清理历史日志 -->
@@ -102,6 +67,7 @@
 
     <!-- 根据实例ID删除日志 -->
     <delete id="deleteByInstanceId">
-        DELETE FROM task_log WHERE instance_id = #{instanceId}
+        DELETE FROM task_log
+        WHERE instance_id = #{instanceId}
     </delete>
 </mapper>

@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
-        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.study.collect.core.task.mapper.TaskConfigMapper">
 
     <!-- 结果映射 -->
@@ -22,23 +21,8 @@
     </resultMap>
 
     <!-- 修改所有select的resultType为resultMap -->
-    <select id="selectById" resultMap="taskConfigMap">
-        SELECT *
-        FROM task_config
-        WHERE id = #{id}
-    </select>
+<!--    <select id="selectById" resultMap="taskConfigMap">-->
 
-    <select id="selectByCode" resultMap="taskConfigMap">
-        SELECT *
-        FROM task_config
-        WHERE task_code = #{taskCode}
-    </select>
-
-    <select id="selectEnabled" resultMap="taskConfigMap">
-        SELECT *
-        FROM task_config
-        WHERE status = 1
-    </select>
 
     <select id="selectPage" resultMap="taskConfigMap">
         SELECT * FROM task_config
@@ -84,21 +68,21 @@
     </update>
 
     <!-- 根据ID查询 -->
-    <select id="selectById" resultType="TaskConfig">
+    <select id="selectById" resultMap="taskConfigMap">
         SELECT *
         FROM task_config
         WHERE id = #{id}
     </select>
 
     <!-- 根据编码查询 -->
-    <select id="selectByCode" resultType="TaskConfig">
+    <select id="selectByCode" resultMap="taskConfigMap">
         SELECT *
         FROM task_config
         WHERE task_code = #{taskCode}
     </select>
 
     <!-- 查询所有启用的配置 -->
-    <select id="selectEnabled" resultType="TaskConfig">
+    <select id="selectEnabled" resultMap="taskConfigMap">
         SELECT *
         FROM task_config
         WHERE status = 1
@@ -119,20 +103,6 @@
         WHERE task_code = #{taskCode}
     </delete>
 
-    <!-- 分页查询 -->
-    <select id="selectPage" resultType="TaskConfig">
-        SELECT * FROM task_config
-        <where>
-            <if test="taskName != null and taskName != ''">
-                AND task_name LIKE CONCAT('%', #{taskName}, '%')
-            </if>
-            <if test="status != null">
-                AND status = #{status}
-            </if>
-        </where>
-        ORDER BY create_time DESC
-        LIMIT #{offset}, #{limit}
-    </select>
 
     <!-- 统计总数 -->
     <select id="countTotal" resultType="long">

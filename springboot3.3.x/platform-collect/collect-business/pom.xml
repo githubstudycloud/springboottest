@@ -14,9 +14,11 @@
     <packaging>pom</packaging>
 
     <modules>
-        <module>business-enterprise</module>
-<!--        <module>business-finance</module>-->
+<!--        <module>business-enterprise</module>-->
+        <module>business-testcase</module>
+        <!--        <module>business-finance</module>-->
 <!--        <module>business-medical</module>-->
+
     </modules>
 
     <dependencies>

@@ -1,6 +1,6 @@
 package com.study.collect;
 
-import com.study.collect.business.enterprise.config.EnterpriseCollectorProperties;
+import com.study.collect.business.testcase.config.TestCaseCollectorProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -14,7 +14,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableAsync
 @EnableCaching
 @EnableConfigurationProperties({
-        EnterpriseCollectorProperties.class
+        TestCaseCollectorProperties.class
 })
 public class CollectApplication {
     public static void main(String[] args) {
