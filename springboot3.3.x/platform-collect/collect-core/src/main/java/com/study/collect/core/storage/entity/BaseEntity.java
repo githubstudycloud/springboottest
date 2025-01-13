@@ -1,12 +1,14 @@
 package com.study.collect.core.storage.entity;
 
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.*;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
 @Data
+@NoArgsConstructor  // 添加无参构造器
 public abstract class BaseEntity implements Serializable {
     @Id
     protected String id;

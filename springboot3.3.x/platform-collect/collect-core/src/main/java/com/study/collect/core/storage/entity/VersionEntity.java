@@ -2,12 +2,15 @@ package com.study.collect.core.storage.entity;
 
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
+// VersionEntity.java
 @Data
 @EqualsAndHashCode(callSuper = true)
+@NoArgsConstructor  // 添加无参构造器
 public abstract class VersionEntity extends BaseEntity {
 
     protected String versionCode;    // 业务版本号
