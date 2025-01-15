@@ -24,6 +24,7 @@ import java.util.stream.Collectors;
  * 5. 支持批量请求
  * 6. 完整的请求/响应日志
  */
+//
 public class HttpUtil {
     private static final Logger logger = Logger.getLogger(HttpUtil.class.getName());
     

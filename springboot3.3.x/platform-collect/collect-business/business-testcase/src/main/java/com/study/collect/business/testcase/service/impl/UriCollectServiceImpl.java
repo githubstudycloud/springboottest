@@ -1,238 +1,409 @@
 package com.study.collect.business.testcase.service.impl;
 
-import com.google.common.collect.Lists;
-import com.study.collect.business.testcase.constant.VersionType;
+import com.study.collect.business.testcase.constant.CollectionConstants;
 import com.study.collect.business.testcase.entity.UriEntity;
-import com.study.collect.business.testcase.model.response.PageResponse;
-import com.study.collect.business.testcase.model.response.VersionResponse;
+import com.study.collect.business.testcase.manager.CollectTaskManager;
+import com.study.collect.business.testcase.manager.QueueManager;
 import com.study.collect.business.testcase.model.param.CollectParam;
-import com.study.collect.business.testcase.model.param.PageParam;
+import com.study.collect.business.testcase.model.param.DeleteParam;
+import com.study.collect.business.testcase.model.param.QueryParam;
+import com.study.collect.business.testcase.model.response.AsyncResponse;
+import com.study.collect.business.testcase.model.response.PageResponse;
+import com.study.collect.business.testcase.model.response.TaskResponse;
 import com.study.collect.business.testcase.repository.UriRepository;
 import com.study.collect.business.testcase.service.UriCollectService;
 import com.study.collect.business.testcase.service.http.UriHttpService;
-import com.study.collect.business.testcase.utils.HashUtil;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.pool2.ObjectPool;
-import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
 
-import java.io.IOException;
 import java.util.*;
-import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 
-@Service
 @Slf4j
+@Service
+@RequiredArgsConstructor
 public class UriCollectServiceImpl implements UriCollectService {
     private final UriHttpService httpService;
     private final UriRepository repository;
     private final ObjectPool<UriEntity> entityPool;
-    private final ExecutorService executorService;
-
-    private static final int BATCH_SIZE = 200;
-    private static final int PAGE_SIZE = 200;
-    private static final int MAX_RETRY = 3;
-    private static final long RETRY_INTERVAL = 1000L;
-
-    public UriCollectServiceImpl(
-            UriHttpService httpService,
-            UriRepository repository,
-            ObjectPool<UriEntity> entityPool,
-            @Qualifier("collectExecutor") ExecutorService executorService) {
-        this.httpService = httpService;
-        this.repository = repository;
-        this.entityPool = entityPool;
-        this.executorService = executorService;
-    }
+    private final CollectTaskManager taskManager;
+    private final QueueManager<CollectParam> collectQueue;
+    private final QueueManager<DeleteParam> deleteQueue;
 
     @Override
-    public void collectData(CollectParam param) {
-        try {
-            // 1. 获取所有版本（分页）
-            List<String> allVersions = getAllVersions(param.getRootNode());
+    public AsyncResponse<String> collectData(CollectParam param) {
+        // 1. 创建任务
+        TaskResponse task = taskManager.createTask(
+                "COLLECT",
+                Map.of("rootNode", param.getRootNode(),
+                        "serverUri", param.getServerUri(),
+                        "version", param.getVersion()),
+                param.getPriority()
+        );
 
-            // 2. 按版本类型分组
-            Map<String, List<String>> versionGroups = allVersions.stream()
-                    .collect(Collectors.groupingBy(this::getVersionType));
-
-            // 3. 如果是增量同步，先进行数据清理
-            if (param.getIncremental()) {
-                cleanupIncrementalData(param.getRootNode(), allVersions);
-            }
-
-            // 4. 优先处理主干版本，然后是分支版本
-            if (versionGroups.containsKey(VersionType.TRUNK.name())) {
-                processVersionGroup(param.getRootNode(),
-                        versionGroups.get(VersionType.TRUNK.name()),
-                        param);
-            }
-            if (versionGroups.containsKey(VersionType.BRANCH.name())) {
-                processVersionGroup(param.getRootNode(),
-                        versionGroups.get(VersionType.BRANCH.name()),
-                        param);
-            }
-
-            log.info("Data collection completed for root node: {}", param.getRootNode());
-        } catch (Exception e) {
-            log.error("Error collecting data for root node: {}", param.getRootNode(), e);
-            throw new RuntimeException("Data collection failed", e);
-        }
-    }
-
-    @Override
-    public List<UriEntity> queryUri(String rootNode, String version, String versionType) {
-        return repository.findByConditions(rootNode, version, versionType);
-    }
-
-    private List<String> getAllVersions(String rootNode) throws IOException {
-        List<String> allVersions = new ArrayList<>();
-        PageResponse<VersionResponse> firstPage =
-                retryWithBackoff(() -> httpService.getVersions(rootNode, new PageParam(1, PAGE_SIZE)));
-
-        // 处理第一页
-        processVersionPage(firstPage, allVersions);
-
-        // 计算总页数并处理剩余页
-        long totalPages = (firstPage.getTotal() + PAGE_SIZE - 1) / PAGE_SIZE;
-        for (int page = 2; page <= totalPages; page++) {
-            final int currentPage = page;
-            PageResponse<VersionResponse> pageResponse =
-                    retryWithBackoff(() -> httpService.getVersions(rootNode, new PageParam(currentPage, PAGE_SIZE)));
-            processVersionPage(pageResponse, allVersions);
-        }
-
-        log.debug("Retrieved {} versions for root node: {}", allVersions.size(), rootNode);
-        return allVersions;
-    }
-
-    private void processVersionPage(PageResponse<VersionResponse> pageResponse, List<String> versions) {
-        versions.addAll(pageResponse.getItems().stream()
-                .map(VersionResponse::getVersion)
-                .collect(Collectors.toList()));
-    }
-
-    private String getVersionType(String version) {
-        // 根据版本号规则判断类型，可以根据实际情况修改
-        return version.contains("branch") ? VersionType.BRANCH.name() : VersionType.TRUNK.name();
-    }
-
-    private void cleanupIncrementalData(String rootNode, List<String> versions) throws IOException {
-        log.info("Starting incremental data cleanup for root node: {}", rootNode);
-        Set<String> allUris = new HashSet<>();
-
-        // 获取所有版本的URI
-        for (String version : versions) {
-            List<String> versionUris = getAllUrisForVersion(version);
-            allUris.addAll(versionUris.stream()
-                    .map(this::generateUriHash)
-                    .collect(Collectors.toSet()));
-        }
-
-        // 删除不存在的URI
-        repository.deleteByUriHashNotIn(allUris);
-        log.info("Completed incremental data cleanup for root node: {}", rootNode);
-    }
-
-    private void processVersionGroup(String rootNode, List<String> versions, CollectParam param) {
-        log.info("Processing version group for root node: {}, versions count: {}",
-                rootNode, versions.size());
-
-        // 串行处理每个版本，但版本内部并行处理
-        versions.forEach(version -> {
-            try {
-                processVersion(rootNode, version, param);
-            } catch (Exception e) {
-                log.error("Error processing version: {}", version, e);
-                // 继续处理其他版本
-            }
+        // 2. 将任务加入队列
+        collectQueue.enqueue(
+                task.getTaskId(),
+                param,
+                param.getPriority(),
+                this::processCollectTask
+        ).exceptionally(throwable -> {
+            taskManager.updateTaskStatus(
+                    task.getTaskId(),
+                    "ERROR",
+                    throwable.getMessage()
+            );
+            return null;
         });
+
+        // 3. 返回异步响应
+        return AsyncResponse.<String>builder()
+                .taskId(task.getTaskId())
+                .status("QUEUED")
+                .message("Task queued successfully")
+                .build();
     }
 
-    private void processVersion(String rootNode, String version, CollectParam param) {
-        log.info("Starting to process version: {}", version);
+    private void processCollectTask(CollectParam param) {
+        String taskId = param.getTaskId();
         try {
-            List<String> allUris = getAllUrisForVersion(version);
+            taskManager.updateTaskStatus(taskId, "PROCESSING", "Starting data collection");
 
-            // 使用分片并行处理URI
-            Lists.partition(allUris, BATCH_SIZE)
-                    .parallelStream()
-                    .forEach(batch -> processBatch(rootNode, version, batch));
+            // 1. 获取所有版本
+            List<String> allVersions = httpService.getAllVersions(param
+            );
 
-            log.info("Completed processing version: {}, processed URI count: {}",
-                    version, allUris.size());
+            taskManager.updateTaskStatus(
+                    taskId,
+                    "PROCESSING",
+                    String.format("Found %d versions", allVersions.size())
+            );
+
+            // 2. 如果是增量同步，先清理数据
+            if (param.getIncremental()) {
+                cleanupIncrementalData(param, allVersions);
+            }
+
+            // 3. 处理每个版本
+            long totalProcessed = 0;
+            long estimatedTotal = calculateEstimatedTotal(param, allVersions);
+
+            taskManager.updateTaskProgress(taskId, totalProcessed, estimatedTotal);
+
+            for (String version : allVersions) {
+                totalProcessed += processVersion(
+                        param,
+                        version,
+                        taskId
+                );
+                taskManager.updateTaskProgress(taskId, totalProcessed, estimatedTotal);
+            }
+
+            taskManager.updateTaskStatus(
+                    taskId,
+                    "COMPLETED",
+                    String.format("Processed %d URIs", totalProcessed)
+            );
+
         } catch (Exception e) {
-            log.error("Error processing version: {}", version, e);
-            throw new RuntimeException("Version processing failed", e);
+            log.error("Error processing collect task: {}", taskId, e);
+            taskManager.updateTaskStatus(
+                    taskId,
+                    "ERROR",
+                    "Error: " + e.getMessage()
+            );
+            throw new RuntimeException("Task processing failed", e);
         }
     }
 
-    private List<String> getAllUrisForVersion(String version) throws IOException {
-        List<String> allUris = new ArrayList<>();
-        PageParam pageParam = new PageParam(1, PAGE_SIZE);
+    private long processVersion(
+      CollectParam param,
+            String version,
+            String taskId
+    ) throws Exception {
+        String rootNode = param.getRootNode();
+        // 1. 获取该版本下的所有URI
+        List<String> allUris = httpService.getAllUrisForVersion(param, version);
+        long totalProcessed = 0;
 
-        // 获取第一页和总数
-        PageResponse<String> firstPage =
-                retryWithBackoff(() -> httpService.getUriList(version, pageParam));
-        allUris.addAll(firstPage.getItems());
+        // 2. 分批处理
+        List<List<String>> batches = partition(
+                allUris,
+                CollectionConstants.DEFAULT_BATCH_SIZE
+        );
 
-        // 处理剩余页
-        long totalPages = (firstPage.getTotal() + PAGE_SIZE - 1) / PAGE_SIZE;
-        for (int page = 2; page <= totalPages; page++) {
-            final int currentPage = page;
-            PageResponse<String> pageResponse =
-                    retryWithBackoff(() -> httpService.getUriList(version, new PageParam(currentPage, PAGE_SIZE)));
-            allUris.addAll(pageResponse.getItems());
-        }
-
-        return allUris;
-    }
-
-    private void processBatch(String rootNode, String version, List<String> uriBatch) {
-        List<UriEntity> entities = new ArrayList<>(uriBatch.size());
-        List<UriEntity> borrowedEntities = new ArrayList<>(uriBatch.size());
-
-        try {
+        for (List<String> batch : batches) {
             // 获取URI详情
-            List<Map<String, Object>> details =
-                    retryWithBackoff(() -> httpService.getUriDetails(uriBatch));
+            List<Map<String, Object>> details = httpService.batchGetUriDetails(
+                    param,
+                    batch,
+                    CollectionConstants.DEFAULT_BATCH_SIZE
+            );
 
-            // 使用对象池获取实体对象
+            // 创建实体并保存
+            List<UriEntity> entities = new ArrayList<>();
             for (Map<String, Object> detail : details) {
                 UriEntity entity = null;
                 try {
                     entity = entityPool.borrowObject();
-                    borrowedEntities.add(entity);  // 记录借出的对象
                     fillEntity(entity, rootNode, version, detail);
                     entities.add(entity);
                 } catch (Exception e) {
-                    log.error("Error borrowing object from pool", e);
+                    log.error("Error creating entity", e);
                     if (entity != null) {
-                        try {
-                            entityPool.returnObject(entity);
-                            borrowedEntities.remove(entity);
-                        } catch (Exception ex) {
-                            log.error("Error returning object to pool", ex);
-                        }
+                        entityPool.returnObject(entity);
                     }
                 }
             }
 
-            // 批量保存
-            repository.saveAll(entities);
+            try {
+                if (!entities.isEmpty()) {
+                    repository.batchUpsert(rootNode, entities);
+                    totalProcessed += entities.size();
+                }
+            } finally {
+                // 返还对象到对象池
+                for (UriEntity entity : entities) {
+                    try {
+                        entityPool.returnObject(entity);
+                    } catch (Exception e) {
+                        log.error("Error returning entity to pool", e);
+                    }
+                }
+            }
+
+            // 更新任务进度
+            taskManager.updateTaskStatus(
+                    taskId,
+                    "PROCESSING",
+                    String.format("Processing version %s: %d/%d",
+                            version, totalProcessed, allUris.size())
+            );
+        }
+
+        return totalProcessed;
+    }
+
+    @Override
+    public AsyncResponse<Long> deleteData(DeleteParam param) {
+        // 1. 创建任务
+        TaskResponse task = taskManager.createTask(
+                "DELETE",
+                Map.of("rootNode", param.getRootNode(),
+                        "urisCount", param.getUris().size(),
+                        "hardDelete", param.getHardDelete()),
+                param.getPriority()
+        );
+
+        // 2. 将任务加入队列
+        deleteQueue.enqueue(
+                task.getTaskId(),
+                param,
+                param.getPriority(),
+                this::processDeleteTask
+        ).exceptionally(throwable -> {
+            taskManager.updateTaskStatus(
+                    task.getTaskId(),
+                    "ERROR",
+                    throwable.getMessage()
+            );
+            return null;
+        });
+
+        // 3. 返回异步响应
+        return AsyncResponse.<Long>builder()
+                .taskId(task.getTaskId())
+                .status("QUEUED")
+                .message("Delete task queued successfully")
+                .build();
+    }
+
+    private void processDeleteTask(DeleteParam param) {
+        String taskId = param.getTaskId();
+        try {
+            taskManager.updateTaskStatus(taskId, "PROCESSING", "Starting data deletion");
+
+            List<List<String>> batches = partition(
+                    param.getUris(),
+                    param.getBatchSize() != null ?
+                            param.getBatchSize() :
+                            CollectionConstants.DEFAULT_BATCH_SIZE
+            );
+
+            long totalDeleted = 0;
+            for (List<String> batch : batches) {
+                long batchCount;
+                if (param.getHardDelete()) {
+                    batchCount = repository.batchHardDelete(param.getRootNode(), batch);
+                } else {
+                    batchCount = repository.batchSoftDelete(param.getRootNode(), batch);
+                }
+                totalDeleted += batchCount;
+
+                taskManager.updateTaskProgress(
+                        taskId,
+                        totalDeleted,
+                        param.getUris().size()
+                );
+            }
+
+            taskManager.updateTaskStatus(
+                    taskId,
+                    "COMPLETED",
+                    String.format("Deleted %d URIs", totalDeleted)
+            );
 
         } catch (Exception e) {
-            log.error("Error processing URI batch", e);
-            throw new RuntimeException("Batch processing failed", e);
-        } finally {
-            // 确保所有借出的对象都返回池中
-            borrowedEntities.forEach(entity -> {
-                try {
-                    entityPool.returnObject(entity);
-                } catch (Exception e) {
-                    log.error("Error returning object to pool", e);
-                }
-            });
+            log.error("Error processing delete task: {}", taskId, e);
+            taskManager.updateTaskStatus(
+                    taskId,
+                    "ERROR",
+                    "Error: " + e.getMessage()
+            );
+            throw new RuntimeException("Delete task processing failed", e);
         }
+    }
+
+    @Override
+    public Page<UriEntity> queryUri(QueryParam param) {
+        return repository.findByCondition(
+                param.getRootNode(),
+                param.getVersion(),
+                param.getVersionType(),
+                param.getIncludeDeleted(),
+                PageRequest.of(param.getPage() - 1, param.getSize())
+        );
+    }
+
+    @Override
+    public List<UriEntity> batchQueryUri(List<String> uris, Boolean includeDeleted) {
+        if (CollectionUtils.isEmpty(uris)) {
+            return Collections.emptyList();
+        }
+
+        // 使用第一个URI的rootNode作为默认值
+        return repository.batchQuery(
+                uris,
+                this::extractRootNode,
+                includeDeleted
+        );
+    }
+
+    @Override
+    public AsyncResponse<Void> getTaskStatus(String taskId) {
+        TaskResponse task = taskManager.getTaskStatus(taskId);
+        if (task == null) {
+            return AsyncResponse.<Void>builder()
+                    .taskId(taskId)
+                    .status("NOT_FOUND")
+                    .message("Task not found")
+                    .build();
+        }
+
+        return AsyncResponse.<Void>builder()
+                .taskId(taskId)
+                .status(task.getStatus())
+                .message(task.getMessage())
+                .progress(task.getProgress())
+                .startTime(task.getStartTime())
+                .endTime(task.getEndTime())
+                .build();
+    }
+
+    @Override
+    public boolean cancelTask(String taskId) {
+        // 尝试取消队列中的任务
+        if (collectQueue.cancel(taskId) || deleteQueue.cancel(taskId)) {
+            taskManager.cancelTask(taskId);
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public boolean updateTaskPriority(String taskId, int priority) {
+        // 更新任务优先级
+        if (collectQueue.updatePriority(taskId, priority) ||
+                deleteQueue.updatePriority(taskId, priority)) {
+            return taskManager.updateTaskPriority(taskId, priority);
+        }
+        return false;
+    }
+
+    @Override
+    public List<AsyncResponse<Void>> getActiveTasks() {
+        return taskManager.getActiveTasks().stream()
+                .map(task -> AsyncResponse.<Void>builder()
+                        .taskId(task.getTaskId())
+                        .status(task.getStatus())
+                        .message(task.getMessage())
+                        .progress(task.getProgress())
+                        .startTime(task.getStartTime())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    private void cleanupIncrementalData(
+            CollectParam param,
+            List<String> versions
+    ) throws Exception {
+        String rootNode = param.getRootNode();
+        Set<String> allUriHashes = new HashSet<>();
+
+        // 获取所有版本的URI
+        for (String version : versions) {
+            List<String> versionUris = httpService.getAllUrisForVersion(param, version);
+            allUriHashes.addAll(versionUris.stream()
+                    .map(this::generateUriHash)
+                    .collect(Collectors.toSet()));
+        }
+
+        // 删除不存在的URI //TODO 改成分页批量删除 ,可选软删除或者硬删除，根据param.getHardDelete()来判断
+        repository.deleteNotInUris(rootNode, allUriHashes);
+    }
+
+    private String generateUriHash(String uri) {
+        return Objects.hash(uri) + "";
+    }
+
+    private String extractRootNode(String uri) {
+        // 从URI中提取rootNode的逻辑
+        String[] parts = uri.split("/");
+        return parts.length > 0 ? parts[0] : "";
+    }
+
+    private <T> List<List<T>> partition(List<T> list, int size) {
+        if (CollectionUtils.isEmpty(list)) {
+            return Collections.emptyList();
+        }
+
+        List<List<T>> partitions = new ArrayList<>();
+        for (int i = 0; i < list.size(); i += size) {
+            partitions.add(list.subList(i, Math.min(i + size, list.size())));
+        }
+        return partitions;
+    }
+
+    private long calculateEstimatedTotal(CollectParam param, List<String> versions) {
+        long total = 0;
+        for (String version : versions) {
+            try {
+                PageResponse<String> response = httpService.getUriListAsync(
+                        param,
+                        version,
+                        new com.study.collect.business.testcase.model.param.PageParam(1, 1)
+                ).get();
+                total += response.getTotal();
+            } catch (Exception e) {
+                log.warn("Error calculating total for version: {}", version, e);
+            }
+        }
+        return total;
     }
 
     private void fillEntity(UriEntity entity, String rootNode, String version, Map<String, Object> detail) {
@@ -243,31 +414,7 @@ public class UriCollectServiceImpl implements UriCollectService {
         entity.setDetails(detail);
     }
 
-    private String generateUriHash(String uri) {
-        return HashUtil.hash(uri);
-    }
-
-    private <T> T retryWithBackoff(IOSupplier<T> supplier) throws IOException {
-        int retries = 0;
-        while (true) {
-            try {
-                return supplier.get();
-            } catch (IOException e) {
-                if (++retries == MAX_RETRY) {
-                    throw e;
-                }
-                try {
-                    Thread.sleep(RETRY_INTERVAL * (long) Math.pow(2, retries - 1));
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                    throw new IOException("Operation interrupted", ie);
-                }
-            }
-        }
-    }
-
-    @FunctionalInterface
-    private interface IOSupplier<T> {
-        T get() throws IOException;
+    private String getVersionType(String version) {
+        return version.toLowerCase().contains("branch") ? "BRANCH" : "TRUNK";
     }
 }
