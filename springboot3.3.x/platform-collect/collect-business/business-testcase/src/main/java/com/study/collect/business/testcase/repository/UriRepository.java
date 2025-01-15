@@ -3,9 +3,10 @@ package com.study.collect.business.testcase.repository;
 import com.mongodb.bulk.BulkWriteResult;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.*;
-import com.study.collect.business.testcase.constant.CollectionConstants;
+import com.study.collect.business.testcase.common.constants.CollectionConstants;
+import com.study.collect.business.testcase.common.utils.TableNameHelper;
 import com.study.collect.business.testcase.entity.UriEntity;
-import com.study.collect.business.testcase.utils.HashUtil;
+import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.bson.Document;
 import org.springframework.data.domain.Page;
@@ -17,26 +18,24 @@ import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Repository;
 import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+/**
+ * URI仓储实现
+ */
 @Slf4j
 @Repository
 public class UriRepository {
+
     private final MongoTemplate mongoTemplate;
 
     public UriRepository(MongoTemplate mongoTemplate) {
         this.mongoTemplate = mongoTemplate;
-    }
-
-    /**
-     * 生成集合名称
-     */
-    private String getCollectionName(String rootNode) {
-        return String.format("%s_%s", CollectionConstants.URI_COLLECTION_PREFIX, rootNode);
     }
 
     /**
@@ -47,7 +46,7 @@ public class UriRepository {
             return null;
         }
 
-        String collectionName = getCollectionName(rootNode);
+        String collectionName = TableNameHelper.getTableName(rootNode);
         MongoCollection<Document> collection = mongoTemplate.getCollection(collectionName);
 
         List<WriteModel<Document>> operations = new ArrayList<>();
@@ -80,8 +79,9 @@ public class UriRepository {
             return 0L;
         }
 
+        String collectionName = TableNameHelper.getTableName(rootNode);
         List<String> uriHashes = uris.stream()
-                .map(HashUtil::hash)
+                .map(TableNameHelper::generateUriHash)
                 .collect(Collectors.toList());
 
         Query query = new Query(Criteria.where("uri_hash").in(uriHashes));
@@ -90,13 +90,9 @@ public class UriRepository {
                 .set("update_time", LocalDateTime.now());
 
         try {
-            return mongoTemplate.updateMulti(
-                    query,
-                    update,
-                    getCollectionName(rootNode)
-            ).getModifiedCount();
+            return mongoTemplate.updateMulti(query, update, collectionName).getModifiedCount();
         } catch (Exception e) {
-            log.error("Failed to batch soft delete in collection {}", rootNode, e);
+            log.error("Failed to batch soft delete in collection {}", collectionName, e);
             throw new RuntimeException("Batch soft delete failed", e);
         }
     }
@@ -109,53 +105,81 @@ public class UriRepository {
             return 0L;
         }
 
+        String collectionName = TableNameHelper.getTableName(rootNode);
         List<String> uriHashes = uris.stream()
-                .map(HashUtil::hash)
+                .map(TableNameHelper::generateUriHash)
                 .collect(Collectors.toList());
 
         Query query = new Query(Criteria.where("uri_hash").in(uriHashes));
 
         try {
-            return mongoTemplate.remove(
-                    query,
-                    UriEntity.class,
-                    getCollectionName(rootNode)
-            ).getDeletedCount();
+            return mongoTemplate.remove(query, UriEntity.class, collectionName).getDeletedCount();
         } catch (Exception e) {
-            log.error("Failed to batch hard delete in collection {}", rootNode, e);
+            log.error("Failed to batch hard delete in collection {}", collectionName, e);
             throw new RuntimeException("Batch hard delete failed", e);
+        }
+    }
+
+    /**
+     * 清理不在列表中的URI（软删除）
+     */
+    public long softDeleteNotInUriHashes(String rootNode, Set<String> validHashes) {
+        String collectionName = TableNameHelper.getTableName(rootNode);
+        Query query = new Query(Criteria.where("uri_hash").nin(validHashes)
+                .and("is_deleted").is(false));
+        Update update = new Update()
+                .set("is_deleted", true)
+                .set("update_time", LocalDateTime.now());
+
+        try {
+            return mongoTemplate.updateMulti(query, update, collectionName).getModifiedCount();
+        } catch (Exception e) {
+            log.error("Failed to soft delete URIs not in hash set for collection {}", collectionName, e);
+            throw new RuntimeException("Soft delete cleanup failed", e);
+        }
+    }
+
+    /**
+     * 清理不在列表中的URI（硬删除）
+     */
+    public long deleteNotInUriHashes(String rootNode, Set<String> validHashes) {
+        String collectionName = TableNameHelper.getTableName(rootNode);
+        Query query = new Query(Criteria.where("uri_hash").nin(validHashes));
+
+        try {
+            return mongoTemplate.remove(query, UriEntity.class, collectionName).getDeletedCount();
+        } catch (Exception e) {
+            log.error("Failed to delete URIs not in hash set for collection {}", collectionName, e);
+            throw new RuntimeException("Delete cleanup failed", e);
         }
     }
 
     /**
      * 分页查询
      */
-    public Page<UriEntity> findByCondition(
-            String rootNode,
-            String version,
-            String versionType,
-            Boolean includeDeleted,
-            Pageable pageable
-    ) {
+    public Page<UriEntity> findByCondition(QueryParams params) {
         Criteria criteria = new Criteria();
 
-        if (version != null) {
-            criteria.and("uri_version").is(version);
+        if (StringUtils.hasText(params.getVersion())) {
+            criteria.and("uri_version").is(params.getVersion());
         }
-        if (versionType != null) {
-            criteria.and("version_type").is(versionType);
+        if (StringUtils.hasText(params.getVersionType())) {
+            criteria.and("version_type").is(params.getVersionType());
         }
-        if (!includeDeleted) {
+        if (!params.getIncludeDeleted()) {
             criteria.and("is_deleted").is(false);
         }
+        if (params.getOnlyDeleted()) {
+            criteria.and("is_deleted").is(true);
+        }
 
-        Query query = new Query(criteria).with(pageable);
-        String collectionName = getCollectionName(rootNode);
+        Query query = new Query(criteria).with(params.getPageable());
+        String collectionName = TableNameHelper.getTableName(params.getRootNode());
 
         try {
             long total = mongoTemplate.count(query, UriEntity.class, collectionName);
             List<UriEntity> content = mongoTemplate.find(query, UriEntity.class, collectionName);
-            return new PageImpl<>(content, pageable, total);
+            return new PageImpl<>(content, params.getPageable(), total);
         } catch (Exception e) {
             log.error("Failed to query collection {}", collectionName, e);
             throw new RuntimeException("Query failed", e);
@@ -165,71 +189,55 @@ public class UriRepository {
     /**
      * 批量查询
      */
-    public List<UriEntity> batchQuery(
-            List<String> uris,
-            Function<String, String> rootNodeResolver,
-            Boolean includeDeleted
-    ) {
+    public List<UriEntity> batchQuery(List<String> uris, Function<String, String> rootNodeResolver,
+                                      Boolean includeDeleted) {
         if (CollectionUtils.isEmpty(uris)) {
             return new ArrayList<>();
         }
 
-        // 按rootNode分组
         Map<String, List<String>> groupedUris = uris.stream()
                 .collect(Collectors.groupingBy(rootNodeResolver));
 
         List<UriEntity> results = new ArrayList<>();
-
         for (Map.Entry<String, List<String>> entry : groupedUris.entrySet()) {
-            String rootNode = entry.getKey();
-            List<String> uriGroup = entry.getValue();
-
-            List<String> uriHashes = uriGroup.stream()
-                    .map(HashUtil::hash)
-                    .collect(Collectors.toList());
-
-            Criteria criteria = Criteria.where("uri_hash").in(uriHashes);
-            if (!includeDeleted) {
-                criteria.and("is_deleted").is(false);
-            }
-
-            Query query = new Query(criteria);
-            String collectionName = getCollectionName(rootNode);
-
-            try {
-                List<UriEntity> groupResults = mongoTemplate.find(
-                        query,
-                        UriEntity.class,
-                        collectionName
-                );
-                results.addAll(groupResults);
-            } catch (Exception e) {
-                log.error("Failed to query collection {}", collectionName, e);
-                // 继续处理其他分组
-            }
+            results.addAll(queryByGroup(entry.getKey(), entry.getValue(), includeDeleted));
         }
 
         return results;
     }
 
-    /**
-     * 删除不存在的URI
-     */
-    public void deleteNotInUris(String rootNode, Set<String> uriHashes) {
-        Query query = new Query(
-                Criteria.where("uri_hash").nin(uriHashes)
-        );
+    private List<UriEntity> queryByGroup(String rootNode, List<String> uris, Boolean includeDeleted) {
+        String collectionName = TableNameHelper.getTableName(rootNode);
+        List<String> uriHashes = uris.stream()
+                .map(TableNameHelper::generateUriHash)
+                .collect(Collectors.toList());
 
-        try {
-            mongoTemplate.remove(
-                    query,
-                    UriEntity.class,
-                    getCollectionName(rootNode)
-            );
-        } catch (Exception e) {
-            log.error("Failed to delete non-existing URIs in collection {}", rootNode, e);
-            throw new RuntimeException("Delete non-existing URIs failed", e);
+        Criteria criteria = Criteria.where("uri_hash").in(uriHashes);
+        if (!includeDeleted) {
+            criteria.and("is_deleted").is(false);
         }
+
+        Query query = new Query(criteria);
+        try {
+            return mongoTemplate.find(query, UriEntity.class, collectionName);
+        } catch (Exception e) {
+            log.error("Failed to query collection {} for group", collectionName, e);
+            return Collections.emptyList();
+        }
+    }
+
+    /**
+     * 查询参数对象
+     */
+    @Data
+    @Builder
+    public static class QueryParams {
+        private String rootNode;
+        private String version;
+        private String versionType;
+        private Boolean includeDeleted;
+        private Boolean onlyDeleted;
+        private Pageable pageable;
     }
 
     private Document convertEntityToDocument(UriEntity entity) {
