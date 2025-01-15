@@ -1,4 +1,4 @@
-package com.study.collect.business.testcase.repository;
+package com.study.collect.business.testcase.model;
 
 import lombok.Builder;
 import lombok.Data;

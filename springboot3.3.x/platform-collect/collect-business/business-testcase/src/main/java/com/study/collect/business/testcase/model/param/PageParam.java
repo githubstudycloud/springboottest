@@ -1,4 +1,4 @@
-package com.study.collect.business.testcase.param;
+package com.study.collect.business.testcase.model.param;
 
 
 import lombok.AllArgsConstructor;

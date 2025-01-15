@@ -1,9 +1,7 @@
-package com.study.collect.business.testcase.model;
+package com.study.collect.business.testcase.model.response;
 
 
 import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.experimental.SuperBuilder;
 
 //@Data
 //@SuperBuilder
@@ -13,7 +11,6 @@ import lombok.experimental.SuperBuilder;
 //    private String versionType;
 //    private String description;
 //}
-import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 

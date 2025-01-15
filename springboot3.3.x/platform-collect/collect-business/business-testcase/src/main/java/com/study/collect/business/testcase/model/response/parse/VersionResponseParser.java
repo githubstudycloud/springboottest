@@ -1,8 +1,8 @@
-package com.study.collect.business.testcase.model.response;
+package com.study.collect.business.testcase.model.response.parse;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.study.collect.business.testcase.model.PageResponse;
-import com.study.collect.business.testcase.model.VersionResponse;
+import com.study.collect.business.testcase.model.response.PageResponse;
+import com.study.collect.business.testcase.model.response.VersionResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

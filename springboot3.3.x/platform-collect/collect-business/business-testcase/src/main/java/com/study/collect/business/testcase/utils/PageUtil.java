@@ -1,7 +1,7 @@
 package com.study.collect.business.testcase.utils;
 
 
-import com.study.collect.business.testcase.param.PageParam;
+import com.study.collect.business.testcase.model.param.PageParam;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 

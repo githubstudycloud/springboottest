@@ -1,9 +1,9 @@
 package com.study.collect.business.testcase.service.http;
 
-import com.study.collect.business.testcase.model.PageResponse;
-import com.study.collect.business.testcase.model.VersionResponse;
-import com.study.collect.business.testcase.model.response.HttpResponseParser;
-import com.study.collect.business.testcase.param.PageParam;
+import com.study.collect.business.testcase.model.response.PageResponse;
+import com.study.collect.business.testcase.model.response.VersionResponse;
+import com.study.collect.business.testcase.model.response.parse.HttpResponseParser;
+import com.study.collect.business.testcase.model.param.PageParam;
 import com.study.collect.business.testcase.utils.HttpUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

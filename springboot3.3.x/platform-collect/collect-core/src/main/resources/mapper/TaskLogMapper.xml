@@ -59,6 +59,15 @@
             LIMIT #{limit}
     </select>
 
+    <!-- 统计日志数量 -->
+    <select id="countLogs" resultType="int">
+        SELECT COUNT(*) FROM task_log
+        WHERE task_code = #{taskCode}
+        <if test="logType != null">
+            AND log_type = #{logType}
+        </if>
+    </select>
+
     <!-- 清理历史日志 -->
     <delete id="cleanHistoryLogs">
         DELETE FROM task_log

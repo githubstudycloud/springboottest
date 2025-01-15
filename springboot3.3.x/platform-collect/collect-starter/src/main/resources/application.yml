@@ -27,7 +27,30 @@ spring:
     mongodb:
       uri: mongodb://root:123456@192.168.80.137:27017
       database: crawler
+      # 连接池配置
+      connection:
+        pool:
+          max-size: 200
+          min-size: 20
+          max-wait-time: 5000
+          max-connection-life-time: 1800000
+          max-connection-idle-time: 600000
+      # 读写配置
+      read-preference: primaryPreferred
+      write-concern: majority
+      read-concern: local
+      # 超时配置
+      socket:
+        connect-timeout: 5000
+        read-timeout: 5000
+      # 添加索引相关配置
+      index:
+        background: true
+        creation-enabled: true
+        creation-timeout: 5000 # 单位：毫秒
+      # 其他配置
       auto-index-creation: true
+      field-naming-strategy: org.springframework.data.mapping.model.SnakeCaseFieldNamingStrategy
 
     # Redis配置
     redis:

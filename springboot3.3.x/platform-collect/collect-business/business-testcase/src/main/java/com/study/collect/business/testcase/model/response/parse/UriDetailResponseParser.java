@@ -1,4 +1,4 @@
-package com.study.collect.business.testcase.model.response;
+package com.study.collect.business.testcase.model.response.parse;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;

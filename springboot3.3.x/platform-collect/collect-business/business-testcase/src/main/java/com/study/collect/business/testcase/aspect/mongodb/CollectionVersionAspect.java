@@ -1,6 +1,5 @@
-package com.study.collect.business.testcase.aspect;
+package com.study.collect.business.testcase.aspect.mongodb;
 
-import com.study.collect.business.testcase.model.CollectionStrategy;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
@@ -21,7 +20,7 @@ import java.lang.reflect.Method;
 @Slf4j
 public class CollectionVersionAspect {
 
-    @Around("@annotation(CollectionVersion)")
+    @Around("@annotation(com.study.collect.business.testcase.aspect.mongodb.CollectionVersion)")
     public Object aroundCollectionVersion(ProceedingJoinPoint joinPoint) throws Throwable {
         CollectionVersion annotation = ((MethodSignature) joinPoint.getSignature())
                 .getMethod().getAnnotation(CollectionVersion.class);

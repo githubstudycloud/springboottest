@@ -1,4 +1,4 @@
-package com.study.collect.business.testcase.model;
+package com.study.collect.business.testcase.aspect.mongodb;
 
 import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;

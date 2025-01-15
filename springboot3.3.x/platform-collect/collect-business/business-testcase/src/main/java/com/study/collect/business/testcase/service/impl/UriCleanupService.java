@@ -1,6 +1,6 @@
-package com.study.collect.business.testcase.service;
+package com.study.collect.business.testcase.service.impl;
 
-import com.study.collect.business.testcase.repository.PageResult;
+import com.study.collect.business.testcase.model.PageResult;
 import com.study.collect.business.testcase.repository.UriRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;

@@ -1,11 +1,8 @@
-package com.study.collect.business.testcase.model;
+package com.study.collect.business.testcase.model.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.experimental.SuperBuilder;
-
-import java.util.List;
 
 // BaseResponse.java
 @Data

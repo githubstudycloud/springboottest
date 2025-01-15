@@ -1,19 +1,14 @@
 package com.study.collect.business.testcase.controller;
 
 import com.study.collect.business.testcase.entity.UriEntity;
+import com.study.collect.business.testcase.model.param.CollectParam;
 import com.study.collect.business.testcase.service.UriCollectService;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-
-
-import com.study.collect.domain.param.CollectParam;
-import com.study.collect.service.UriCollectService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/collect")

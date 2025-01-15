@@ -1,4 +1,4 @@
-package com.study.collect.business.testcase.model;
+package com.study.collect.business.testcase.model.response;
 
 import lombok.Data;
 import lombok.NoArgsConstructor;

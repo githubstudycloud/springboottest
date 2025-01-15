@@ -1,4 +1,4 @@
-package com.study.collect.business.testcase.aspect;
+package com.study.collect.business.testcase.aspect.mongodb;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

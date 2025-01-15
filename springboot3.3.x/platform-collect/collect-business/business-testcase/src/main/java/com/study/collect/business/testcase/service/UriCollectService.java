@@ -3,7 +3,7 @@ package com.study.collect.business.testcase.service;
 
 
 import com.study.collect.business.testcase.entity.UriEntity;
-import com.study.collect.business.testcase.param.CollectParam;
+import com.study.collect.business.testcase.model.param.CollectParam;
 
 import java.util.List;
 
