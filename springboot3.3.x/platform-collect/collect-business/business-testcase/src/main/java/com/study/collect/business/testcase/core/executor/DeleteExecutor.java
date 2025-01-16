@@ -1,10 +1,8 @@
 package com.study.collect.business.testcase.core.executor;
 
-import com.study.collect.business.testcase.common.constants.CollectionConstants;
-import com.study.collect.business.testcase.common.utils.StreamProcessor;
 import com.study.collect.business.testcase.model.param.DeleteParam;
 import com.study.collect.business.testcase.repository.UriRepository;
-import com.study.collect.business.testcase.common.utils.ListCompareUtil;
+import com.study.collect.business.testcase.common.utils.StreamProcessor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -42,23 +40,22 @@ public class DeleteExecutor {
     ) {
         // 1. 预处理URI列表，按rootNode分组
         Map<String, List<String>> groupedUris = groupUrisByRootNode(param);
-        List<String> allUris = new ArrayList<>(param.getUris());
 
         // 2. 创建处理器配置
-        StreamProcessor.ProcessorConfig<List<String>, Long> config =
-                StreamProcessor.ProcessorConfig.<List<String>, Long>builder()
+        StreamProcessor.ProcessorConfig<Map.Entry<String, List<String>>, Long> config =
+                StreamProcessor.ProcessorConfig.<Map.Entry<String, List<String>>, Long>builder()
                         .processorName("URI-Delete-" + param.getRootNode())
                         .batchSize(getBatchSize(param))
-                        .maxConcurrent(CollectionConstants.Process.MAX_CONCURRENT_TASKS)
-                        .timeoutSeconds(CollectionConstants.Process.TASK_TIMEOUT)
-                        .maxRetries(CollectionConstants.Http.MAX_RETRY)
-                        .retryDelayMs(CollectionConstants.Http.RETRY_INTERVAL)
+                        .maxConcurrent(com.study.collect.business.testcase.common.constants.CollectionConstants.Process.MAX_CONCURRENT_TASKS)
+                        .timeoutSeconds(com.study.collect.business.testcase.common.constants.CollectionConstants.Process.TASK_TIMEOUT)
+                        .maxRetries(com.study.collect.business.testcase.common.constants.CollectionConstants.Http.MAX_RETRY)
+                        .retryDelayMs(com.study.collect.business.testcase.common.constants.CollectionConstants.Http.RETRY_INTERVAL)
                         .processExecutor(virtualThreadExecutor)
                         .saveExecutor(mongoExecutor.getThreadPoolExecutor())
                         // 数据获取函数
-                        .dataFetcher(offset -> fetchBatch(allUris, offset, param.getBatchSize()))
+                        .dataFetcher(offset -> fetchBatch(new ArrayList<>(groupedUris.entrySet()), offset))
                         // 数据转换函数
-                        .dataConverter(batch -> processDelete(param.getRootNode(), batch, param.getHardDelete()))
+                        .dataConverter(entry -> processDelete(entry, param.getHardDelete()))
                         // 数据保存函数 - 这里用于更新删除计数
                         .dataSaver(this::updateDeleteCount)
                         // 进度回调
@@ -66,10 +63,10 @@ public class DeleteExecutor {
                         .build();
 
         // 3. 创建处理器实例
-        StreamProcessor<List<String>, Long> processor = new StreamProcessor<>(config);
+        StreamProcessor<Map.Entry<String, List<String>>, Long> processor = new StreamProcessor<>(config);
 
         // 4. 开始处理
-        return processor.process(0, allUris.size());
+        return processor.process(0, groupedUris.size());
     }
 
     /**
@@ -85,15 +82,15 @@ public class DeleteExecutor {
         StreamProcessor.ProcessorConfig<Set<String>, Long> config =
                 StreamProcessor.ProcessorConfig.<Set<String>, Long>builder()
                         .processorName("URI-Cleanup-" + rootNode)
-                        .batchSize(CollectionConstants.Process.DEFAULT_BATCH_SIZE)
+                        .batchSize(com.study.collect.business.testcase.common.constants.CollectionConstants.Process.DEFAULT_BATCH_SIZE)
                         .maxConcurrent(1) // 清理任务限制并发为1
-                        .timeoutSeconds(CollectionConstants.Process.TASK_TIMEOUT)
-                        .maxRetries(CollectionConstants.Http.MAX_RETRY)
-                        .retryDelayMs(CollectionConstants.Http.RETRY_INTERVAL)
+                        .timeoutSeconds(com.study.collect.business.testcase.common.constants.CollectionConstants.Process.TASK_TIMEOUT)
+                        .maxRetries(com.study.collect.business.testcase.common.constants.CollectionConstants.Http.MAX_RETRY)
+                        .retryDelayMs(com.study.collect.business.testcase.common.constants.CollectionConstants.Http.RETRY_INTERVAL)
                         .processExecutor(virtualThreadExecutor)
                         .saveExecutor(mongoExecutor.getThreadPoolExecutor())
                         // 数据获取函数
-                        .dataFetcher(offset -> Collections.singleton(validUriHashes))
+                        .dataFetcher(offset -> Collections.singletonList(validUriHashes))
                         // 数据转换函数
                         .dataConverter(hashes -> processCleanup(rootNode, hashes, hardDelete))
                         // 数据保存函数
@@ -127,29 +124,35 @@ public class DeleteExecutor {
     private int getBatchSize(DeleteParam param) {
         if (param.getBatchSize() != null) {
             return Math.min(Math.max(param.getBatchSize(),
-                            CollectionConstants.Process.MIN_BATCH_SIZE),
-                    CollectionConstants.Process.MAX_BATCH_SIZE);
+                            com.study.collect.business.testcase.common.constants.CollectionConstants.Process.MIN_BATCH_SIZE),
+                    com.study.collect.business.testcase.common.constants.CollectionConstants.Process.MAX_BATCH_SIZE);
         }
-        return CollectionConstants.Process.DEFAULT_BATCH_SIZE;
+        return com.study.collect.business.testcase.common.constants.CollectionConstants.Process.DEFAULT_BATCH_SIZE;
     }
 
     /**
      * 获取一批待处理数据
      */
-    private List<String> fetchBatch(List<String> allUris, int offset, int batchSize) {
-        int endIndex = Math.min(offset + batchSize, allUris.size());
-        return offset < allUris.size() ? allUris.subList(offset, endIndex) : Collections.emptyList();
+    private List<Map.Entry<String, List<String>>> fetchBatch(
+            List<Map.Entry<String, List<String>>> entries,
+            int offset
+    ) {
+        int end = Math.min(offset + 1, entries.size());
+        return offset < entries.size() ? entries.subList(offset, end) : Collections.emptyList();
     }
 
     /**
      * 处理删除操作
      */
-    private Long processDelete(String rootNode, List<String> uris, boolean hardDelete) {
+    private Long processDelete(Map.Entry<String, List<String>> entry, boolean hardDelete) {
+        String rootNode = entry.getKey();
+        List<String> uris = entry.getValue();
+
         try {
             if (hardDelete) {
-                return repository.batchHardDelete(rootNode, uris);
+                return (Long) repository.batchHardDelete(rootNode, uris);
             } else {
-                return repository.batchSoftDelete(rootNode, uris);
+                return (Long) repository.batchSoftDelete(rootNode, uris);
             }
         } catch (Exception e) {
             log.error("Error deleting URIs for rootNode: {}", rootNode, e);
@@ -163,9 +166,9 @@ public class DeleteExecutor {
     private Long processCleanup(String rootNode, Set<String> validHashes, boolean hardDelete) {
         try {
             if (hardDelete) {
-                return repository.deleteNotInUriHashes(rootNode, validHashes);
+                return (Long) repository.deleteNotInUriHashes(rootNode, validHashes);
             } else {
-                return repository.softDeleteNotInUriHashes(rootNode, validHashes);
+                return (Long) repository.softDeleteNotInUriHashes(rootNode, validHashes);
             }
         } catch (Exception e) {
             log.error("Error cleaning up URIs for rootNode: {}", rootNode, e);
@@ -177,7 +180,8 @@ public class DeleteExecutor {
      * 更新删除计数（批处理后的回调）
      */
     private void updateDeleteCount(List<Long> counts) {
+        // 可以在这里实现删除计数的统计逻辑
         long total = counts.stream().mapToLong(Long::longValue).sum();
-        log.debug("Batch delete completed, total deleted: {}", total);
+        log.debug("Batch delete completed, total deleted: {}", Optional.of(total));
     }
 }
