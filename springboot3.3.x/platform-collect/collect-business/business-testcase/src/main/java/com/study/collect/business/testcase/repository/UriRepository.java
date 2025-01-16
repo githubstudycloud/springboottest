@@ -6,6 +6,9 @@ import com.mongodb.client.model.*;
 import com.study.collect.business.testcase.common.constants.CollectionConstants;
 import com.study.collect.business.testcase.common.utils.TableNameHelper;
 import com.study.collect.business.testcase.entity.UriEntity;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Tags;
+import io.micrometer.core.instrument.Timer;
 import lombok.Builder;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +26,7 @@ import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -34,9 +38,11 @@ import java.util.stream.Collectors;
 public class UriRepository {
 
     private final MongoTemplate mongoTemplate;
+    private final MeterRegistry meterRegistry;
 
-    public UriRepository(MongoTemplate mongoTemplate) {
+    public UriRepository(MongoTemplate mongoTemplate, MeterRegistry meterRegistry) {
         this.mongoTemplate = mongoTemplate;
+        this.meterRegistry = meterRegistry;
     }
 
     /**
@@ -47,6 +53,7 @@ public class UriRepository {
             return null;
         }
 
+        Timer.Sample timer = Timer.start(meterRegistry);
         String collectionName = TableNameHelper.getTableName(rootNode);
         MongoCollection<Document> collection = mongoTemplate.getCollection(collectionName);
 
@@ -65,8 +72,12 @@ public class UriRepository {
             BulkWriteOptions options = new BulkWriteOptions()
                     .ordered(false)
                     .bypassDocumentValidation(true);
-            return collection.bulkWrite(operations, options);
+            BulkWriteResult result = collection.bulkWrite(operations, options);
+//            recordMetrics("upsert", timer, entities.size(), result);
+            recordMetrics("upsert", timer, entities.size(), result.getModifiedCount());
+            return result;
         } catch (Exception e) {
+            recordError("upsert");
             log.error("Failed to batch upsert to collection {}", collectionName, e);
             throw new RuntimeException("Batch upsert failed", e);
         }
@@ -80,6 +91,7 @@ public class UriRepository {
             return 0L;
         }
 
+        Timer.Sample timer = Timer.start(meterRegistry);
         String collectionName = TableNameHelper.getTableName(rootNode);
         List<String> uriHashes = uris.stream()
                 .map(TableNameHelper::generateUriHash)
@@ -91,8 +103,12 @@ public class UriRepository {
                 .set("update_time", LocalDateTime.now());
 
         try {
-            return mongoTemplate.updateMulti(query, update, collectionName).getModifiedCount();
+            long count = mongoTemplate.updateMulti(query, update, collectionName)
+                    .getModifiedCount();
+            recordMetrics("soft_delete", timer, uris.size(), count);
+            return count;
         } catch (Exception e) {
+            recordError("soft_delete");
             log.error("Failed to batch soft delete in collection {}", collectionName, e);
             throw new RuntimeException("Batch soft delete failed", e);
         }
@@ -106,6 +122,7 @@ public class UriRepository {
             return 0L;
         }
 
+        Timer.Sample timer = Timer.start(meterRegistry);
         String collectionName = TableNameHelper.getTableName(rootNode);
         List<String> uriHashes = uris.stream()
                 .map(TableNameHelper::generateUriHash)
@@ -114,8 +131,12 @@ public class UriRepository {
         Query query = new Query(Criteria.where("uri_hash").in(uriHashes));
 
         try {
-            return mongoTemplate.remove(query, UriEntity.class, collectionName).getDeletedCount();
+            long count = mongoTemplate.remove(query, UriEntity.class, collectionName)
+                    .getDeletedCount();
+            recordMetrics("hard_delete", timer, uris.size(), count);
+            return count;
         } catch (Exception e) {
+            recordError("hard_delete");
             log.error("Failed to batch hard delete in collection {}", collectionName, e);
             throw new RuntimeException("Batch hard delete failed", e);
         }
@@ -125,6 +146,7 @@ public class UriRepository {
      * 清理不在列表中的URI（软删除）
      */
     public long softDeleteNotInUriHashes(String rootNode, Set<String> validHashes) {
+        Timer.Sample timer = Timer.start(meterRegistry);
         String collectionName = TableNameHelper.getTableName(rootNode);
         Query query = new Query(Criteria.where("uri_hash").nin(validHashes)
                 .and("is_deleted").is(false));
@@ -133,9 +155,14 @@ public class UriRepository {
                 .set("update_time", LocalDateTime.now());
 
         try {
-            return mongoTemplate.updateMulti(query, update, collectionName).getModifiedCount();
+            long count = mongoTemplate.updateMulti(query, update, collectionName)
+                    .getModifiedCount();
+            recordMetrics("soft_delete_cleanup", timer, validHashes.size(), count);
+            return count;
         } catch (Exception e) {
-            log.error("Failed to soft delete URIs not in hash set for collection {}", collectionName, e);
+            recordError("soft_delete_cleanup");
+            log.error("Failed to soft delete URIs not in hash set for collection {}",
+                    collectionName, e);
             throw new RuntimeException("Soft delete cleanup failed", e);
         }
     }
@@ -144,13 +171,19 @@ public class UriRepository {
      * 清理不在列表中的URI（硬删除）
      */
     public long deleteNotInUriHashes(String rootNode, Set<String> validHashes) {
+        Timer.Sample timer = Timer.start(meterRegistry);
         String collectionName = TableNameHelper.getTableName(rootNode);
         Query query = new Query(Criteria.where("uri_hash").nin(validHashes));
 
         try {
-            return mongoTemplate.remove(query, UriEntity.class, collectionName).getDeletedCount();
+            long count = mongoTemplate.remove(query, UriEntity.class, collectionName)
+                    .getDeletedCount();
+            recordMetrics("hard_delete_cleanup", timer, validHashes.size(), count);
+            return count;
         } catch (Exception e) {
-            log.error("Failed to delete URIs not in hash set for collection {}", collectionName, e);
+            recordError("hard_delete_cleanup");
+            log.error("Failed to delete URIs not in hash set for collection {}",
+                    collectionName, e);
             throw new RuntimeException("Delete cleanup failed", e);
         }
     }
@@ -159,29 +192,20 @@ public class UriRepository {
      * 分页查询
      */
     public Page<UriEntity> findByCondition(QueryParams params) {
-        Criteria criteria = new Criteria();
-
-        if (StringUtils.hasText(params.getVersion())) {
-            criteria.and("uri_version").is(params.getVersion());
-        }
-        if (StringUtils.hasText(params.getVersionType())) {
-            criteria.and("version_type").is(params.getVersionType());
-        }
-        if (!params.getIncludeDeleted()) {
-            criteria.and("is_deleted").is(false);
-        }
-        if (params.getOnlyDeleted()) {
-            criteria.and("is_deleted").is(true);
-        }
-
-        Query query = new Query(criteria).with(params.getPageable());
+        Timer.Sample timer = Timer.start(meterRegistry);
         String collectionName = TableNameHelper.getTableName(params.getRootNode());
 
         try {
+            Criteria criteria = buildCriteria(params);
+            Query query = new Query(criteria).with(params.getPageable());
+
             long total = mongoTemplate.count(query, UriEntity.class, collectionName);
             List<UriEntity> content = mongoTemplate.find(query, UriEntity.class, collectionName);
+
+            recordMetrics("query", timer, content.size(), total);
             return new PageImpl<>(content, params.getPageable(), total);
         } catch (Exception e) {
+            recordError("query");
             log.error("Failed to query collection {}", collectionName, e);
             throw new RuntimeException("Query failed", e);
         }
@@ -190,24 +214,40 @@ public class UriRepository {
     /**
      * 批量查询
      */
-    public List<UriEntity> batchQuery(List<String> uris, Function<String, String> rootNodeResolver,
-                                      Boolean includeDeleted) {
+    public List<UriEntity> batchQuery(
+            List<String> uris,
+            Function<String, String> rootNodeResolver,
+            Boolean includeDeleted
+    ) {
         if (CollectionUtils.isEmpty(uris)) {
-            return new ArrayList<>();
+            return Collections.emptyList();
         }
 
-        Map<String, List<String>> groupedUris = uris.stream()
-                .collect(Collectors.groupingBy(rootNodeResolver));
+        Timer.Sample timer = Timer.start(meterRegistry);
+        try {
+            // 按rootNode分组URI
+            Map<String, List<String>> groupedUris = uris.stream()
+                    .collect(Collectors.groupingBy(rootNodeResolver));
 
-        List<UriEntity> results = new ArrayList<>();
-        for (Map.Entry<String, List<String>> entry : groupedUris.entrySet()) {
-            results.addAll(queryByGroup(entry.getKey(), entry.getValue(), includeDeleted));
+            List<UriEntity> results = new ArrayList<>();
+            for (Map.Entry<String, List<String>> entry : groupedUris.entrySet()) {
+                results.addAll(queryByGroup(entry.getKey(), entry.getValue(), includeDeleted));
+            }
+
+            recordMetrics("batch_query", timer, uris.size(), results.size());
+            return results;
+        } catch (Exception e) {
+            recordError("batch_query");
+            log.error("Failed to batch query URIs", e);
+            throw new RuntimeException("Batch query failed", e);
         }
-
-        return results;
     }
 
-    private List<UriEntity> queryByGroup(String rootNode, List<String> uris, Boolean includeDeleted) {
+    private List<UriEntity> queryByGroup(
+            String rootNode,
+            List<String> uris,
+            Boolean includeDeleted
+    ) {
         String collectionName = TableNameHelper.getTableName(rootNode);
         List<String> uriHashes = uris.stream()
                 .map(TableNameHelper::generateUriHash)
@@ -227,9 +267,6 @@ public class UriRepository {
         }
     }
 
-    /**
-     * 查询参数对象
-     */
     @Data
     @Builder
     public static class QueryParams {
@@ -239,6 +276,24 @@ public class UriRepository {
         private Boolean includeDeleted;
         private Boolean onlyDeleted;
         private Pageable pageable;
+    }
+
+    private Criteria buildCriteria(QueryParams params) {
+        Criteria criteria = new Criteria();
+
+        if (StringUtils.hasText(params.getVersion())) {
+            criteria.and("uri_version").is(params.getVersion());
+        }
+        if (StringUtils.hasText(params.getVersionType())) {
+            criteria.and("version_type").is(params.getVersionType());
+        }
+        if (params.getOnlyDeleted()) {
+            criteria.and("is_deleted").is(true);
+        } else if (!params.getIncludeDeleted()) {
+            criteria.and("is_deleted").is(false);
+        }
+
+        return criteria;
     }
 
     private Document convertEntityToDocument(UriEntity entity) {
@@ -260,5 +315,17 @@ public class UriRepository {
         }
 
         return doc;
+    }
+
+    private void recordMetrics(String operation, Timer.Sample timer, long requested, long actual) {
+        timer.stop(meterRegistry.timer("mongodb.operation", "type", operation));
+        meterRegistry.counter("mongodb.operation.total", "type", operation).increment();
+        meterRegistry.gauge("mongodb.operation.ratio",
+                Tags.of("type", operation),
+                actual / (double)requested);
+    }
+
+    private void recordError(String operation) {
+        meterRegistry.counter("mongodb.operation.error", "type", operation).increment();
     }
 }
