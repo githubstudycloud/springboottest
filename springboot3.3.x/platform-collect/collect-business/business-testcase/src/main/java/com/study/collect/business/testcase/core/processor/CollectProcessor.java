@@ -75,7 +75,10 @@ public class CollectProcessor implements DataProcessor<CollectParam, Long> {
 
     private long saveToDatabase(String rootNode, List<Map<String, Object>> details) {
         // 实现保存到数据库的逻辑
-        return repository.batchUpsert(rootNode, details).getModifiedCount();
+//        return repository.batchUpsert(rootNode, details).getModifiedCount();
+
+        // TODO: Optimize the type conversion and method call
+        return repository.batchUpsert(rootNode, (List<com.study.collect.business.testcase.entity.UriEntity>) (List<?>) details).getModifiedCount();
     }
 
     @Override
