@@ -1,6 +1,7 @@
 package com.study.collect;
 
-import com.study.collect.business.testcase.common.constants.TestCaseCollectorProperties;
+import com.study.collect.business.testcase.config.TestCaseCollectorProperties;
+import com.study.collect.business.testcase.config.TestCaseCollectorProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
