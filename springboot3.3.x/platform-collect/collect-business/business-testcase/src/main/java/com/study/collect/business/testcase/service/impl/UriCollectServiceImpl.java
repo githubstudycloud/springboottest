@@ -20,6 +20,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -32,6 +33,7 @@ public class UriCollectServiceImpl implements UriCollectService {
     private final UriRepository repository;
     private final ObjectPool<UriEntity> entityPool;
     private final CollectTaskManager taskManager;
+    private final UriCleanupService uriCleanupService;
     private final QueueManager<CollectParam> collectQueue;
     private final QueueManager<DeleteParam> deleteQueue;
 
@@ -84,18 +86,21 @@ public class UriCollectServiceImpl implements UriCollectService {
                     String.format("Found %d versions", allVersions.size())
             );
 
+            // 过滤指定版本
+            List<String> versions = filterVersions(allVersions, param.getVersion());
+
             // 2. 如果是增量同步，先清理数据
-            if (param.getIncremental()) {
-                cleanupIncrementalData(param, allVersions);
-            }
+                cleanupIncrementalData(param, versions);
+
+
 
             // 3. 处理每个版本
             long totalProcessed = 0;
-            long estimatedTotal = calculateEstimatedTotal(param, allVersions);
+            long estimatedTotal = calculateEstimatedTotal(param, versions);
 
             taskManager.updateTaskProgress(taskId, totalProcessed, estimatedTotal);
 
-            for (String version : allVersions) {
+            for (String version : versions) {
                 totalProcessed += processVersion(
                         param,
                         version,
@@ -119,6 +124,24 @@ public class UriCollectServiceImpl implements UriCollectService {
             );
             throw new RuntimeException("Task processing failed", e);
         }
+    }
+
+private List<String> filterVersions(List<String> allVersions, String versionFilter) {
+        // 检查版本过滤器是否不为空
+        if (StringUtils.hasText(versionFilter)) {
+            // 按逗号分隔版本过滤器并修剪每个元素
+            Set<String> filterSet = Arrays.stream(versionFilter.split(","))
+                    .map(String::trim)
+                    .collect(Collectors.toSet());
+            // 根据过滤器集合过滤版本
+            return allVersions.stream()
+                    // 检查allVersions中的每个元素是否完全匹配versionFilter中的某个元素 .filter(filterSet::contains)
+                    // 检查allVersions中的每个元素是否至少包含versionFilter分隔的字符串中的一个
+                    .filter(version -> filterSet.stream().anyMatch(version::contains))
+                    .collect(Collectors.toList());
+        }
+        // 如果没有提供过滤器，则返回所有版本
+        return allVersions;
     }
 
     private long processVersion(
@@ -353,7 +376,7 @@ public class UriCollectServiceImpl implements UriCollectService {
             List<String> versions
     ) throws Exception {
         String rootNode = param.getRootNode();
-        Set<String> allUriHashes = new HashSet<>();
+        List<String> allUriHashes = new ArrayList<>();
 
         // 获取所有版本的URI
         for (String version : versions) {
@@ -364,7 +387,8 @@ public class UriCollectServiceImpl implements UriCollectService {
         }
 
         // 删除不存在的URI //TODO 改成分页批量删除 ,可选软删除或者硬删除，根据param.getHardDelete()来判断
-        repository.deleteNotInUris(rootNode, allUriHashes);
+        uriCleanupService.cleanupUriData(allUriHashes,rootNode);
+//        repository.deleteNotInUris(rootNode, allUriHashes);
     }
 
     private String generateUriHash(String uri) {

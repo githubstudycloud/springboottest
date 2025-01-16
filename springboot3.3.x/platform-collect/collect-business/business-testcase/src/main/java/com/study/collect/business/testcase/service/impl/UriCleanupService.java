@@ -65,7 +65,7 @@ public class UriCleanupService {
                     List<String> batch = toDeleteList.subList(i, end);
 
                     try {
-                        repository.deleteByUriHashes(batch);
+                        repository.batchHardDelete(rootNode,batch);
                         log.info("Deleted batch {}-{} of {}", i, end, toDeleteList.size());
                     } catch (Exception e) {
                         log.error("Error deleting batch {}-{}", i, end, e);
