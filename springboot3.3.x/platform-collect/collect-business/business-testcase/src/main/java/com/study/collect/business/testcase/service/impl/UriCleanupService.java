@@ -2,6 +2,7 @@ package com.study.collect.business.testcase.service.impl;
 
 import com.study.collect.business.testcase.common.constants.CollectionConstants;
 import com.study.collect.business.testcase.common.utils.StreamProcessor;
+import com.study.collect.business.testcase.common.utils.TableNameHelper;
 import com.study.collect.business.testcase.repository.UriRepository;
 import lombok.Builder;
 import lombok.Data;
@@ -16,10 +17,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 
-/**
- * URI清理服务
- * 提供URI数据的清理和批量删除功能
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -33,9 +30,6 @@ public class UriCleanupService {
     @Qualifier("virtualThreadExecutor")
     private final ExecutorService virtualThreadExecutor;
 
-    /**
-     * 清理参数
-     */
     @Data
     @Builder
     public static class CleanupParams {
@@ -48,9 +42,6 @@ public class UriCleanupService {
         private long timeout = CollectionConstants.Process.TASK_TIMEOUT;
     }
 
-    /**
-     * 删除参数
-     */
     @Data
     @Builder
     public static class DeleteParams {
@@ -63,9 +54,6 @@ public class UriCleanupService {
         private long timeout = CollectionConstants.Process.TASK_TIMEOUT;
     }
 
-    /**
-     * 清理操作结果
-     */
     @Data
     @Builder
     public static class CleanupResult {
@@ -76,54 +64,49 @@ public class UriCleanupService {
         private Map<String, Object> details;
     }
 
-    /**
-     * 执行清理操作
-     * 清理不在指定URI列表中的数据
-     */
     public CompletableFuture<StreamProcessor.ProcessMetrics> cleanup(
             CleanupParams params,
             Consumer<StreamProcessor.ProcessMetrics> progressCallback
     ) {
         validateParams(params);
 
-        // 创建处理器配置
-        StreamProcessor.ProcessorConfig<List<String>, Long> config =
-                StreamProcessor.ProcessorConfig.<List<String>, Long>builder()
+        // 创建 Set 用于存储有效的 URI hashes
+        Set<String> validUriHashes = new HashSet<>();
+        for (String uri : params.getUris()) {
+            validUriHashes.add(TableNameHelper.generateUriHash(uri));
+        }
+
+        // 创建处理器配置，注意这里修改为使用 Set<String> 作为处理单元
+        StreamProcessor.ProcessorConfig<Set<String>, Long> config =
+                StreamProcessor.ProcessorConfig.<Set<String>, Long>builder()
                         .processorName("URI-Cleanup-" + params.getRootNode())
-                        .batchSize(params.getBatchSize())
-                        .maxConcurrent(1)  // 清理任务限制并发为1
+                        .batchSize(1) // 因为我们现在是处理整个 Set，所以批次大小为 1
+                        .maxConcurrent(1)
                         .timeoutSeconds(params.getTimeout())
                         .maxRetries(CollectionConstants.Http.MAX_RETRY)
                         .retryDelayMs(CollectionConstants.Http.RETRY_INTERVAL)
                         .processExecutor(virtualThreadExecutor)
-                        .saveExecutor(mongoExecutor)
-                        // 数据获取函数
-                        .dataFetcher(offset -> fetchBatch(params.getUris(), offset, params.getBatchSize()))
-                        // 数据转换函数
-                        .dataConverter(batch -> processCleanup(params.getRootNode(), new HashSet<>(batch),
+                        .saveExecutor(mongoExecutor.getThreadPoolExecutor())
+                        // 修改数据获取函数，直接返回包含单个 Set 的列表
+                        .dataFetcher(offset -> offset == 0 ?
+                                Collections.singletonList(validUriHashes) :
+                                Collections.emptyList())
+                        .dataConverter(uriHashes -> processCleanup(params.getRootNode(), uriHashes,
                                 params.isHardDelete()))
-                        // 数据保存函数
                         .dataSaver(this::updateMetrics)
-                        // 进度回调
                         .progressCallback(progressCallback)
                         .build();
 
-        // 创建处理器实例并开始处理
-        StreamProcessor<List<String>, Long> processor = new StreamProcessor<>(config);
-        return processor.process(0, params.getUris().size());
+        StreamProcessor<Set<String>, Long> processor = new StreamProcessor<>(config);
+        return processor.process(0, 1); // 只需处理一次
     }
 
-    /**
-     * 批量删除
-     * 删除指定的URI列表
-     */
     public CompletableFuture<StreamProcessor.ProcessMetrics> batchDelete(
             DeleteParams params,
             Consumer<StreamProcessor.ProcessMetrics> progressCallback
     ) {
         validateParams(params);
 
-        // 创建处理器配置
         StreamProcessor.ProcessorConfig<List<String>, Long> config =
                 StreamProcessor.ProcessorConfig.<List<String>, Long>builder()
                         .processorName("URI-Delete-" + params.getRootNode())
@@ -133,73 +116,54 @@ public class UriCleanupService {
                         .maxRetries(CollectionConstants.Http.MAX_RETRY)
                         .retryDelayMs(CollectionConstants.Http.RETRY_INTERVAL)
                         .processExecutor(virtualThreadExecutor)
-                        .saveExecutor(mongoExecutor)
-                        // 数据获取函数
+                        .saveExecutor(mongoExecutor.getThreadPoolExecutor())
+                        // 批量获取数据
                         .dataFetcher(offset -> fetchBatch(params.getUris(), offset, params.getBatchSize()))
-                        // 数据转换函数
                         .dataConverter(batch -> processDelete(params.getRootNode(), batch,
                                 params.isHardDelete()))
-                        // 数据保存函数
                         .dataSaver(this::updateMetrics)
-                        // 进度回调
                         .progressCallback(progressCallback)
                         .build();
 
-        // 创建处理器实例并开始处理
         StreamProcessor<List<String>, Long> processor = new StreamProcessor<>(config);
         return processor.process(0, params.getUris().size());
     }
 
-    /**
-     * 获取一批数据
-     */
-    private List<String> fetchBatch(List<String> allUris, int offset, int batchSize) {
+    private List<List<String>> fetchBatch(List<String> allUris, int offset, int batchSize) {
         int endIndex = Math.min(offset + batchSize, allUris.size());
-        return offset < allUris.size() ?
-                allUris.subList(offset, endIndex) :
-                Collections.emptyList();
+        if (offset < allUris.size()) {
+            return Collections.singletonList(allUris.subList(offset, endIndex));
+        }
+        return Collections.emptyList();
     }
 
-    /**
-     * 处理清理操作
-     */
-    private Long processCleanup(String rootNode, Set<String> validUris, boolean hardDelete) {
+    private Long processCleanup(String rootNode, Set<String> validUriHashes, boolean hardDelete) {
         try {
-            return hardDelete ?
-                    repository.deleteNotInUriHashes(rootNode, validUris) :
-                    repository.softDeleteNotInUriHashes(rootNode, validUris);
+            return (Long) (hardDelete ?
+                                repository.deleteNotInUriHashes(rootNode, validUriHashes) :
+                                repository.softDeleteNotInUriHashes(rootNode, validUriHashes));
         } catch (Exception e) {
             log.error("Error during cleanup for rootNode: {}", rootNode, e);
             throw new RuntimeException("Cleanup failed", e);
         }
     }
 
-    /**
-     * 处理删除操作
-     */
     private Long processDelete(String rootNode, List<String> uris, boolean hardDelete) {
         try {
-            return hardDelete ?
-                    repository.batchHardDelete(rootNode, uris) :
-                    repository.batchSoftDelete(rootNode, uris);
+            return (Long) (hardDelete ?
+                                repository.batchHardDelete(rootNode, uris) :
+                                repository.batchSoftDelete(rootNode, uris));
         } catch (Exception e) {
             log.error("Error during delete for rootNode: {}", rootNode, e);
             throw new RuntimeException("Delete failed", e);
         }
     }
 
-    /**
-     * 更新处理指标
-     */
     private void updateMetrics(List<Long> counts) {
-        // 可以实现具体的指标更新逻辑
         long total = counts.stream().mapToLong(Long::longValue).sum();
-        log.debug("Processed batch with total count: {}", total);
+        log.debug("Processed batch with total count: {}", Optional.of(total));
     }
 
-    /**
-     * 验证清理参数
-     */
     private void validateParams(CleanupParams params) {
         Objects.requireNonNull(params.getRootNode(), "RootNode must not be null");
         Objects.requireNonNull(params.getUris(), "URIs list must not be null");
@@ -210,9 +174,6 @@ public class UriCleanupService {
         }
     }
 
-    /**
-     * 验证删除参数
-     */
     private void validateParams(DeleteParams params) {
         Objects.requireNonNull(params.getRootNode(), "RootNode must not be null");
         Objects.requireNonNull(params.getUris(), "URIs list must not be null");
@@ -221,19 +182,5 @@ public class UriCleanupService {
                 params.getBatchSize() > CollectionConstants.Process.MAX_BATCH_SIZE) {
             throw new IllegalArgumentException("Invalid batch size: " + params.getBatchSize());
         }
-    }
-
-    /**
-     * 统计清理结果
-     */
-    private CleanupResult buildResult(List<Long> results, List<String> failedUris) {
-        long totalProcessed = results.stream().mapToLong(Long::longValue).sum();
-        return CleanupResult.builder()
-                .processedCount(totalProcessed)
-                .deletedCount(totalProcessed)
-                .errorCount(failedUris.size())
-                .failedUris(failedUris)
-                .details(new HashMap<>())
-                .build();
     }
 }

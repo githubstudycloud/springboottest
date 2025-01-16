@@ -2126,6 +2126,7 @@ import com.study.collect.business.testcase.common.constants.CollectionConstants;
 import com.study.collect.business.testcase.common.utils.StreamProcessor;
 import com.study.collect.business.testcase.entity.UriEntity;
 import com.study.collect.business.testcase.model.param.CollectParam;
+import com.study.collect.business.testcase.model.param.PageParam;
 import com.study.collect.business.testcase.model.response.PageResponse;
 import com.study.collect.business.testcase.repository.UriRepository;
 import com.study.collect.business.testcase.service.http.UriHttpService;
@@ -2164,9 +2165,6 @@ public class CollectExecutor {
     @Qualifier("virtualThreadExecutor")
     private final ExecutorService virtualThreadExecutor;
 
-    /**
-     * 执行采集任务
-     */
     public CompletableFuture<StreamProcessor.ProcessMetrics> execute(
             CollectParam param,
             Consumer<StreamProcessor.ProcessMetrics> progressCallback
@@ -2179,10 +2177,10 @@ public class CollectExecutor {
                 .timeoutSeconds(param.getTimeout())
                 .maxRetries(param.getMaxRetries())
                 .retryDelayMs(CollectionConstants.Http.RETRY_INTERVAL)
-                .processExecutor(httpExecutor)
-                .saveExecutor(mongoExecutor)
+                .processExecutor(httpExecutor.getThreadPoolExecutor())
+                .saveExecutor(mongoExecutor.getThreadPoolExecutor())
                 // 数据获取函数
-                .dataFetcher(offset -> fetchUris(param, offset))
+                .dataFetcher(offset -> fetchUris(param, offset * param.getBatchSize()))
                 // 数据转换函数
                 .dataConverter(uri -> convertToEntity(param, uri))
                 // 数据保存函数
@@ -2194,8 +2192,26 @@ public class CollectExecutor {
         // 2. 创建处理器实例
         StreamProcessor<String, UriEntity> processor = new StreamProcessor<>(config);
 
-        // 3. 开始处理
-        return processor.process(0, Integer.MAX_VALUE);
+        // 3. 获取总数据量
+        int totalCount = countTotalUris(param);
+
+        // 4. 开始处理
+        return processor.process(0, totalCount);
+    }
+
+    // 获取总数据量
+    private int countTotalUris(CollectParam param) {
+        try {
+            PageResponse<String> firstPage = httpService.getUriListAsync(
+                    param,
+                    param.getVersion(),
+                    new PageParam(1, 1)
+            ).get();
+            return firstPage.getTotal().intValue();
+        } catch (Exception e) {
+            log.error("Failed to get total URI count", e);
+            throw new RuntimeException("Failed to get total URI count", e);
+        }
     }
 
     /**
@@ -2212,7 +2228,8 @@ public class CollectExecutor {
                             param.getBatchSize()
                     )
             ).get();
-            return response.getItems();
+//            return response.getItems();
+            return response.getItems() != null ? response.getItems() : new ArrayList<>();
         } catch (Exception e) {
             log.error("Error fetching URIs", e);
             throw new RuntimeException("Failed to fetch URIs", e);
@@ -2345,7 +2362,7 @@ public class DeleteExecutor {
                         .maxRetries(com.study.collect.business.testcase.common.constants.CollectionConstants.Http.MAX_RETRY)
                         .retryDelayMs(com.study.collect.business.testcase.common.constants.CollectionConstants.Http.RETRY_INTERVAL)
                         .processExecutor(virtualThreadExecutor)
-                        .saveExecutor(mongoExecutor)
+                        .saveExecutor(mongoExecutor.getThreadPoolExecutor())
                         // 数据获取函数
                         .dataFetcher(offset -> fetchBatch(new ArrayList<>(groupedUris.entrySet()), offset))
                         // 数据转换函数
@@ -2382,9 +2399,9 @@ public class DeleteExecutor {
                         .maxRetries(com.study.collect.business.testcase.common.constants.CollectionConstants.Http.MAX_RETRY)
                         .retryDelayMs(com.study.collect.business.testcase.common.constants.CollectionConstants.Http.RETRY_INTERVAL)
                         .processExecutor(virtualThreadExecutor)
-                        .saveExecutor(mongoExecutor)
+                        .saveExecutor(mongoExecutor.getThreadPoolExecutor())
                         // 数据获取函数
-                        .dataFetcher(offset -> Collections.singleton(validUriHashes))
+                        .dataFetcher(offset -> Collections.singletonList(validUriHashes))
                         // 数据转换函数
                         .dataConverter(hashes -> processCleanup(rootNode, hashes, hardDelete))
                         // 数据保存函数
@@ -2444,9 +2461,9 @@ public class DeleteExecutor {
 
         try {
             if (hardDelete) {
-                return repository.batchHardDelete(rootNode, uris);
+                return (Long) repository.batchHardDelete(rootNode, uris);
             } else {
-                return repository.batchSoftDelete(rootNode, uris);
+                return (Long) repository.batchSoftDelete(rootNode, uris);
             }
         } catch (Exception e) {
             log.error("Error deleting URIs for rootNode: {}", rootNode, e);
@@ -2460,9 +2477,9 @@ public class DeleteExecutor {
     private Long processCleanup(String rootNode, Set<String> validHashes, boolean hardDelete) {
         try {
             if (hardDelete) {
-                return repository.deleteNotInUriHashes(rootNode, validHashes);
+                return (Long) repository.deleteNotInUriHashes(rootNode, validHashes);
             } else {
-                return repository.softDeleteNotInUriHashes(rootNode, validHashes);
+                return (Long) repository.softDeleteNotInUriHashes(rootNode, validHashes);
             }
         } catch (Exception e) {
             log.error("Error cleaning up URIs for rootNode: {}", rootNode, e);
@@ -2476,7 +2493,7 @@ public class DeleteExecutor {
     private void updateDeleteCount(List<Long> counts) {
         // 可以在这里实现删除计数的统计逻辑
         long total = counts.stream().mapToLong(Long::longValue).sum();
-        log.debug("Batch delete completed, total deleted: {}", total);
+        log.debug("Batch delete completed, total deleted: {}", Optional.of(total));
     }
 }
 ```
