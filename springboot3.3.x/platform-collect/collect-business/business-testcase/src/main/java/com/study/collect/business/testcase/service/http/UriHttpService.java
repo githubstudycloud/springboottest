@@ -2,14 +2,15 @@ package com.study.collect.business.testcase.service.http;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.study.collect.business.testcase.common.constants.CollectionConstants;
+import com.study.collect.business.testcase.common.utils.HttpUtil;
+import com.study.collect.business.testcase.common.utils.RateLimiter;
 import com.study.collect.business.testcase.config.TestCaseCollectorProperties;
 import com.study.collect.business.testcase.model.param.CollectParam;
 import com.study.collect.business.testcase.model.param.PageParam;
 import com.study.collect.business.testcase.model.response.PageResponse;
 import com.study.collect.business.testcase.model.response.VersionResponse;
 import com.study.collect.business.testcase.model.response.parse.HttpResponseParser;
-import com.study.collect.business.testcase.utils.HttpUtil;
-import com.study.collect.business.testcase.utils.RateLimiter;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;

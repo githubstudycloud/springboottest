@@ -1,9 +1,10 @@
 package com.study.collect.business.testcase.core.processor;
 
+import com.study.collect.business.testcase.common.utils.ListCompareUtil;
 import com.study.collect.business.testcase.common.utils.StreamProcessor;
 import com.study.collect.business.testcase.model.param.DeleteParam;
 import com.study.collect.business.testcase.repository.UriRepository;
-import com.study.collect.business.testcase.utils.ListCompareUtil;
+import com.study.collect.business.testcase.common.utils.ListCompareUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;

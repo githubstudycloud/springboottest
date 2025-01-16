@@ -6,6 +6,7 @@ import com.mongodb.client.model.*;
 import com.study.collect.business.testcase.common.constants.CollectionConstants;
 import com.study.collect.business.testcase.common.utils.TableNameHelper;
 import com.study.collect.business.testcase.entity.UriEntity;
+import lombok.Builder;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.bson.Document;

@@ -17,6 +17,18 @@ business-testcase/
                                             CollectionStrategy.java
                                             CollectionVersion.java
                                             CollectionVersionAspect.java
+                                    common/
+                                        constants/
+                                            CollectionConstants.java
+                                            VersionType.java
+                                        enums/
+                                        utils/
+                                            HashUtil.java
+                                            HttpUtil.java
+                                            ListCompareUtil.java
+                                            RateLimiter.java
+                                            StreamProcessor.java
+                                            TableNameHelper.java
                                     config/
                                         GlobalExceptionHandler.java
                                         MongoConfig.java
@@ -25,9 +37,6 @@ business-testcase/
                                         TestCaseCollectorProperties.java
                                         TestCaseConfig.java
                                         ThreadPoolConfig.java
-                                    constant/
-                                        CollectionConstants.java
-                                        VersionType.java
                                     controller/
                                         UriCollectController.java
                                     core/
@@ -73,13 +82,6 @@ business-testcase/
                                         impl/
                                             UriCleanupService.java
                                             UriCollectServiceImpl.java
-                                    utils/
-                                        HashUtil.java
-                                        HttpUtil.java
-                                        ListCompareUtil.java
-                                        RateLimiter.java
-                                        StreamProcessor.java
-                                        TableNameHelper.java
             resources/
                 META-INF/
                     spring.factories
@@ -371,6 +373,1171 @@ public class CollectionVersionAspect {
 
 ```
 
+## CollectionConstants.java
+
+```java
+package com.study.collect.business.testcase.common.constants;
+
+/**
+ * 系统常量配置
+ */
+public final class CollectionConstants {
+
+    // 集合相关
+    public static final class Collection {
+        public static final String URI_COLLECTION_PREFIX = "uri_collect";
+        public static final String VERSION_PREFIX = "V";
+        public static final String VERSION_SEPARATOR = "_";
+
+        private Collection() {}
+    }
+
+    // HTTP相关
+    public static final class Http {
+        public static final int MAX_REQUESTS_PER_MINUTE = 500;
+        public static final int CONNECT_TIMEOUT = 5000;
+        public static final int READ_TIMEOUT = 15000;
+        public static final int MAX_RETRY = 3;
+        public static final long RETRY_INTERVAL = 1000L;
+
+        private Http() {}
+    }
+
+    // 线程池相关
+    public static final class ThreadPool {
+        // HTTP请求线程池
+        public static final int HTTP_CORE_SIZE = Runtime.getRuntime().availableProcessors() * 2;
+        public static final int HTTP_MAX_SIZE = Runtime.getRuntime().availableProcessors() * 4;
+        public static final int HTTP_QUEUE_SIZE = 5000;
+        public static final long HTTP_KEEP_ALIVE = 60L;
+
+        // MongoDB操作线程池
+        public static final int MONGO_CORE_SIZE = Runtime.getRuntime().availableProcessors();
+        public static final int MONGO_MAX_SIZE = Runtime.getRuntime().availableProcessors() * 2;
+        public static final int MONGO_QUEUE_SIZE = 10000;
+        public static final long MONGO_KEEP_ALIVE = 60L;
+
+        // 任务处理线程池
+        public static final int TASK_CORE_SIZE = 5;
+        public static final int TASK_MAX_SIZE = 10;
+        public static final int TASK_QUEUE_SIZE = 100;
+        public static final long TASK_KEEP_ALIVE = 60L;
+
+        private ThreadPool() {}
+    }
+
+    // 数据库相关
+    public static final class Database {
+        public static final int MONGO_BATCH_SIZE = 1000;
+        public static final int MONGO_MAX_POOL_SIZE = 100;
+        public static final int MONGO_MIN_POOL_SIZE = 20;
+
+        private Database() {}
+    }
+
+    // 处理相关
+    public static final class Process {
+        public static final int DEFAULT_BATCH_SIZE = 200;
+        public static final int MAX_BATCH_SIZE = 1000;
+        public static final int MIN_BATCH_SIZE = 50;
+        public static final long TASK_TIMEOUT = 3600L;
+        public static final int MAX_CONCURRENT_TASKS = 10;
+        public static final int TASK_QUEUE_CAPACITY = 100;
+
+        private Process() {}
+    }
+
+    // 对象池相关
+    public static final class Pool {
+        public static final int MAX_TOTAL = 20;
+        public static final int MAX_IDLE = 10;
+        public static final int MIN_IDLE = 5;
+
+        private Pool() {}
+    }
+
+    private CollectionConstants() {}
+}
+```
+
+## VersionType.java
+
+```java
+package com.study.collect.business.testcase.common.constants;
+
+/**
+ * 版本类型枚举
+ */
+public enum VersionType {
+    TRUNK("主干版本"),
+    BRANCH("分支版本");
+
+    private final String description;
+
+    VersionType(String description) {
+        this.description = description;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public static VersionType fromString(String version) {
+        return version != null && version.toLowerCase().contains("branch") ?
+                BRANCH : TRUNK;
+    }
+}
+```
+
+## HashUtil.java
+
+```java
+package com.study.collect.business.testcase.common.utils;
+
+import org.apache.commons.codec.digest.DigestUtils;
+
+//
+public class HashUtil {
+    public static String hash(String input) {
+        return DigestUtils.sha256Hex(input);
+    }
+}
+
+```
+
+## HttpUtil.java
+
+```java
+package com.study.collect.business.testcase.common.utils;
+
+import javax.net.ssl.*;
+import java.io.*;
+import java.net.HttpURLConnection;
+import java.net.ProtocolException;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.security.cert.X509Certificate;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.stream.Collectors;
+
+/**
+ * HTTP/HTTPS工具类，支持同步/异步请求，自动重试，SSL证书验证绕过
+ * 特性：
+ * 1. 支持HTTP/HTTPS，自动绕过SSL证书验证
+ * 2. 支持同步/异步请求
+ * 3. 自动重试机制
+ * 4. 线程池管理
+ * 5. 支持批量请求
+ * 6. 完整的请求/响应日志
+ */
+//
+public class HttpUtil {
+    private static final Logger logger = Logger.getLogger(HttpUtil.class.getName());
+    
+    // 配置常量
+    private static final int CONNECT_TIMEOUT = 5000; // 连接超时时间
+    private static final int READ_TIMEOUT = 15000;   // 读取超时时间
+    private static final int MAX_RETRY = 3;          // 最大重试次数
+    private static final int RETRY_INTERVAL = 1000;  // 重试间隔基数（毫秒）
+    
+    // 线程池配置
+    private static final ExecutorService executorService = new ThreadPoolExecutor(
+            10,                 // 核心线程数
+            20,                // 最大线程数
+            60L,               // 空闲线程存活时间
+            TimeUnit.SECONDS,
+            new LinkedBlockingQueue<>(1000), // 工作队列
+            new ThreadFactory() {
+                private int count = 0;
+                @Override
+                public Thread newThread(Runnable r) {
+                    Thread thread = new Thread(r);
+                    thread.setName("HttpUtil-Worker-" + count++);
+                    thread.setDaemon(true); // 设置为守护线程
+                    return thread;
+                }
+            },
+            new ThreadPoolExecutor.CallerRunsPolicy() // 拒绝策略
+    );
+
+    /**
+     * 静态初始化：配置SSL，允许所有证书
+     */
+    static {
+        disableSslVerification();
+    }
+
+    /**
+     * HTTP响应对象
+     */
+    public static class HttpResponse {
+        private final int code;
+        private final String body;
+        private final Map<String, List<String>> headers;
+        private final long responseTime; // 响应时间（毫秒）
+
+        public HttpResponse(int code, String body, Map<String, List<String>> headers, long responseTime) {
+            this.code = code;
+            this.body = body;
+            this.headers = headers;
+            this.responseTime = responseTime;
+        }
+
+        public int getCode() { return code; }
+        public String getBody() { return body; }
+        public Map<String, List<String>> getHeaders() { return headers; }
+        public long getResponseTime() { return responseTime; }
+
+        @Override
+        public String toString() {
+            return String.format("HttpResponse{code=%d, responseTime=%dms, bodyLength=%d}",
+                    code, responseTime, body != null ? body.length() : 0);
+        }
+    }
+
+    /**
+     * 禁用SSL证书验证
+     */
+    private static void disableSslVerification() {
+        try {
+            // 创建信任所有证书的TrustManager
+            TrustManager[] trustAllCerts = new TrustManager[]{new X509TrustManager() {
+                public X509Certificate[] getAcceptedIssuers() { return null; }
+                public void checkClientTrusted(X509Certificate[] certs, String authType) {}
+                public void checkServerTrusted(X509Certificate[] certs, String authType) {}
+            }};
+
+            // 安装自定义的SSLContext
+            SSLContext sc = SSLContext.getInstance("SSL");
+            sc.init(null, trustAllCerts, new java.security.SecureRandom());
+            HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
+
+            // 配置主机名验证器
+            HostnameVerifier allHostsValid = (hostname, session) -> true;
+            HttpsURLConnection.setDefaultHostnameVerifier(allHostsValid);
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, "SSL verification disable failed", e);
+        }
+    }
+
+    /**
+     * 执行HTTP请求
+     * @param method HTTP方法
+     * @param urlStr 请求URL
+     * @param body 请求体
+     * @param headers 请求头
+     * @return HTTP响应对象
+     */
+    public static HttpResponse request(String method, String urlStr, String body, Map<String, String> headers) throws IOException {
+        HttpURLConnection conn = null;
+        int retryCount = 0;
+        long startTime = System.currentTimeMillis();
+        
+        while (retryCount < MAX_RETRY) {
+            try {
+                URL url = new URL(urlStr);
+                conn = (HttpURLConnection) url.openConnection();
+                configureConnection(conn, method, headers);
+
+                // 写入请求体
+                if (shouldWriteBody(method, body)) {
+                    writeRequestBody(conn, body);
+                }
+
+                // 获取响应
+                int responseCode = conn.getResponseCode();
+                String responseBody = readResponse(conn, responseCode);
+                long responseTime = System.currentTimeMillis() - startTime;
+
+                // 记录请求信息
+                logRequest(method, urlStr, headers, body, responseCode, responseTime);
+
+                return new HttpResponse(responseCode, responseBody, conn.getHeaderFields(), responseTime);
+                
+            } catch (IOException e) {
+                handleRetry(++retryCount, e, urlStr);
+            } finally {
+                if (conn != null) {
+                    conn.disconnect();
+                }
+            }
+        }
+        
+        throw new IOException("Max retries exceeded for URL: " + urlStr);
+    }
+
+    /**
+     * 配置HTTP连接
+     */
+    private static void configureConnection(HttpURLConnection conn, String method, Map<String, String> headers) throws ProtocolException {
+        conn.setRequestMethod(method);
+        conn.setConnectTimeout(CONNECT_TIMEOUT);
+        conn.setReadTimeout(READ_TIMEOUT);
+        conn.setDoOutput(true);
+        conn.setDoInput(true);
+
+        // 设置通用headers
+        conn.setRequestProperty("Accept", "application/json");
+        conn.setRequestProperty("Content-Type", "application/json");
+        
+        // 设置自定义headers
+        if (headers != null) {
+            headers.forEach(conn::setRequestProperty);
+        }
+    }
+
+    /**
+     * 判断是否需要写入请求体
+     */
+    private static boolean shouldWriteBody(String method, String body) {
+        return body != null && !body.isEmpty() && 
+               (method.equals("POST") || method.equals("PUT") || method.equals("PATCH"));
+    }
+
+    /**
+     * 写入请求体
+     */
+    private static void writeRequestBody(HttpURLConnection conn, String body) throws IOException {
+        try (OutputStream os = conn.getOutputStream()) {
+            byte[] input = body.getBytes(StandardCharsets.UTF_8);
+            os.write(input, 0, input.length);
+        }
+    }
+
+    /**
+     * 读取响应内容
+     */
+    private static String readResponse(HttpURLConnection conn, int responseCode) throws IOException {
+        try (InputStream is = (responseCode >= 400) ? conn.getErrorStream() : conn.getInputStream()) {
+            if (is != null) {
+                try (BufferedReader br = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
+                    return br.lines().collect(Collectors.joining("\n"));
+                }
+            }
+        }
+        return "";
+    }
+
+    /**
+     * 处理重试逻辑
+     */
+    private static void handleRetry(int retryCount, IOException e, String url) throws IOException {
+        if (retryCount == MAX_RETRY) {
+            throw e;
+        }
+        
+        long sleepTime = (long) (RETRY_INTERVAL * Math.pow(2, retryCount - 1));
+        logger.log(Level.WARNING, String.format("Request failed for URL: %s, retry %d/%d after %dms",
+                url, retryCount, MAX_RETRY, sleepTime), e);
+                
+        try {
+            Thread.sleep(sleepTime);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Request interrupted during retry", ie);
+        }
+    }
+
+    /**
+     * 记录请求日志
+     */
+    private static void logRequest(String method, String url, Map<String, String> headers, 
+                                 String body, int responseCode, long responseTime) {
+        logger.log(Level.INFO, String.format("HTTP %s %s - Response: %d, Time: %dms",
+                method, url, responseCode, responseTime));
+    }
+
+    /**
+     * 异步执行HTTP请求
+     */
+    public static CompletableFuture<HttpResponse> asyncRequest(String method, String url, 
+                                                             String body, Map<String, String> headers) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                return request(method, url, body, headers);
+            } catch (IOException e) {
+                throw new CompletionException(e);
+            }
+        }, executorService);
+    }
+
+    // 便捷方法
+    public static HttpResponse get(String url) throws IOException {
+        return request("GET", url, null, null);
+    }
+
+    public static HttpResponse get(String url, Map<String, String> headers) throws IOException {
+        return request("GET", url, null, headers);
+    }
+
+    public static HttpResponse post(String url, String body) throws IOException {
+        return request("POST", url, body, null);
+    }
+
+    public static HttpResponse post(String url, String body, Map<String, String> headers) throws IOException {
+        return request("POST", url, body, headers);
+    }
+
+    public static HttpResponse put(String url, String body) throws IOException {
+        return request("PUT", url, body, null);
+    }
+
+    public static HttpResponse delete(String url) throws IOException {
+        return request("DELETE", url, null, null);
+    }
+
+    public static HttpResponse patch(String url, String body) throws IOException {
+        return request("PATCH", url, body, null);
+    }
+
+    // 异步便捷方法
+    public static CompletableFuture<HttpResponse> asyncGet(String url) {
+        return asyncRequest("GET", url, null, null);
+    }
+
+    public static CompletableFuture<HttpResponse> asyncPost(String url, String body) {
+        return asyncRequest("POST", url, body, null);
+    }
+
+    /**
+     * 批量执行GET请求
+     */
+    public static List<HttpResponse> batchGet(List<String> urls) {
+        List<CompletableFuture<HttpResponse>> futures = urls.stream()
+                .map(HttpUtil::asyncGet)
+                .collect(Collectors.toList());
+
+        return futures.stream()
+                .map(CompletableFuture::join)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 关闭线程池
+     */
+    public static void shutdown() {
+        executorService.shutdown();
+        try {
+            if (!executorService.awaitTermination(60, TimeUnit.SECONDS)) {
+                executorService.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            executorService.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
+    }
+}
+
+```
+
+## ListCompareUtil.java
+
+```java
+package com.study.collect.business.testcase.common.utils;
+
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.util.CollectionUtils;
+
+import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+@Slf4j
+public class ListCompareUtil {
+
+    /**
+     * 比较两个列表，找出在B中有但在A中没有的元素
+     */
+    public static <T> List<T> findMissingInA(List<T> listA, List<T> listB) {
+        if (CollectionUtils.isEmpty(listB)) {
+            return new ArrayList<>();
+        }
+        if (CollectionUtils.isEmpty(listA)) {
+            return new ArrayList<>(listB);
+        }
+
+        Set<T> setA = new HashSet<>(listA);
+        return listB.stream()
+                .filter(item -> !setA.contains(item))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 根据指定字段比较两个列表，找出在B中有但在A中没有的元素
+     */
+    public static <T, R> List<T> findMissingInA(List<T> listA, List<T> listB,
+                                                Function<T, R> keyExtractor) {
+        if (CollectionUtils.isEmpty(listB)) {
+            return new ArrayList<>();
+        }
+        if (CollectionUtils.isEmpty(listA)) {
+            return new ArrayList<>(listB);
+        }
+
+        Set<R> keysA = listA.stream()
+                .map(keyExtractor)
+                .collect(Collectors.toSet());
+
+        return listB.stream()
+                .filter(item -> !keysA.contains(keyExtractor.apply(item)))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 找出两个列表的交集
+     */
+    public static <T> List<T> findIntersection(List<T> listA, List<T> listB) {
+        if (CollectionUtils.isEmpty(listA) || CollectionUtils.isEmpty(listB)) {
+            return new ArrayList<>();
+        }
+
+        Set<T> setB = new HashSet<>(listB);
+        return listA.stream()
+                .filter(setB::contains)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 根据指定字段找出两个列表的交集
+     */
+    public static <T, R> List<T> findIntersection(List<T> listA, List<T> listB,
+                                                  Function<T, R> keyExtractor) {
+        if (CollectionUtils.isEmpty(listA) || CollectionUtils.isEmpty(listB)) {
+            return new ArrayList<>();
+        }
+
+        Set<R> keysB = listB.stream()
+                .map(keyExtractor)
+                .collect(Collectors.toSet());
+
+        return listA.stream()
+                .filter(item -> keysB.contains(keyExtractor.apply(item)))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 找出两个列表的差集（在A中但不在B中的元素）
+     */
+    public static <T> List<T> findDifference(List<T> listA, List<T> listB) {
+        if (CollectionUtils.isEmpty(listA)) {
+            return new ArrayList<>();
+        }
+        if (CollectionUtils.isEmpty(listB)) {
+            return new ArrayList<>(listA);
+        }
+
+        Set<T> setB = new HashSet<>(listB);
+        return listA.stream()
+                .filter(item -> !setB.contains(item))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 根据指定字段找出两个列表的差集
+     */
+    public static <T, R> List<T> findDifference(List<T> listA, List<T> listB,
+                                                Function<T, R> keyExtractor) {
+        if (CollectionUtils.isEmpty(listA)) {
+            return new ArrayList<>();
+        }
+        if (CollectionUtils.isEmpty(listB)) {
+            return new ArrayList<>(listA);
+        }
+
+        Set<R> keysB = listB.stream()
+                .map(keyExtractor)
+                .collect(Collectors.toSet());
+
+        return listA.stream()
+                .filter(item -> !keysB.contains(keyExtractor.apply(item)))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 分页处理列表
+     */
+    public static <T> List<List<T>> partition(List<T> list, int size) {
+        if (CollectionUtils.isEmpty(list)) {
+            return new ArrayList<>();
+        }
+
+        List<List<T>> result = new ArrayList<>();
+        for (int i = 0; i < list.size(); i += size) {
+            result.add(list.subList(i, Math.min(i + size, list.size())));
+        }
+        return result;
+    }
+}
+
+
+```
+
+## RateLimiter.java
+
+```java
+package com.study.collect.business.testcase.common.utils;
+
+
+import com.study.collect.business.testcase.common.constants.CollectionConstants;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
+
+/**
+ * 限流器实现
+ * 使用滑动窗口算法实现限流
+ */
+@Slf4j
+@Component
+public class RateLimiter {
+    private final int permitsPerMinute;
+    private final ConcurrentLinkedQueue<Long> timestamps;
+    private final AtomicInteger currentPermits;
+    private final ScheduledExecutorService scheduler;
+
+    public RateLimiter() {
+        this.permitsPerMinute = CollectionConstants.Http.MAX_REQUESTS_PER_MINUTE;
+        this.timestamps = new ConcurrentLinkedQueue<>();
+        this.currentPermits = new AtomicInteger(0);
+        this.scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread thread = new Thread(r);
+            thread.setName("rate-limiter-cleaner");
+            thread.setDaemon(true);
+            return thread;
+        });
+
+        // 定期清理过期的时间戳
+        scheduler.scheduleAtFixedRate(this::cleanup, 1, 1, TimeUnit.MINUTES);
+    }
+
+    /**
+     * 获取许可
+     */
+    public void acquire() throws InterruptedException {
+        while (!tryAcquire()) {
+            Thread.sleep(100);  // 等待100ms后重试
+        }
+    }
+
+    /**
+     * 尝试获取许可
+     */
+    public boolean tryAcquire() {
+        cleanup();  // 清理过期的时间戳
+
+        long now = System.currentTimeMillis();
+        int currentCount = currentPermits.get();
+
+        if (currentCount >= permitsPerMinute) {
+            return false;
+        }
+
+        if (currentPermits.incrementAndGet() <= permitsPerMinute) {
+            timestamps.offer(now);
+            return true;
+        } else {
+            currentPermits.decrementAndGet();
+            return false;
+        }
+    }
+
+    /**
+     * 清理过期的时间戳
+     */
+    private void cleanup() {
+        long now = System.currentTimeMillis();
+        long oneMinuteAgo = now - TimeUnit.MINUTES.toMillis(1);
+
+        // 移除一分钟前的时间戳
+        while (!timestamps.isEmpty() && timestamps.peek() < oneMinuteAgo) {
+            timestamps.poll();
+            currentPermits.decrementAndGet();
+        }
+    }
+
+    /**
+     * 获取当前速率
+     */
+    public int getCurrentRate() {
+        cleanup();
+        return currentPermits.get();
+    }
+
+    /**
+     * 关闭清理线程
+     */
+    public void shutdown() {
+        scheduler.shutdown();
+        try {
+            if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {
+                scheduler.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            scheduler.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
+    }
+}
+```
+
+## StreamProcessor.java
+
+```java
+package com.study.collect.business.testcase.common.utils;
+
+import lombok.Builder;
+import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.util.CollectionUtils;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
+import java.util.function.Function;
+
+/**
+ * 通用流式处理器
+ * @param <T> 输入数据类型
+ * @param <R> 输出数据类型
+ */
+@Slf4j
+public class StreamProcessor<T, R> {
+
+    @Data
+    @Builder
+    public static class ProcessorConfig<T, R> {
+        private String processorName;
+        private int batchSize;
+        private int maxConcurrent;
+        private long timeoutSeconds;
+        private int maxRetries;
+        private long retryDelayMs;
+        private ExecutorService processExecutor;
+        private ExecutorService saveExecutor;
+
+        // 处理函数
+        private Function<Integer, List<T>> dataFetcher;
+        private Function<T, R> dataConverter;
+        private Consumer<List<R>> dataSaver;
+        private Consumer<ProcessMetrics> progressCallback;
+    }
+
+    @Data
+    @Builder
+    public static class ProcessMetrics {
+        private String processorName;
+        private long totalItems;
+        private long processedItems;
+        private long failedItems;
+        private long startTime;
+        private long endTime;
+        private double progressPercentage;
+        private Map<String, Object> customMetrics;
+    }
+
+    private final ProcessorConfig<T, R> config;
+    private final BlockingQueue<CompletableFuture<?>> processQueue;
+    private final AtomicInteger activeProcesses;
+    private final AtomicBoolean running;
+    private final List<ProcessMetrics> metricsHistory;
+
+    public StreamProcessor(ProcessorConfig<T, R> config) {
+        validateConfig(config);
+        this.config = config;
+        this.processQueue = new ArrayBlockingQueue<>(1000);
+        this.activeProcesses = new AtomicInteger(0);
+        this.running = new AtomicBoolean(true);
+        this.metricsHistory = new CopyOnWriteArrayList<>();
+    }
+
+    /**
+     * 开始处理数据
+     */
+    public CompletableFuture<ProcessMetrics> process(int offset, int limit) {
+        ProcessMetrics metrics = initializeMetrics();
+        CompletableFuture<ProcessMetrics> resultFuture = new CompletableFuture<>();
+
+        try {
+            if (activeProcesses.incrementAndGet() <= config.getMaxConcurrent()) {
+                processDataBatches(offset, limit, metrics, resultFuture);
+            } else {
+                activeProcesses.decrementAndGet();
+                throw new RejectedExecutionException("Max concurrent processes reached");
+            }
+        } catch (Exception e) {
+            activeProcesses.decrementAndGet();
+            resultFuture.completeExceptionally(e);
+        }
+
+        return resultFuture;
+    }
+
+    private void processDataBatches(int offset, int limit, ProcessMetrics metrics,
+                                    CompletableFuture<ProcessMetrics> resultFuture) {
+        CompletableFuture.runAsync(() -> {
+            try {
+                int processed = 0;
+                while (running.get() && processed < limit) {
+                    List<T> batch = fetchData(offset + processed);
+                    if (CollectionUtils.isEmpty(batch)) {
+                        break;
+                    }
+
+                    processBatch(batch, metrics);
+                    processed += batch.size();
+                    updateProgress(metrics, processed, limit);
+                }
+
+                completeProcessing(metrics, resultFuture);
+            } catch (Exception e) {
+                handleProcessingError(e, metrics, resultFuture);
+            }
+        }, config.getProcessExecutor());
+    }
+
+    private List<T> fetchData(int offset) {
+        int retryCount = 0;
+        while (retryCount <= config.getMaxRetries()) {
+            try {
+                return config.getDataFetcher().apply(offset);
+            } catch (Exception e) {
+                if (++retryCount > config.getMaxRetries()) {
+                    log.error("Failed to fetch data after {} retries", config.getMaxRetries(), e);
+                    throw new RuntimeException("Data fetch failed", e);
+                }
+                sleep(calculateRetryDelay(retryCount));
+            }
+        }
+        return new ArrayList<>();
+    }
+
+    private void processBatch(List<T> batch, ProcessMetrics metrics) {
+        List<R> convertedBatch = new ArrayList<>();
+        for (T item : batch) {
+            try {
+                R converted = config.getDataConverter().apply(item);
+                if (converted != null) {
+                    convertedBatch.add(converted);
+                }
+            } catch (Exception e) {
+                log.error("Error converting item", e);
+                metrics.setFailedItems(metrics.getFailedItems() + 1);
+            }
+        }
+
+        if (!convertedBatch.isEmpty()) {
+            saveBatch(convertedBatch, metrics);
+        }
+    }
+
+    private void saveBatch(List<R> batch, ProcessMetrics metrics) {
+        int retryCount = 0;
+        while (retryCount <= config.getMaxRetries()) {
+            try {
+                CompletableFuture<Void> saveFuture = CompletableFuture.runAsync(() ->
+                                config.getDataSaver().accept(batch)
+                        , config.getSaveExecutor());
+
+                processQueue.put(saveFuture);
+                cleanupCompletedTasks();
+                return;
+            } catch (Exception e) {
+                if (++retryCount > config.getMaxRetries()) {
+                    log.error("Failed to save batch after {} retries", config.getMaxRetries(), e);
+                    metrics.setFailedItems(metrics.getFailedItems() + batch.size());
+                    throw new RuntimeException("Batch save failed", e);
+                }
+                sleep(calculateRetryDelay(retryCount));
+            }
+        }
+    }
+
+    private void cleanupCompletedTasks() {
+        processQueue.removeIf(future -> {
+            if (future.isDone()) {
+                try {
+                    future.get(0, TimeUnit.MILLISECONDS);
+                    return true;
+                } catch (Exception e) {
+                    log.error("Task completed with error", e);
+                    return true;
+                }
+            }
+            return false;
+        });
+    }
+
+    private ProcessMetrics initializeMetrics() {
+        return ProcessMetrics.builder()
+                .processorName(config.getProcessorName())
+                .startTime(System.currentTimeMillis())
+                .totalItems(0)
+                .processedItems(0)
+                .failedItems(0)
+                .progressPercentage(0.0)
+                .build();
+    }
+
+    private void updateProgress(ProcessMetrics metrics, long processed, long total) {
+        metrics.setProcessedItems(processed);
+        metrics.setTotalItems(total);
+        metrics.setProgressPercentage((double) processed / total * 100);
+
+        if (config.getProgressCallback() != null) {
+            config.getProgressCallback().accept(metrics);
+        }
+    }
+
+    private void completeProcessing(ProcessMetrics metrics, CompletableFuture<ProcessMetrics> resultFuture) {
+        metrics.setEndTime(System.currentTimeMillis());
+        metricsHistory.add(metrics);
+        activeProcesses.decrementAndGet();
+        resultFuture.complete(metrics);
+    }
+
+    private void handleProcessingError(Exception e, ProcessMetrics metrics,
+                                       CompletableFuture<ProcessMetrics> resultFuture) {
+        log.error("Error processing data", e);
+        metrics.setEndTime(System.currentTimeMillis());
+        metricsHistory.add(metrics);
+        activeProcesses.decrementAndGet();
+        resultFuture.completeExceptionally(e);
+    }
+
+    private long calculateRetryDelay(int retryCount) {
+        return config.getRetryDelayMs() * (long) Math.pow(2, retryCount - 1);
+    }
+
+    private void sleep(long millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Processing interrupted", e);
+        }
+    }
+
+    private void validateConfig(ProcessorConfig<T, R> config) {
+        if (config.getDataFetcher() == null) {
+            throw new IllegalArgumentException("DataFetcher cannot be null");
+        }
+        if (config.getDataConverter() == null) {
+            throw new IllegalArgumentException("DataConverter cannot be null");
+        }
+        if (config.getDataSaver() == null) {
+            throw new IllegalArgumentException("DataSaver cannot be null");
+        }
+        if (config.getProcessExecutor() == null) {
+            throw new IllegalArgumentException("ProcessExecutor cannot be null");
+        }
+        if (config.getSaveExecutor() == null) {
+            throw new IllegalArgumentException("SaveExecutor cannot be null");
+        }
+    }
+
+    /**
+     * 暂停处理
+     */
+    public void pause() {
+        running.set(false);
+    }
+
+    /**
+     * 恢复处理
+     */
+    public void resume() {
+        running.set(true);
+    }
+
+    /**
+     * 停止处理
+     */
+    public void shutdown() {
+        running.set(false);
+        config.getProcessExecutor().shutdown();
+        config.getSaveExecutor().shutdown();
+        try {
+            if (!config.getProcessExecutor().awaitTermination(30, TimeUnit.SECONDS)) {
+                config.getProcessExecutor().shutdownNow();
+            }
+            if (!config.getSaveExecutor().awaitTermination(30, TimeUnit.SECONDS)) {
+                config.getSaveExecutor().shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            config.getProcessExecutor().shutdownNow();
+            config.getSaveExecutor().shutdownNow();
+        }
+    }
+
+    /**
+     * 获取处理指标历史
+     */
+    public List<ProcessMetrics> getMetricsHistory() {
+        return new ArrayList<>(metricsHistory);
+    }
+
+    /**
+     * 获取当前活动处理数
+     */
+    public int getActiveProcessCount() {
+        return activeProcesses.get();
+    }
+
+    /**
+     * 获取处理队列大小
+     */
+    public int getQueueSize() {
+        return processQueue.size();
+    }
+
+    /**
+     * 是否正在运行
+     */
+    public boolean isRunning() {
+        return running.get();
+    }
+
+    /**
+     * 清除历史指标
+     */
+    public void clearMetricsHistory() {
+        metricsHistory.clear();
+    }
+}
+```
+
+## TableNameHelper.java
+
+```java
+package com.study.collect.business.testcase.common.utils;
+
+import com.study.collect.business.testcase.common.constants.CollectionConstants;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.codec.digest.DigestUtils;
+import org.springframework.util.Assert;
+
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Pattern;
+
+/**
+ * 表名处理工具类
+ */
+@Slf4j
+public class TableNameHelper {
+
+    private static final Map<String, String> TABLE_NAME_CACHE = new ConcurrentHashMap<>();
+    private static final Pattern TABLE_NAME_PATTERN = Pattern.compile("^[a-zA-Z0-9_]+$");
+    private static final int MAX_TABLE_NAME_LENGTH = 64;
+
+    /**
+     * 生成完整表名
+     * @param rootNode 根节点
+     * @return 完整表名
+     */
+    public static String getTableName(String rootNode) {
+        Assert.hasText(rootNode, "RootNode must not be empty");
+
+        return TABLE_NAME_CACHE.computeIfAbsent(rootNode, key -> {
+            String tableName = CollectionConstants.Collection.URI_COLLECTION_PREFIX + "_" + key;
+            validateTableName(tableName);
+            return tableName;
+        });
+    }
+
+    /**
+     * 获取rootNode
+     * @param uri URI
+     * @return rootNode
+     */
+    public static String extractRootNode(String uri) {
+        Assert.hasText(uri, "URI must not be empty");
+
+        int firstSlash = uri.indexOf('/');
+        if (firstSlash == -1) {
+            return uri;
+        }
+        return uri.substring(0, firstSlash);
+    }
+
+    /**
+     * 验证表名是否合法
+     */
+    private static void validateTableName(String tableName) {
+        if (!TABLE_NAME_PATTERN.matcher(tableName).matches()) {
+            throw new IllegalArgumentException("Invalid table name: " + tableName);
+        }
+        if (tableName.length() > MAX_TABLE_NAME_LENGTH) {
+            throw new IllegalArgumentException("Table name too long: " + tableName);
+        }
+    }
+
+    /**
+     * 检查URI是否属于指定表
+     */
+    public static boolean isUriMatchTable(String uri, String tableName) {
+        String rootNode = extractRootNode(uri);
+        String expectedTableName = getTableName(rootNode);
+        return expectedTableName.equals(tableName);
+    }
+
+    /**
+     * 生成URI哈希值
+     */
+    public static String generateUriHash(String uri) {
+        Assert.hasText(uri, "URI must not be empty");
+        return DigestUtils.sha256Hex(uri);
+    }
+
+    /**
+     * 生成带版本的表名
+     */
+    public static String getVersionedTableName(String rootNode, String version) {
+        Assert.hasText(rootNode, "RootNode must not be empty");
+        Assert.hasText(version, "Version must not be empty");
+
+        return TABLE_NAME_CACHE.computeIfAbsent(
+                rootNode + "_" + version,
+                key -> {
+                    String tableName = CollectionConstants.Collection.URI_COLLECTION_PREFIX
+                            + "_" + rootNode
+                            + "_" + version;
+                    validateTableName(tableName);
+                    return tableName;
+                }
+        );
+    }
+
+    /**
+     * 生成完整的文档ID
+     */
+    public static String generateDocumentId(String uri, String version) {
+        Assert.hasText(uri, "URI must not be empty");
+        return version == null ?
+                DigestUtils.sha256Hex(uri) :
+                DigestUtils.sha256Hex(uri + "_" + version);
+    }
+
+    /**
+     * 清除表名缓存
+     */
+    public static void clearCache() {
+        TABLE_NAME_CACHE.clear();
+    }
+}
+```
+
 ## GlobalExceptionHandler.java
 
 ```java
@@ -474,7 +1641,8 @@ import com.mongodb.ConnectionString;
 import com.mongodb.MongoClientSettings;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
-import com.study.collect.business.testcase.constant.CollectionConstants;
+
+import com.study.collect.business.testcase.common.constants.CollectionConstants;
 import lombok.Data;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -496,17 +1664,23 @@ import java.util.concurrent.TimeUnit;
 @Data
 public class MongoConfig extends AbstractMongoClientConfiguration {
 
+    private final TestCaseCollectorProperties properties;
+
     @Value("${spring.data.mongodb.uri}")
     private String uri;
 
     @Value("${spring.data.mongodb.database}")
     private String database;
 
-    @Value("${spring.data.mongodb.min-pool-size:" + CollectionConstants.MONGO_MIN_POOL_SIZE + "}")
+    @Value("${spring.data.mongodb.min-pool-size:" + CollectionConstants.Database.MONGO_MIN_POOL_SIZE + "}")
     private Integer minPoolSize;
 
-    @Value("${spring.data.mongodb.max-pool-size:" + CollectionConstants.MONGO_MAX_POOL_SIZE + "}")
+    @Value("${spring.data.mongodb.max-pool-size:" + CollectionConstants.Database.MONGO_MAX_POOL_SIZE + "}")
     private Integer maxPoolSize;
+
+    public MongoConfig(TestCaseCollectorProperties properties) {
+        this.properties = properties;
+    }
 
     @Override
     protected String getDatabaseName() {
@@ -521,14 +1695,14 @@ public class MongoConfig extends AbstractMongoClientConfiguration {
         MongoClientSettings settings = MongoClientSettings.builder()
                 .applyConnectionString(connectionString)
                 .applyToConnectionPoolSettings(builder ->
-                        builder.minSize(minPoolSize)
-                                .maxSize(maxPoolSize)
+                        builder.minSize(properties.getMongoMinPoolSize())
+                                .maxSize(properties.getMongoMaxPoolSize())
                                 .maxWaitTime(10, TimeUnit.SECONDS)
                                 .maxConnectionLifeTime(30, TimeUnit.MINUTES)
                                 .maxConnectionIdleTime(5, TimeUnit.MINUTES))
                 .applyToSocketSettings(builder ->
-                        builder.connectTimeout(5, TimeUnit.SECONDS)
-                                .readTimeout(10, TimeUnit.SECONDS))
+                        builder.connectTimeout(properties.getHttpConnectTimeout(), TimeUnit.MILLISECONDS)
+                                .readTimeout(properties.getHttpReadTimeout(), TimeUnit.MILLISECONDS))
                 .retryWrites(true)
                 .retryReads(true)
                 .build();
@@ -548,7 +1722,8 @@ public class MongoConfig extends AbstractMongoClientConfiguration {
 ```java
 package com.study.collect.business.testcase.config;
 
-import com.study.collect.business.testcase.constant.CollectionConstants;
+
+import com.study.collect.business.testcase.common.constants.CollectionConstants;
 import com.study.collect.business.testcase.entity.UriEntity;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.pool2.BasePooledObjectFactory;
@@ -565,13 +1740,16 @@ import java.lang.reflect.Modifier;
 @Configuration
 @Slf4j
 public class ObjectPoolConfig {
-
+    private final TestCaseCollectorProperties properties;
+    public ObjectPoolConfig(TestCaseCollectorProperties properties) {
+        this.properties = properties;
+    }
     @Bean(destroyMethod = "close")
     public GenericObjectPool<UriEntity> uriEntityPool() {
         GenericObjectPoolConfig<UriEntity> poolConfig = new GenericObjectPoolConfig<>();
-        poolConfig.setMaxTotal(CollectionConstants.POOL_MAX_TOTAL);
-        poolConfig.setMaxIdle(CollectionConstants.POOL_MAX_IDLE);
-        poolConfig.setMinIdle(CollectionConstants.POOL_MIN_IDLE);
+        poolConfig.setMaxTotal(properties.getPoolMaxTotal());
+        poolConfig.setMaxIdle(properties.getPoolMaxIdle());
+        poolConfig.setMinIdle(properties.getPoolMinIdle());
         poolConfig.setTestOnBorrow(true);
         poolConfig.setTestOnReturn(true);
         poolConfig.setTestWhileIdle(true);
@@ -634,16 +1812,49 @@ public class TestCaseAutoConfiguration {
 ```java
 package com.study.collect.business.testcase.config;
 
+import com.study.collect.business.testcase.common.constants.CollectionConstants;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @Data
 @ConfigurationProperties(prefix = "collect.testcase")
 public class TestCaseCollectorProperties {
-    private int batchSize = 100;  // 批量处理大小
-    private int threadCount = 4;  // 处理线程数
-    private int retryTimes = 3;   // 重试次数
-    private int timeout = 3600;   // 超时时间(秒)
+    // 基本配置
+    private int batchSize = CollectionConstants.Process.DEFAULT_BATCH_SIZE;
+    private int threadCount = Runtime.getRuntime().availableProcessors() * 2;
+    private int retryTimes = CollectionConstants.Http.MAX_RETRY;
+    private int timeout = (int) CollectionConstants.Process.TASK_TIMEOUT;
+
+    // HTTP配置
+    private int httpMaxRequestsPerMinute = CollectionConstants.Http.MAX_REQUESTS_PER_MINUTE;
+    private int httpConnectTimeout = CollectionConstants.Http.CONNECT_TIMEOUT;
+    private int httpReadTimeout = CollectionConstants.Http.READ_TIMEOUT;
+    private int httpRetryInterval = (int) CollectionConstants.Http.RETRY_INTERVAL;
+
+    // MongoDB配置
+    private int mongoMinPoolSize = CollectionConstants.Database.MONGO_MIN_POOL_SIZE;
+    private int mongoMaxPoolSize = CollectionConstants.Database.MONGO_MAX_POOL_SIZE;
+    private int mongoBatchSize = CollectionConstants.Database.MONGO_BATCH_SIZE;
+
+    // 任务配置
+    private int maxConcurrentTasks = CollectionConstants.Process.MAX_CONCURRENT_TASKS;
+    private int taskQueueCapacity = CollectionConstants.Process.TASK_QUEUE_CAPACITY;
+    private long taskTimeoutSeconds = CollectionConstants.Process.TASK_TIMEOUT;
+
+    // 对象池配置
+    private int poolMaxTotal = CollectionConstants.Pool.MAX_TOTAL;
+    private int poolMaxIdle = CollectionConstants.Pool.MAX_IDLE;
+    private int poolMinIdle = CollectionConstants.Pool.MIN_IDLE;
+
+    // 版本配置
+    private String versionPrefix = CollectionConstants.Collection.VERSION_PREFIX;
+    private String versionSeparator = CollectionConstants.Collection.VERSION_SEPARATOR;
+
+    // 增量同步配置
+    private boolean enableIncrementalSync = true;
+    private boolean enableHardDelete = false;
+    private int cleanupBatchSize = CollectionConstants.Process.DEFAULT_BATCH_SIZE;
+    private int cleanupThreads = Runtime.getRuntime().availableProcessors();
 }
 ```
 
@@ -651,6 +1862,7 @@ public class TestCaseCollectorProperties {
 
 ```java
 package com.study.collect.business.testcase.config;
+
 
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -802,122 +2014,6 @@ public class ThreadPoolConfig {
 }
 ```
 
-## CollectionConstants.java
-
-```java
-package com.study.collect.business.testcase.constant;
-
-/**
- * 系统常量配置
- */
-public final class CollectionConstants {
-
-    // 集合相关
-    public static final class Collection {
-        public static final String URI_COLLECTION_PREFIX = "uri_collect";
-        public static final String VERSION_PREFIX = "V";
-        public static final String VERSION_SEPARATOR = "_";
-
-        private Collection() {}
-    }
-
-    // HTTP相关
-    public static final class Http {
-        public static final int MAX_REQUESTS_PER_MINUTE = 500;
-        public static final int CONNECT_TIMEOUT = 5000;
-        public static final int READ_TIMEOUT = 15000;
-        public static final int MAX_RETRY = 3;
-        public static final long RETRY_INTERVAL = 1000L;
-
-        private Http() {}
-    }
-
-    // 线程池相关
-    public static final class ThreadPool {
-        // HTTP请求线程池
-        public static final int HTTP_CORE_SIZE = Runtime.getRuntime().availableProcessors() * 2;
-        public static final int HTTP_MAX_SIZE = Runtime.getRuntime().availableProcessors() * 4;
-        public static final int HTTP_QUEUE_SIZE = 5000;
-        public static final long HTTP_KEEP_ALIVE = 60L;
-
-        // MongoDB操作线程池
-        public static final int MONGO_CORE_SIZE = Runtime.getRuntime().availableProcessors();
-        public static final int MONGO_MAX_SIZE = Runtime.getRuntime().availableProcessors() * 2;
-        public static final int MONGO_QUEUE_SIZE = 10000;
-        public static final long MONGO_KEEP_ALIVE = 60L;
-
-        // 任务处理线程池
-        public static final int TASK_CORE_SIZE = 5;
-        public static final int TASK_MAX_SIZE = 10;
-        public static final int TASK_QUEUE_SIZE = 100;
-        public static final long TASK_KEEP_ALIVE = 60L;
-
-        private ThreadPool() {}
-    }
-
-    // 数据库相关
-    public static final class Database {
-        public static final int MONGO_BATCH_SIZE = 1000;
-        public static final int MONGO_MAX_POOL_SIZE = 100;
-        public static final int MONGO_MIN_POOL_SIZE = 20;
-
-        private Database() {}
-    }
-
-    // 处理相关
-    public static final class Process {
-        public static final int DEFAULT_BATCH_SIZE = 200;
-        public static final int MAX_BATCH_SIZE = 1000;
-        public static final int MIN_BATCH_SIZE = 50;
-        public static final long TASK_TIMEOUT = 3600L;
-        public static final int MAX_CONCURRENT_TASKS = 10;
-        public static final int TASK_QUEUE_CAPACITY = 100;
-
-        private Process() {}
-    }
-
-    // 对象池相关
-    public static final class Pool {
-        public static final int MAX_TOTAL = 20;
-        public static final int MAX_IDLE = 10;
-        public static final int MIN_IDLE = 5;
-
-        private Pool() {}
-    }
-
-    private CollectionConstants() {}
-}
-```
-
-## VersionType.java
-
-```java
-package com.study.collect.business.testcase.constant;
-
-/**
- * 版本类型枚举
- */
-public enum VersionType {
-    TRUNK("主干版本"),
-    BRANCH("分支版本");
-
-    private final String description;
-
-    VersionType(String description) {
-        this.description = description;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public static VersionType fromString(String version) {
-        return version != null && version.toLowerCase().contains("branch") ?
-                BRANCH : TRUNK;
-    }
-}
-```
-
 ## UriCollectController.java
 
 ```java
@@ -1027,13 +2123,13 @@ public class UriCollectController {
 package com.study.collect.business.testcase.core.executor;
 
 import com.study.collect.business.testcase.common.constants.CollectionConstants;
-import com.study.collect.business.testcase.utils.StreamProcessor;
+import com.study.collect.business.testcase.common.utils.StreamProcessor;
 import com.study.collect.business.testcase.entity.UriEntity;
 import com.study.collect.business.testcase.model.param.CollectParam;
 import com.study.collect.business.testcase.model.response.PageResponse;
 import com.study.collect.business.testcase.repository.UriRepository;
 import com.study.collect.business.testcase.service.http.UriHttpService;
-import com.study.collect.business.testcase.utils.RateLimiter;
+import com.study.collect.business.testcase.common.utils.RateLimiter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.pool2.ObjectPool;
@@ -1200,7 +2296,7 @@ package com.study.collect.business.testcase.core.executor;
 
 import com.study.collect.business.testcase.model.param.DeleteParam;
 import com.study.collect.business.testcase.repository.UriRepository;
-import com.study.collect.business.testcase.utils.StreamProcessor;
+import com.study.collect.business.testcase.common.utils.StreamProcessor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -2043,9 +3139,198 @@ public class TaskManager {
 ```java
 package com.study.collect.business.testcase.core.processor;
 
-public class CollectProcessor {
-}
+import com.study.collect.business.testcase.common.utils.StreamProcessor;
+import com.study.collect.business.testcase.model.param.CollectParam;
+import com.study.collect.business.testcase.repository.UriRepository;
+import com.study.collect.business.testcase.service.http.UriHttpService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
 
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
+
+/**
+ * URI采集处理器
+ */
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class CollectProcessor implements DataProcessor<CollectParam, Long> {
+
+    private final UriHttpService httpService;
+    private final UriRepository repository;
+
+    private final Map<String, ProcessorStatus> taskStatusMap = new ConcurrentHashMap<>();
+
+    @Override
+    public CompletableFuture<Long> process(CollectParam param) {
+        // 初始化处理状态
+        ProcessorStatus status = new ProcessorStatus();
+        taskStatusMap.put(param.getTaskId(), status);
+
+        CompletableFuture<Long> future = new CompletableFuture<>();
+        try {
+            // 获取版本列表
+            httpService.getAllVersions(param)
+                    .thenCompose(versions -> {
+                        // 更新进度
+                        status.update("Getting URIs for versions", 0.2);
+
+                        // 获取每个版本的URI列表
+                        List<CompletableFuture<List<String>>> uriFutures = versions.stream()
+                                .map(version -> httpService.getAllUrisForVersion(param, version))
+                                .collect(Collectors.toList());
+
+                        return CompletableFuture.allOf(uriFutures.toArray(new CompletableFuture[0]))
+                                .thenApply(v -> uriFutures.stream()
+                                        .map(CompletableFuture::join)
+                                        .flatMap(List::stream)
+                                        .collect(Collectors.toList()));
+                    })
+                    .thenCompose(uris -> {
+                        // 更新进度
+                        status.update("Getting URI details", 0.4);
+
+                        // 获取URI详情
+                        return httpService.batchGetUriDetails(param, uris, param.getBatchSize());
+                    })
+                    .thenAccept(details -> {
+                        // 更新进度
+                        status.update("Saving to database", 0.8);
+
+                        // 保存到数据库
+                        long savedCount = saveToDatabase(param.getRootNode(), details);
+                        status.update("Completed", 1.0);
+
+                        future.complete(savedCount);
+                    })
+                    .exceptionally(throwable -> {
+                        status.error(throwable.getMessage());
+                        future.completeExceptionally(throwable);
+                        return null;
+                    });
+
+        } catch (Exception e) {
+            status.error(e.getMessage());
+            future.completeExceptionally(e);
+        }
+
+        return future;
+    }
+
+    @Override
+    public boolean cancel(String taskId) {
+        ProcessorStatus status = taskStatusMap.get(taskId);
+        if (status != null && !status.isCompleted()) {
+            status.cancel();
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public boolean updatePriority(String taskId, int priority) {
+        // 采集处理器不支持优先级调整
+        return false;
+    }
+
+    @Override
+    public StreamProcessor.ProcessMetrics getProgress(String taskId) {
+        ProcessorStatus status = taskStatusMap.get(taskId);
+        if (status != null) {
+            return status.toMetrics();
+        }
+        return null;
+    }
+
+    @Override
+    public void pause(String taskId) {
+        ProcessorStatus status = taskStatusMap.get(taskId);
+        if (status != null) {
+            status.pause();
+        }
+    }
+
+    @Override
+    public void resume(String taskId) {
+        ProcessorStatus status = taskStatusMap.get(taskId);
+        if (status != null) {
+            status.resume();
+        }
+    }
+
+    /**
+     * 处理器状态类
+     */
+    private static class ProcessorStatus {
+        private String stage;
+        private double progress;
+        private String error;
+        private boolean completed;
+        private boolean cancelled;
+        private boolean paused;
+        private final long startTime;
+        private Long endTime;
+
+        ProcessorStatus() {
+            this.startTime = System.currentTimeMillis();
+            this.progress = 0;
+            this.stage = "Initializing";
+        }
+
+        void update(String stage, double progress) {
+            this.stage = stage;
+            this.progress = progress;
+            if (progress >= 1.0) {
+                this.completed = true;
+                this.endTime = System.currentTimeMillis();
+            }
+        }
+
+        void error(String message) {
+            this.error = message;
+            this.completed = true;
+            this.endTime = System.currentTimeMillis();
+        }
+
+        void cancel() {
+            this.cancelled = true;
+            this.completed = true;
+            this.endTime = System.currentTimeMillis();
+        }
+
+        void pause() {
+            this.paused = true;
+        }
+
+        void resume() {
+            this.paused = false;
+        }
+
+        boolean isCompleted() {
+            return completed;
+        }
+
+        StreamProcessor.ProcessMetrics toMetrics() {
+            return StreamProcessor.ProcessMetrics.builder()
+                    .processorName("URI-Collect")
+                    .startTime(startTime)
+                    .endTime(endTime)
+                    .progressPercentage(progress * 100)
+                    .customMetrics(Map.of(
+                            "stage", stage,
+                            "error", error,
+                            "cancelled", cancelled,
+                            "paused", paused
+                    ))
+                    .build();
+        }
+    }
+}
 ```
 
 ## DataProcessor.java
@@ -2053,7 +3338,7 @@ public class CollectProcessor {
 ```java
 package com.study.collect.business.testcase.core.processor;
 
-import com.study.collect.business.testcase.utils.StreamProcessor.ProcessMetrics;
+import com.study.collect.business.testcase.common.utils.StreamProcessor.ProcessMetrics;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -2111,9 +3396,195 @@ public interface DataProcessor<T, R> {
 ```java
 package com.study.collect.business.testcase.core.processor;
 
-public class DeleteProcessor {
-}
+import com.study.collect.business.testcase.common.utils.ListCompareUtil;
+import com.study.collect.business.testcase.common.utils.StreamProcessor;
+import com.study.collect.business.testcase.model.param.DeleteParam;
+import com.study.collect.business.testcase.repository.UriRepository;
+import com.study.collect.business.testcase.common.utils.ListCompareUtil;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
 
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+
+/**
+ * URI删除处理器
+ */
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class DeleteProcessor implements DataProcessor<DeleteParam, Long> {
+
+    private final UriRepository repository;
+    private final Map<String, ProcessorStatus> taskStatusMap = new ConcurrentHashMap<>();
+
+    @Override
+    public CompletableFuture<Long> process(DeleteParam param) {
+        // 初始化处理状态
+        ProcessorStatus status = new ProcessorStatus();
+        taskStatusMap.put(param.getTaskId(), status);
+
+        CompletableFuture<Long> future = new CompletableFuture<>();
+        try {
+            // 分批处理
+            List<List<String>> batches = ListCompareUtil.partition(param.getUris(), param.getBatchSize());
+            long totalDeleted = 0;
+            long totalBatches = batches.size();
+
+            for (int i = 0; i < batches.size() && !status.cancelled; i++) {
+                List<String> batch = batches.get(i);
+
+                // 检查是否暂停
+                while (status.paused && !status.cancelled) {
+                    Thread.sleep(100);
+                }
+
+                if (status.cancelled) {
+                    break;
+                }
+
+                // 执行删除
+                long batchCount = param.getHardDelete() ?
+                        repository.batchHardDelete(param.getRootNode(), batch) :
+                        repository.batchSoftDelete(param.getRootNode(), batch);
+
+                totalDeleted += batchCount;
+
+                // 更新进度
+                double progress = (i + 1.0) / totalBatches;
+                status.update(
+                        String.format("Processed %d/%d batches", i + 1, totalBatches),
+                        progress
+                );
+            }
+
+            if (status.cancelled) {
+                future.complete(totalDeleted);
+            } else {
+                status.update("Completed", 1.0);
+                future.complete(totalDeleted);
+            }
+
+        } catch (Exception e) {
+            status.error(e.getMessage());
+            future.completeExceptionally(e);
+        }
+
+        return future;
+    }
+
+    @Override
+    public boolean cancel(String taskId) {
+        ProcessorStatus status = taskStatusMap.get(taskId);
+        if (status != null && !status.isCompleted()) {
+            status.cancel();
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public boolean updatePriority(String taskId, int priority) {
+        // 删除处理器不支持优先级调整
+        return false;
+    }
+
+    @Override
+    public StreamProcessor.ProcessMetrics getProgress(String taskId) {
+        ProcessorStatus status = taskStatusMap.get(taskId);
+        if (status != null) {
+            return status.toMetrics();
+        }
+        return null;
+    }
+
+    @Override
+    public void pause(String taskId) {
+        ProcessorStatus status = taskStatusMap.get(taskId);
+        if (status != null) {
+            status.pause();
+        }
+    }
+
+    @Override
+    public void resume(String taskId) {
+        ProcessorStatus status = taskStatusMap.get(taskId);
+        if (status != null) {
+            status.resume();
+        }
+    }
+
+    /**
+     * 处理器状态类
+     */
+    private static class ProcessorStatus {
+        private String stage;
+        private double progress;
+        private String error;
+        private boolean completed;
+        private boolean cancelled;
+        private boolean paused;
+        private final long startTime;
+        private Long endTime;
+
+        ProcessorStatus() {
+            this.startTime = System.currentTimeMillis();
+            this.progress = 0;
+            this.stage = "Initializing";
+        }
+
+        void update(String stage, double progress) {
+            this.stage = stage;
+            this.progress = progress;
+            if (progress >= 1.0) {
+                this.completed = true;
+                this.endTime = System.currentTimeMillis();
+            }
+        }
+
+        void error(String message) {
+            this.error = message;
+            this.completed = true;
+            this.endTime = System.currentTimeMillis();
+        }
+
+        void cancel() {
+            this.cancelled = true;
+            this.completed = true;
+            this.endTime = System.currentTimeMillis();
+        }
+
+        void pause() {
+            this.paused = true;
+        }
+
+        void resume() {
+            this.paused = false;
+        }
+
+        boolean isCompleted() {
+            return completed;
+        }
+
+        StreamProcessor.ProcessMetrics toMetrics() {
+            return StreamProcessor.ProcessMetrics.builder()
+                    .processorName("URI-Delete")
+                    .startTime(startTime)
+                    .endTime(endTime)
+                    .progressPercentage(progress * 100)
+                    .customMetrics(Map.of(
+                            "stage", stage,
+                            "error", error,
+                            "cancelled", cancelled,
+                            "paused", paused
+                    ))
+                    .build();
+        }
+    }
+}
 ```
 
 ## BaseEntity.java
@@ -2131,6 +3602,9 @@ import org.springframework.data.mongodb.core.mapping.Field;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
+/**
+ * 基础实体类
+ */
 @Data
 @NoArgsConstructor
 public abstract class BaseEntity implements Serializable {
@@ -2161,6 +3635,9 @@ public abstract class BaseEntity implements Serializable {
     @Field("is_deleted")
     protected Boolean deleted = false;
 
+    /**
+     * 构造函数
+     */
     protected BaseEntity(String id) {
         this.id = id;
         this.createTime = LocalDateTime.now();
@@ -2169,6 +3646,9 @@ public abstract class BaseEntity implements Serializable {
         this.deleted = false;
     }
 
+    /**
+     * 创建前处理
+     */
     @PrePersist
     public void prePersist() {
         if (this.createTime == null) {
@@ -2185,9 +3665,25 @@ public abstract class BaseEntity implements Serializable {
         }
     }
 
+    /**
+     * 更新前处理
+     */
     @PreUpdate
     public void preUpdate() {
         this.updateTime = LocalDateTime.now();
+    }
+
+    /**
+     * 重置实体状态
+     */
+    public void reset() {
+        this.id = null;
+        this.createTime = null;
+        this.updateTime = null;
+        this.createBy = null;
+        this.updateBy = null;
+        this.version = 0L;
+        this.deleted = false;
     }
 }
 ```
@@ -2197,7 +3693,7 @@ public abstract class BaseEntity implements Serializable {
 ```java
 package com.study.collect.business.testcase.entity;
 
-import com.study.collect.business.testcase.utils.HashUtil;
+import com.study.collect.business.testcase.common.utils.HashUtil;
 import jakarta.persistence.PrePersist;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -2297,7 +3793,8 @@ public class UriEntity extends VersionEntity {
 ```java
 package com.study.collect.business.testcase.entity;
 
-import com.study.collect.business.testcase.constant.CollectionConstants;
+
+import com.study.collect.business.testcase.common.constants.CollectionConstants;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import lombok.Data;
@@ -2338,9 +3835,9 @@ public abstract class VersionEntity extends BaseEntity {
 
     protected String generateVersionCode() {
         return String.format("%s%s%s%d",
-                CollectionConstants.VERSION_PREFIX,
+                CollectionConstants.Collection.VERSION_PREFIX,
                 LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")),
-                CollectionConstants.VERSION_SEPARATOR,
+                CollectionConstants.Collection.VERSION_SEPARATOR,
                 this.version);
     }
 
@@ -2388,7 +3885,8 @@ public class PageResult<T> {
 ```java
 package com.study.collect.business.testcase.model.param;
 
-import com.study.collect.business.testcase.constant.CollectionConstants;
+
+import com.study.collect.business.testcase.common.constants.CollectionConstants;
 import lombok.Data;
 import org.springframework.validation.annotation.Validated;
 
@@ -2416,13 +3914,13 @@ public class CollectParam {
 
     @Min(value = 50, message = "batchSize must be greater than 50")
     @Max(value = 1000, message = "batchSize must be less than 1000")
-    private Integer batchSize = CollectionConstants.DEFAULT_BATCH_SIZE;
+    private Integer batchSize = CollectionConstants.Process.DEFAULT_BATCH_SIZE;
 
     private Integer priority = 0;
 
     private Boolean allowDuplicate = false;
 
-    private Integer maxRetries = CollectionConstants.HTTP_MAX_RETRY;
+    private Integer maxRetries = CollectionConstants.Http.MAX_RETRY;
 
     private Integer timeout = 3600;
 
@@ -3184,6 +4682,7 @@ import com.mongodb.client.model.*;
 import com.study.collect.business.testcase.common.constants.CollectionConstants;
 import com.study.collect.business.testcase.common.utils.TableNameHelper;
 import com.study.collect.business.testcase.entity.UriEntity;
+import lombok.Builder;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.bson.Document;
@@ -3526,25 +5025,24 @@ public interface UriCollectService {
 package com.study.collect.business.testcase.service.http;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.study.collect.business.testcase.constant.CollectionConstants;
+import com.study.collect.business.testcase.common.constants.CollectionConstants;
+import com.study.collect.business.testcase.common.utils.HttpUtil;
+import com.study.collect.business.testcase.common.utils.RateLimiter;
+import com.study.collect.business.testcase.config.TestCaseCollectorProperties;
 import com.study.collect.business.testcase.model.param.CollectParam;
 import com.study.collect.business.testcase.model.param.PageParam;
 import com.study.collect.business.testcase.model.response.PageResponse;
 import com.study.collect.business.testcase.model.response.VersionResponse;
 import com.study.collect.business.testcase.model.response.parse.HttpResponseParser;
-import com.study.collect.business.testcase.utils.HttpUtil;
-import com.study.collect.business.testcase.utils.RateLimiter;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -3557,29 +5055,49 @@ public class UriHttpService {
     private final HttpResponseParser<PageResponse<String>> uriListParser;
     private final HttpResponseParser<List<Map<String, Object>>> uriDetailParser;
     private final RateLimiter rateLimiter;
+    private final ObjectMapper objectMapper;
+    private final TestCaseCollectorProperties properties;
 
     @Qualifier("httpExecutor")
     private final ThreadPoolTaskExecutor httpExecutor;
 
     /**
+     * 构建请求头
+     */
+    private Map<String, String> buildHeaders() {
+        Map<String, String> headers = new HashMap<>();
+        headers.put("Content-Type", "application/json");
+        headers.put("Accept", "application/json");
+        return headers;
+    }
+
+    /**
      * 异步获取版本列表
      */
-    public CompletableFuture<PageResponse<VersionResponse>> getVersionsAsync(
-            CollectParam param, PageParam pageParam) {
+    public CompletableFuture<PageResponse<VersionResponse>> getVersionsAsync(CollectParam param, PageParam pageParam) {
         String serverUri = param.getServerUri();
         String rootNode = param.getRootNode();
+
         return CompletableFuture.supplyAsync(() -> {
             try {
                 rateLimiter.acquire();
-                String response = HttpUtil.post(
+                Map<String, Object> requestBody = new HashMap<>();
+                requestBody.put("rootNode", rootNode);
+                requestBody.put("page", pageParam.getPage());
+                requestBody.put("size", pageParam.getSize());
+
+                HttpUtil.HttpResponse response = HttpUtil.post(
                         serverUri + "/api/versions",
-                        String.format(
-                                "{\"rootNode\":\"%s\",\"page\":\"%s\",\"size\":\"%s\"}",
-                                rootNode,
-                                pageParam.getPage(),
-                                pageParam.getSize()
-                        )).getBody();
-                return versionParser.parse(response);
+                        objectMapper.writeValueAsString(requestBody),
+                        buildHeaders()
+                );
+
+                // 处理响应码
+                if (response.getCode() >= 400) {
+                    throw new RuntimeException("Failed to get versions: " + versionParser.parseError(response.getBody()));
+                }
+
+                return versionParser.parse(response.getBody());
             } catch (Exception e) {
                 log.error("Failed to get versions for rootNode: {}", rootNode, e);
                 throw new RuntimeException("Failed to get versions", e);
@@ -3590,22 +5108,27 @@ public class UriHttpService {
     /**
      * 异步获取URI列表
      */
-    public CompletableFuture<PageResponse<String>> getUriListAsync(
-            CollectParam param, String version, PageParam pageParam) {
+    public CompletableFuture<PageResponse<String>> getUriListAsync(CollectParam param, String version, PageParam pageParam) {
         String serverUri = param.getServerUri();
         return CompletableFuture.supplyAsync(() -> {
             try {
                 rateLimiter.acquire();
-                String response = HttpUtil.post(
+                Map<String, Object> requestBody = new HashMap<>();
+                requestBody.put("version", version);
+                requestBody.put("page", pageParam.getPage());
+                requestBody.put("size", pageParam.getSize());
+
+                HttpUtil.HttpResponse response = HttpUtil.post(
                         serverUri + "/api/uris",
-                        String.format(
-                                "{\"version\":\"%s\",\"page\":\"%s\",\"size\":\"%s\"}",
-                                version,
-                                pageParam.getPage(),
-                                pageParam.getSize()
-                        )
-                ).getBody();
-                return uriListParser.parse(response);
+                        objectMapper.writeValueAsString(requestBody),
+                        buildHeaders()
+                );
+
+                if (response.getCode() >= 400) {
+                    throw new RuntimeException("Failed to get URIs: " + uriListParser.parseError(response.getBody()));
+                }
+
+                return uriListParser.parse(response.getBody());
             } catch (Exception e) {
                 log.error("Failed to get URI list for version: {}", version, e);
                 throw new RuntimeException("Failed to get URI list", e);
@@ -3616,21 +5139,29 @@ public class UriHttpService {
     /**
      * 批量获取URI详情
      */
-    public CompletableFuture<List<Map<String, Object>>> getUriDetailsAsync(
-            CollectParam param, List<String> uris) {
-        String serverUri = param.getServerUri();
-        if (uris == null || uris.isEmpty()) {
+    public CompletableFuture<List<Map<String, Object>>> getUriDetailsAsync(CollectParam param, List<String> uris) {
+        if (CollectionUtils.isEmpty(uris)) {
             return CompletableFuture.completedFuture(Collections.emptyList());
         }
 
+        String serverUri = param.getServerUri();
         return CompletableFuture.supplyAsync(() -> {
             try {
                 rateLimiter.acquire();
-                String response = HttpUtil.post(
+                Map<String, Object> requestBody = new HashMap<>();
+                requestBody.put("uris", uris);
+
+                HttpUtil.HttpResponse response = HttpUtil.post(
                         serverUri + "/api/details",
-                        "{\"uris\":" + new ObjectMapper().writeValueAsString(uris) + "}"
-                ).getBody();
-                return uriDetailParser.parse(response);
+                        objectMapper.writeValueAsString(requestBody),
+                        buildHeaders()
+                );
+
+                if (response.getCode() >= 400) {
+                    throw new RuntimeException("Failed to get URI details: " + uriDetailParser.parseError(response.getBody()));
+                }
+
+                return uriDetailParser.parse(response.getBody());
             } catch (Exception e) {
                 log.error("Failed to get URI details for {} URIs", uris.size(), e);
                 throw new RuntimeException("Failed to get URI details", e);
@@ -3641,18 +5172,18 @@ public class UriHttpService {
     /**
      * 同步获取所有版本
      */
-    public List<String> getAllVersions(CollectParam param) throws IOException {
+    public List<String> getAllVersions(CollectParam param) throws Exception {
         String rootNode = param.getRootNode();
         List<String> allVersions = new ArrayList<>();
-        PageParam pageParam = new PageParam(1, CollectionConstants.DEFAULT_BATCH_SIZE);
+        PageParam pageParam = new PageParam(1, CollectionConstants.Process.DEFAULT_BATCH_SIZE);
 
         try {
             // 获取第一页和总数
             PageResponse<VersionResponse> firstPage = getVersionsAsync(param, pageParam)
-                    .get(30, TimeUnit.SECONDS);
+                    .get(properties.getHttpReadTimeout(), TimeUnit.MILLISECONDS);
 
             // 处理第一页
-            processVersionPage(firstPage, allVersions);
+            allVersions.addAll(extractVersions(firstPage));
 
             // 处理剩余页
             long totalPages = (firstPage.getTotal() + pageParam.getSize() - 1) / pageParam.getSize();
@@ -3660,36 +5191,43 @@ public class UriHttpService {
 
             for (int page = 2; page <= totalPages; page++) {
                 final int currentPage = page;
-                CompletableFuture<Void> future = getVersionsAsync(
-                        param, new PageParam(currentPage, pageParam.getSize())
-                ).thenAccept(pageResponse -> processVersionPage(pageResponse, allVersions));
-
+                CompletableFuture<Void> future = getVersionsAsync(param, new PageParam(currentPage, pageParam.getSize()))
+                        .thenAccept(pageResponse -> allVersions.addAll(extractVersions(pageResponse)));
                 futures.add(future);
             }
 
             // 等待所有请求完成
             CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
-                    .get(5, TimeUnit.MINUTES);
+                    .get(properties.getTimeout(), TimeUnit.SECONDS);
 
         } catch (Exception e) {
             log.error("Failed to get all versions for rootNode: {}", rootNode, e);
-            throw new IOException("Failed to get all versions", e);
+            throw new RuntimeException("Failed to get all versions", e);
         }
 
         return allVersions;
     }
 
+    private List<String> extractVersions(PageResponse<VersionResponse> pageResponse) {
+        return Optional.ofNullable(pageResponse)
+                .map(PageResponse::getItems)
+                .orElse(Collections.emptyList())
+                .stream()
+                .map(VersionResponse::getVersion)
+                .collect(Collectors.toList());
+    }
+
     /**
      * 获取版本下的所有URI
      */
-    public List<String> getAllUrisForVersion(CollectParam param, String version) throws IOException {
+    public List<String> getAllUrisForVersion(CollectParam param, String version) throws Exception {
         List<String> allUris = new ArrayList<>();
-        PageParam pageParam = new PageParam(1, CollectionConstants.DEFAULT_BATCH_SIZE);
+        PageParam pageParam = new PageParam(1, CollectionConstants.Process.DEFAULT_BATCH_SIZE);
 
         try {
             // 获取第一页和总数
             PageResponse<String> firstPage = getUriListAsync(param, version, pageParam)
-                    .get(30, TimeUnit.SECONDS);
+                    .get(properties.getHttpReadTimeout(), TimeUnit.MILLISECONDS);
 
             allUris.addAll(firstPage.getItems());
 
@@ -3699,45 +5237,29 @@ public class UriHttpService {
 
             for (int page = 2; page <= totalPages; page++) {
                 final int currentPage = page;
-                CompletableFuture<Void> future = getUriListAsync(
-                        param, version, new PageParam(currentPage, pageParam.getSize())
-                ).thenAccept(pageResponse -> allUris.addAll(pageResponse.getItems()));
-
+                CompletableFuture<Void> future = getUriListAsync(param, version, new PageParam(currentPage, pageParam.getSize()))
+                        .thenAccept(pageResponse -> allUris.addAll(pageResponse.getItems()));
                 futures.add(future);
             }
 
             // 等待所有请求完成
             CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
-                    .get(5, TimeUnit.MINUTES);
+                    .get(properties.getTimeout(), TimeUnit.SECONDS);
 
         } catch (Exception e) {
             log.error("Failed to get all URIs for version: {}", version, e);
-            throw new IOException("Failed to get all URIs", e);
+            throw new RuntimeException("Failed to get all URIs", e);
         }
 
         return allUris;
     }
 
-    private void processVersionPage(PageResponse<VersionResponse> pageResponse, List<String> versions) {
-        if (pageResponse != null && pageResponse.getItems() != null) {
-            versions.addAll(pageResponse.getItems().stream()
-                    .map(VersionResponse::getVersion)
-                    .collect(Collectors.toList()));
-        }
-    }
-
     /**
      * 批量处理URI详情
      */
-    public List<Map<String, Object>> batchGetUriDetails(
-            CollectParam param, List<String> uris, int batchSize) throws IOException {
+    public List<Map<String, Object>> batchGetUriDetails(CollectParam param, List<String> uris) throws Exception {
         List<Map<String, Object>> allDetails = new ArrayList<>();
-        List<List<String>> batches = new ArrayList<>();
-
-        // 分批
-        for (int i = 0; i < uris.size(); i += batchSize) {
-            batches.add(uris.subList(i, Math.min(i + batchSize, uris.size())));
-        }
+        List<List<String>> batches = partition(uris, param.getBatchSize());
 
         try {
             // 并行处理每个批次
@@ -3747,7 +5269,7 @@ public class UriHttpService {
 
             // 等待所有批次完成
             CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
-                    .get(5, TimeUnit.MINUTES);
+                    .get(properties.getTimeout(), TimeUnit.SECONDS);
 
             // 收集结果
             for (CompletableFuture<List<Map<String, Object>>> future : futures) {
@@ -3756,10 +5278,21 @@ public class UriHttpService {
 
         } catch (Exception e) {
             log.error("Failed to batch get URI details", e);
-            throw new IOException("Failed to batch get URI details", e);
+            throw new RuntimeException("Failed to batch get URI details", e);
         }
 
         return allDetails;
+    }
+
+    private <T> List<List<T>> partition(List<T> list, int size) {
+        if (CollectionUtils.isEmpty(list)) {
+            return Collections.emptyList();
+        }
+        List<List<T>> result = new ArrayList<>();
+        for (int i = 0; i < list.size(); i += size) {
+            result.add(list.subList(i, Math.min(i + size, list.size())));
+        }
+        return result;
     }
 }
 ```
@@ -3770,7 +5303,7 @@ public class UriHttpService {
 package com.study.collect.business.testcase.service.impl;
 
 import com.study.collect.business.testcase.common.constants.CollectionConstants;
-import com.study.collect.business.testcase.utils.StreamProcessor;
+import com.study.collect.business.testcase.common.utils.StreamProcessor;
 import com.study.collect.business.testcase.repository.UriRepository;
 import lombok.Builder;
 import lombok.Data;
@@ -3784,7 +5317,6 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 
 /**
  * URI清理服务
@@ -4014,11 +5546,12 @@ public class UriCleanupService {
 ```java
 package com.study.collect.business.testcase.service.impl;
 
-
 import com.study.collect.business.testcase.core.executor.CollectExecutor;
 import com.study.collect.business.testcase.core.executor.DeleteExecutor;
 import com.study.collect.business.testcase.core.manager.QueueManager;
 import com.study.collect.business.testcase.core.manager.TaskManager;
+import com.study.collect.business.testcase.core.processor.CollectProcessor;
+import com.study.collect.business.testcase.core.processor.DeleteProcessor;
 import com.study.collect.business.testcase.entity.UriEntity;
 import com.study.collect.business.testcase.model.param.CollectParam;
 import com.study.collect.business.testcase.model.param.DeleteParam;
@@ -4027,7 +5560,6 @@ import com.study.collect.business.testcase.model.response.AsyncResponse;
 import com.study.collect.business.testcase.model.response.TaskResponse;
 import com.study.collect.business.testcase.repository.UriRepository;
 import com.study.collect.business.testcase.service.UriCollectService;
-import com.study.collect.business.testcase.service.http.UriHttpService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -4035,10 +5567,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -4049,8 +5578,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class UriCollectServiceImpl implements UriCollectService {
 
-    private final UriHttpService httpService;
     private final UriRepository repository;
+    private final CollectProcessor collectProcessor;
+    private final DeleteProcessor deleteProcessor;
     private final CollectExecutor collectExecutor;
     private final DeleteExecutor deleteExecutor;
     private final TaskManager taskManager;
@@ -4059,34 +5589,35 @@ public class UriCollectServiceImpl implements UriCollectService {
 
     @Override
     public AsyncResponse<String> collectData(CollectParam param) {
-        // 1. 创建任务
-        Map<String, Object> taskParams = new HashMap<>();
-        taskParams.put("rootNode", param.getRootNode());
-        taskParams.put("serverUri", param.getServerUri());
-        taskParams.put("version", param.getVersion());
-        taskParams.put("incremental", param.getIncremental());
+        try {
+            // 1. 创建任务
+            Map<String, Object> taskParams = buildTaskParams(param);
+            TaskResponse task = taskManager.createTask("COLLECT", taskParams, param.getPriority());
+            String taskId = task.getTaskId();
+            param.setTaskId(taskId);
 
-        TaskResponse task = taskManager.createTask("COLLECT", taskParams, param.getPriority());
-        String taskId = task.getTaskId();
-        param.setTaskId(taskId);
+            // 2. 将任务加入队列
+            queueManager.enqueue(
+                    taskId,
+                    param,
+                    param.getPriority(),
+                    this::processCollectTask
+            ).exceptionally(throwable -> {
+                handleTaskError(taskId, "Collection queuing failed", throwable);
+                return null;
+            });
 
-        // 2. 将任务加入队列
-        queueManager.enqueue(
-                taskId,
-                param,
-                param.getPriority(),
-                this::processCollectTask
-        ).exceptionally(throwable -> {
-            taskManager.updateTaskStatus(taskId, "ERROR", throwable.getMessage());
-            return null;
-        });
+            // 3. 返回异步响应
+            return AsyncResponse.<String>builder()
+                    .taskId(taskId)
+                    .status("QUEUED")
+                    .message("Data collection task queued successfully")
+                    .build();
 
-        // 3. 返回异步响应
-        return AsyncResponse.<String>builder()
-                .taskId(taskId)
-                .status("QUEUED")
-                .message("Data collection task queued successfully")
-                .build();
+        } catch (Exception e) {
+            log.error("Failed to initiate collection task", e);
+            throw new RuntimeException("Failed to start collection task", e);
+        }
     }
 
     private void processCollectTask(CollectParam param) {
@@ -4095,27 +5626,23 @@ public class UriCollectServiceImpl implements UriCollectService {
             taskManager.updateTaskStatus(taskId, "PROCESSING", "Starting data collection");
 
             // 1. 执行采集
-            collectExecutor.execute(param, metrics -> {
-                taskManager.updateTaskProgress(
-                        taskId,
-                        metrics.getProcessedItems(),
-                        metrics.getTotalItems()
-                );
-            }).thenAccept(metrics -> {
-                // 2. 如果是增量同步，执行清理
-                if (param.getIncremental()) {
-                    cleanupIncrementalData(param, taskId);
-                }
+            collectProcessor.process(param)
+                    .thenAccept(result -> {
+                        // 2. 如果是增量同步，执行清理
+                        if (param.getIncremental()) {
+                            cleanupIncrementalData(param, taskId);
+                        }
 
-                taskManager.updateTaskStatus(
-                        taskId,
-                        "COMPLETED",
-                        String.format("Processed %d URIs", metrics.getProcessedItems())
-                );
-            }).exceptionally(throwable -> {
-                handleTaskError(taskId, "Collection failed", throwable);
-                return null;
-            });
+                        taskManager.updateTaskStatus(
+                                taskId,
+                                "COMPLETED",
+                                String.format("Processed %d URIs", result)
+                        );
+                    })
+                    .exceptionally(throwable -> {
+                        handleTaskError(taskId, "Collection failed", throwable);
+                        return null;
+                    });
 
         } catch (Exception e) {
             handleTaskError(taskId, "Task processing failed", e);
@@ -4151,33 +5678,35 @@ public class UriCollectServiceImpl implements UriCollectService {
 
     @Override
     public AsyncResponse<Long> deleteData(DeleteParam param) {
-        // 1. 创建任务
-        Map<String, Object> taskParams = new HashMap<>();
-        taskParams.put("rootNode", param.getRootNode());
-        taskParams.put("urisCount", param.getUris().size());
-        taskParams.put("hardDelete", param.getHardDelete());
+        try {
+            // 1. 创建任务
+            Map<String, Object> taskParams = buildDeleteTaskParams(param);
+            TaskResponse task = taskManager.createTask("DELETE", taskParams, param.getPriority());
+            String taskId = task.getTaskId();
+            param.setTaskId(taskId);
 
-        TaskResponse task = taskManager.createTask("DELETE", taskParams, param.getPriority());
-        String taskId = task.getTaskId();
-        param.setTaskId(taskId);
+            // 2. 将任务加入队列
+            queueManager.enqueue(
+                    taskId,
+                    param,
+                    param.getPriority(),
+                    this::processDeleteTask
+            ).exceptionally(throwable -> {
+                handleTaskError(taskId, "Delete queuing failed", throwable);
+                return null;
+            });
 
-        // 2. 将任务加入队列
-        queueManager.enqueue(
-                taskId,
-                param,
-                param.getPriority(),
-                this::processDeleteTask
-        ).exceptionally(throwable -> {
-            taskManager.updateTaskStatus(taskId, "ERROR", throwable.getMessage());
-            return null;
-        });
+            // 3. 返回异步响应
+            return AsyncResponse.<Long>builder()
+                    .taskId(taskId)
+                    .status("QUEUED")
+                    .message("Delete task queued successfully")
+                    .build();
 
-        // 3. 返回异步响应
-        return AsyncResponse.<Long>builder()
-                .taskId(taskId)
-                .status("QUEUED")
-                .message("Delete task queued successfully")
-                .build();
+        } catch (Exception e) {
+            log.error("Failed to initiate delete task", e);
+            throw new RuntimeException("Failed to start delete task", e);
+        }
     }
 
     private void processDeleteTask(DeleteParam param) {
@@ -4185,22 +5714,18 @@ public class UriCollectServiceImpl implements UriCollectService {
         try {
             taskManager.updateTaskStatus(taskId, "PROCESSING", "Starting data deletion");
 
-            deleteExecutor.execute(param, metrics -> {
-                taskManager.updateTaskProgress(
-                        taskId,
-                        metrics.getProcessedItems(),
-                        metrics.getTotalItems()
-                );
-            }).thenAccept(metrics -> {
-                taskManager.updateTaskStatus(
-                        taskId,
-                        "COMPLETED",
-                        String.format("Deleted %d URIs", metrics.getProcessedItems())
-                );
-            }).exceptionally(throwable -> {
-                handleTaskError(taskId, "Deletion failed", throwable);
-                return null;
-            });
+            deleteProcessor.process(param)
+                    .thenAccept(result -> {
+                        taskManager.updateTaskStatus(
+                                taskId,
+                                "COMPLETED",
+                                String.format("Deleted %d URIs", result)
+                        );
+                    })
+                    .exceptionally(throwable -> {
+                        handleTaskError(taskId, "Deletion failed", throwable);
+                        return null;
+                    });
 
         } catch (Exception e) {
             handleTaskError(taskId, "Task processing failed", e);
@@ -4289,8 +5814,12 @@ public class UriCollectServiceImpl implements UriCollectService {
     }
 
     private String extractRootNode(String uri) {
-        String[] parts = uri.split("/");
-        return parts.length > 0 ? parts[0] : "";
+        return Optional.ofNullable(uri)
+                .map(u -> {
+                    String[] parts = u.split("/");
+                    return parts.length > 0 ? parts[0] : "";
+                })
+                .orElse("");
     }
 
     private void handleTaskError(String taskId, String message, Throwable throwable) {
@@ -4298,1020 +5827,24 @@ public class UriCollectServiceImpl implements UriCollectService {
         taskManager.updateTaskStatus(taskId, "ERROR",
                 message + ": " + throwable.getMessage());
     }
-}
-```
 
-## HashUtil.java
-
-```java
-package com.study.collect.business.testcase.utils;
-
-import org.apache.commons.codec.digest.DigestUtils;
-
-import org.apache.commons.codec.digest.DigestUtils;
-//
-public class HashUtil {
-    public static String hash(String input) {
-        return DigestUtils.sha256Hex(input);
-    }
-}
-
-```
-
-## HttpUtil.java
-
-```java
-package com.study.collect.business.testcase.utils;
-
-import javax.net.ssl.*;
-import java.io.*;
-import java.net.HttpURLConnection;
-import java.net.ProtocolException;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
-import java.security.cert.X509Certificate;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.*;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import java.util.stream.Collectors;
-
-/**
- * HTTP/HTTPS工具类，支持同步/异步请求，自动重试，SSL证书验证绕过
- * 特性：
- * 1. 支持HTTP/HTTPS，自动绕过SSL证书验证
- * 2. 支持同步/异步请求
- * 3. 自动重试机制
- * 4. 线程池管理
- * 5. 支持批量请求
- * 6. 完整的请求/响应日志
- */
-//
-public class HttpUtil {
-    private static final Logger logger = Logger.getLogger(HttpUtil.class.getName());
-    
-    // 配置常量
-    private static final int CONNECT_TIMEOUT = 5000; // 连接超时时间
-    private static final int READ_TIMEOUT = 15000;   // 读取超时时间
-    private static final int MAX_RETRY = 3;          // 最大重试次数
-    private static final int RETRY_INTERVAL = 1000;  // 重试间隔基数（毫秒）
-    
-    // 线程池配置
-    private static final ExecutorService executorService = new ThreadPoolExecutor(
-            10,                 // 核心线程数
-            20,                // 最大线程数
-            60L,               // 空闲线程存活时间
-            TimeUnit.SECONDS,
-            new LinkedBlockingQueue<>(1000), // 工作队列
-            new ThreadFactory() {
-                private int count = 0;
-                @Override
-                public Thread newThread(Runnable r) {
-                    Thread thread = new Thread(r);
-                    thread.setName("HttpUtil-Worker-" + count++);
-                    thread.setDaemon(true); // 设置为守护线程
-                    return thread;
-                }
-            },
-            new ThreadPoolExecutor.CallerRunsPolicy() // 拒绝策略
-    );
-
-    /**
-     * 静态初始化：配置SSL，允许所有证书
-     */
-    static {
-        disableSslVerification();
-    }
-
-    /**
-     * HTTP响应对象
-     */
-    public static class HttpResponse {
-        private final int code;
-        private final String body;
-        private final Map<String, List<String>> headers;
-        private final long responseTime; // 响应时间（毫秒）
-
-        public HttpResponse(int code, String body, Map<String, List<String>> headers, long responseTime) {
-            this.code = code;
-            this.body = body;
-            this.headers = headers;
-            this.responseTime = responseTime;
-        }
-
-        public int getCode() { return code; }
-        public String getBody() { return body; }
-        public Map<String, List<String>> getHeaders() { return headers; }
-        public long getResponseTime() { return responseTime; }
-
-        @Override
-        public String toString() {
-            return String.format("HttpResponse{code=%d, responseTime=%dms, bodyLength=%d}",
-                    code, responseTime, body != null ? body.length() : 0);
-        }
-    }
-
-    /**
-     * 禁用SSL证书验证
-     */
-    private static void disableSslVerification() {
-        try {
-            // 创建信任所有证书的TrustManager
-            TrustManager[] trustAllCerts = new TrustManager[]{new X509TrustManager() {
-                public X509Certificate[] getAcceptedIssuers() { return null; }
-                public void checkClientTrusted(X509Certificate[] certs, String authType) {}
-                public void checkServerTrusted(X509Certificate[] certs, String authType) {}
-            }};
-
-            // 安装自定义的SSLContext
-            SSLContext sc = SSLContext.getInstance("SSL");
-            sc.init(null, trustAllCerts, new java.security.SecureRandom());
-            HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
-
-            // 配置主机名验证器
-            HostnameVerifier allHostsValid = (hostname, session) -> true;
-            HttpsURLConnection.setDefaultHostnameVerifier(allHostsValid);
-        } catch (Exception e) {
-            logger.log(Level.SEVERE, "SSL verification disable failed", e);
-        }
-    }
-
-    /**
-     * 执行HTTP请求
-     * @param method HTTP方法
-     * @param urlStr 请求URL
-     * @param body 请求体
-     * @param headers 请求头
-     * @return HTTP响应对象
-     */
-    public static HttpResponse request(String method, String urlStr, String body, Map<String, String> headers) throws IOException {
-        HttpURLConnection conn = null;
-        int retryCount = 0;
-        long startTime = System.currentTimeMillis();
-        
-        while (retryCount < MAX_RETRY) {
-            try {
-                URL url = new URL(urlStr);
-                conn = (HttpURLConnection) url.openConnection();
-                configureConnection(conn, method, headers);
-
-                // 写入请求体
-                if (shouldWriteBody(method, body)) {
-                    writeRequestBody(conn, body);
-                }
-
-                // 获取响应
-                int responseCode = conn.getResponseCode();
-                String responseBody = readResponse(conn, responseCode);
-                long responseTime = System.currentTimeMillis() - startTime;
-
-                // 记录请求信息
-                logRequest(method, urlStr, headers, body, responseCode, responseTime);
-
-                return new HttpResponse(responseCode, responseBody, conn.getHeaderFields(), responseTime);
-                
-            } catch (IOException e) {
-                handleRetry(++retryCount, e, urlStr);
-            } finally {
-                if (conn != null) {
-                    conn.disconnect();
-                }
-            }
-        }
-        
-        throw new IOException("Max retries exceeded for URL: " + urlStr);
-    }
-
-    /**
-     * 配置HTTP连接
-     */
-    private static void configureConnection(HttpURLConnection conn, String method, Map<String, String> headers) throws ProtocolException {
-        conn.setRequestMethod(method);
-        conn.setConnectTimeout(CONNECT_TIMEOUT);
-        conn.setReadTimeout(READ_TIMEOUT);
-        conn.setDoOutput(true);
-        conn.setDoInput(true);
-
-        // 设置通用headers
-        conn.setRequestProperty("Accept", "application/json");
-        conn.setRequestProperty("Content-Type", "application/json");
-        
-        // 设置自定义headers
-        if (headers != null) {
-            headers.forEach(conn::setRequestProperty);
-        }
-    }
-
-    /**
-     * 判断是否需要写入请求体
-     */
-    private static boolean shouldWriteBody(String method, String body) {
-        return body != null && !body.isEmpty() && 
-               (method.equals("POST") || method.equals("PUT") || method.equals("PATCH"));
-    }
-
-    /**
-     * 写入请求体
-     */
-    private static void writeRequestBody(HttpURLConnection conn, String body) throws IOException {
-        try (OutputStream os = conn.getOutputStream()) {
-            byte[] input = body.getBytes(StandardCharsets.UTF_8);
-            os.write(input, 0, input.length);
-        }
-    }
-
-    /**
-     * 读取响应内容
-     */
-    private static String readResponse(HttpURLConnection conn, int responseCode) throws IOException {
-        try (InputStream is = (responseCode >= 400) ? conn.getErrorStream() : conn.getInputStream()) {
-            if (is != null) {
-                try (BufferedReader br = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
-                    return br.lines().collect(Collectors.joining("\n"));
-                }
-            }
-        }
-        return "";
-    }
-
-    /**
-     * 处理重试逻辑
-     */
-    private static void handleRetry(int retryCount, IOException e, String url) throws IOException {
-        if (retryCount == MAX_RETRY) {
-            throw e;
-        }
-        
-        long sleepTime = (long) (RETRY_INTERVAL * Math.pow(2, retryCount - 1));
-        logger.log(Level.WARNING, String.format("Request failed for URL: %s, retry %d/%d after %dms",
-                url, retryCount, MAX_RETRY, sleepTime), e);
-                
-        try {
-            Thread.sleep(sleepTime);
-        } catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
-            throw new IOException("Request interrupted during retry", ie);
-        }
-    }
-
-    /**
-     * 记录请求日志
-     */
-    private static void logRequest(String method, String url, Map<String, String> headers, 
-                                 String body, int responseCode, long responseTime) {
-        logger.log(Level.INFO, String.format("HTTP %s %s - Response: %d, Time: %dms",
-                method, url, responseCode, responseTime));
-    }
-
-    /**
-     * 异步执行HTTP请求
-     */
-    public static CompletableFuture<HttpResponse> asyncRequest(String method, String url, 
-                                                             String body, Map<String, String> headers) {
-        return CompletableFuture.supplyAsync(() -> {
-            try {
-                return request(method, url, body, headers);
-            } catch (IOException e) {
-                throw new CompletionException(e);
-            }
-        }, executorService);
-    }
-
-    // 便捷方法
-    public static HttpResponse get(String url) throws IOException {
-        return request("GET", url, null, null);
-    }
-
-    public static HttpResponse get(String url, Map<String, String> headers) throws IOException {
-        return request("GET", url, null, headers);
-    }
-
-    public static HttpResponse post(String url, String body) throws IOException {
-        return request("POST", url, body, null);
-    }
-
-    public static HttpResponse post(String url, String body, Map<String, String> headers) throws IOException {
-        return request("POST", url, body, headers);
-    }
-
-    public static HttpResponse put(String url, String body) throws IOException {
-        return request("PUT", url, body, null);
-    }
-
-    public static HttpResponse delete(String url) throws IOException {
-        return request("DELETE", url, null, null);
-    }
-
-    public static HttpResponse patch(String url, String body) throws IOException {
-        return request("PATCH", url, body, null);
-    }
-
-    // 异步便捷方法
-    public static CompletableFuture<HttpResponse> asyncGet(String url) {
-        return asyncRequest("GET", url, null, null);
-    }
-
-    public static CompletableFuture<HttpResponse> asyncPost(String url, String body) {
-        return asyncRequest("POST", url, body, null);
-    }
-
-    /**
-     * 批量执行GET请求
-     */
-    public static List<HttpResponse> batchGet(List<String> urls) {
-        List<CompletableFuture<HttpResponse>> futures = urls.stream()
-                .map(HttpUtil::asyncGet)
-                .collect(Collectors.toList());
-
-        return futures.stream()
-                .map(CompletableFuture::join)
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * 关闭线程池
-     */
-    public static void shutdown() {
-        executorService.shutdown();
-        try {
-            if (!executorService.awaitTermination(60, TimeUnit.SECONDS)) {
-                executorService.shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            executorService.shutdownNow();
-            Thread.currentThread().interrupt();
-        }
-    }
-}
-
-```
-
-## ListCompareUtil.java
-
-```java
-package com.study.collect.business.testcase.utils;
-
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.mongodb.core.MongoOperations;
-import org.springframework.util.CollectionUtils;
-
-import java.util.*;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-
-@Slf4j
-public class ListCompareUtil {
-
-    /**
-     * 比较两个列表，找出在B中有但在A中没有的元素
-     */
-    public static <T> List<T> findMissingInA(List<T> listA, List<T> listB) {
-        if (CollectionUtils.isEmpty(listB)) {
-            return new ArrayList<>();
-        }
-        if (CollectionUtils.isEmpty(listA)) {
-            return new ArrayList<>(listB);
-        }
-
-        Set<T> setA = new HashSet<>(listA);
-        return listB.stream()
-                .filter(item -> !setA.contains(item))
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * 根据指定字段比较两个列表，找出在B中有但在A中没有的元素
-     */
-    public static <T, R> List<T> findMissingInA(List<T> listA, List<T> listB,
-                                                Function<T, R> keyExtractor) {
-        if (CollectionUtils.isEmpty(listB)) {
-            return new ArrayList<>();
-        }
-        if (CollectionUtils.isEmpty(listA)) {
-            return new ArrayList<>(listB);
-        }
-
-        Set<R> keysA = listA.stream()
-                .map(keyExtractor)
-                .collect(Collectors.toSet());
-
-        return listB.stream()
-                .filter(item -> !keysA.contains(keyExtractor.apply(item)))
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * 找出两个列表的交集
-     */
-    public static <T> List<T> findIntersection(List<T> listA, List<T> listB) {
-        if (CollectionUtils.isEmpty(listA) || CollectionUtils.isEmpty(listB)) {
-            return new ArrayList<>();
-        }
-
-        Set<T> setB = new HashSet<>(listB);
-        return listA.stream()
-                .filter(setB::contains)
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * 根据指定字段找出两个列表的交集
-     */
-    public static <T, R> List<T> findIntersection(List<T> listA, List<T> listB,
-                                                  Function<T, R> keyExtractor) {
-        if (CollectionUtils.isEmpty(listA) || CollectionUtils.isEmpty(listB)) {
-            return new ArrayList<>();
-        }
-
-        Set<R> keysB = listB.stream()
-                .map(keyExtractor)
-                .collect(Collectors.toSet());
-
-        return listA.stream()
-                .filter(item -> keysB.contains(keyExtractor.apply(item)))
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * 找出两个列表的差集（在A中但不在B中的元素）
-     */
-    public static <T> List<T> findDifference(List<T> listA, List<T> listB) {
-        if (CollectionUtils.isEmpty(listA)) {
-            return new ArrayList<>();
-        }
-        if (CollectionUtils.isEmpty(listB)) {
-            return new ArrayList<>(listA);
-        }
-
-        Set<T> setB = new HashSet<>(listB);
-        return listA.stream()
-                .filter(item -> !setB.contains(item))
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * 根据指定字段找出两个列表的差集
-     */
-    public static <T, R> List<T> findDifference(List<T> listA, List<T> listB,
-                                                Function<T, R> keyExtractor) {
-        if (CollectionUtils.isEmpty(listA)) {
-            return new ArrayList<>();
-        }
-        if (CollectionUtils.isEmpty(listB)) {
-            return new ArrayList<>(listA);
-        }
-
-        Set<R> keysB = listB.stream()
-                .map(keyExtractor)
-                .collect(Collectors.toSet());
-
-        return listA.stream()
-                .filter(item -> !keysB.contains(keyExtractor.apply(item)))
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * 分页处理列表
-     */
-    public static <T> List<List<T>> partition(List<T> list, int size) {
-        if (CollectionUtils.isEmpty(list)) {
-            return new ArrayList<>();
-        }
-
-        List<List<T>> result = new ArrayList<>();
-        for (int i = 0; i < list.size(); i += size) {
-            result.add(list.subList(i, Math.min(i + size, list.size())));
-        }
-        return result;
-    }
-}
-
-
-```
-
-## RateLimiter.java
-
-```java
-package com.study.collect.business.testcase.utils;
-
-import com.study.collect.business.testcase.constant.CollectionConstants;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
-
-/**
- * 限流器实现
- * 使用滑动窗口算法实现限流
- */
-@Slf4j
-@Component
-public class RateLimiter {
-    private final int permitsPerMinute;
-    private final ConcurrentLinkedQueue<Long> timestamps;
-    private final AtomicInteger currentPermits;
-    private final ScheduledExecutorService scheduler;
-
-    public RateLimiter() {
-        this.permitsPerMinute = CollectionConstants.HTTP_MAX_REQUESTS_PER_MINUTE;
-        this.timestamps = new ConcurrentLinkedQueue<>();
-        this.currentPermits = new AtomicInteger(0);
-        this.scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
-            Thread thread = new Thread(r);
-            thread.setName("rate-limiter-cleaner");
-            thread.setDaemon(true);
-            return thread;
-        });
-
-        // 定期清理过期的时间戳
-        scheduler.scheduleAtFixedRate(this::cleanup, 1, 1, TimeUnit.MINUTES);
-    }
-
-    /**
-     * 获取许可
-     */
-    public void acquire() throws InterruptedException {
-        while (!tryAcquire()) {
-            Thread.sleep(100);  // 等待100ms后重试
-        }
-    }
-
-    /**
-     * 尝试获取许可
-     */
-    public boolean tryAcquire() {
-        cleanup();  // 清理过期的时间戳
-
-        long now = System.currentTimeMillis();
-        int currentCount = currentPermits.get();
-
-        if (currentCount >= permitsPerMinute) {
-            return false;
-        }
-
-        if (currentPermits.incrementAndGet() <= permitsPerMinute) {
-            timestamps.offer(now);
-            return true;
-        } else {
-            currentPermits.decrementAndGet();
-            return false;
-        }
-    }
-
-    /**
-     * 清理过期的时间戳
-     */
-    private void cleanup() {
-        long now = System.currentTimeMillis();
-        long oneMinuteAgo = now - TimeUnit.MINUTES.toMillis(1);
-
-        // 移除一分钟前的时间戳
-        while (!timestamps.isEmpty() && timestamps.peek() < oneMinuteAgo) {
-            timestamps.poll();
-            currentPermits.decrementAndGet();
-        }
-    }
-
-    /**
-     * 获取当前速率
-     */
-    public int getCurrentRate() {
-        cleanup();
-        return currentPermits.get();
-    }
-
-    /**
-     * 关闭清理线程
-     */
-    public void shutdown() {
-        scheduler.shutdown();
-        try {
-            if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {
-                scheduler.shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            scheduler.shutdownNow();
-            Thread.currentThread().interrupt();
-        }
-    }
-}
-```
-
-## StreamProcessor.java
-
-```java
-package com.study.collect.business.testcase.utils;
-
-import lombok.Builder;
-import lombok.Data;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.util.CollectionUtils;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Consumer;
-import java.util.function.Function;
-
-/**
- * 通用流式处理器
- * @param <T> 输入数据类型
- * @param <R> 输出数据类型
- */
-@Slf4j
-public class StreamProcessor<T, R> {
-
-    @Data
-    @Builder
-    public static class ProcessorConfig<T, R> {
-        private String processorName;
-        private int batchSize;
-        private int maxConcurrent;
-        private long timeoutSeconds;
-        private int maxRetries;
-        private long retryDelayMs;
-        private ExecutorService processExecutor;
-        private ExecutorService saveExecutor;
-
-        // 处理函数
-        private Function<Integer, List<T>> dataFetcher;
-        private Function<T, R> dataConverter;
-        private Consumer<List<R>> dataSaver;
-        private Consumer<ProcessMetrics> progressCallback;
-    }
-
-    @Data
-    @Builder
-    public static class ProcessMetrics {
-        private String processorName;
-        private long totalItems;
-        private long processedItems;
-        private long failedItems;
-        private long startTime;
-        private long endTime;
-        private double progressPercentage;
-        private Map<String, Object> customMetrics;
-    }
-
-    private final ProcessorConfig<T, R> config;
-    private final BlockingQueue<CompletableFuture<?>> processQueue;
-    private final AtomicInteger activeProcesses;
-    private final AtomicBoolean running;
-    private final List<ProcessMetrics> metricsHistory;
-
-    public StreamProcessor(ProcessorConfig<T, R> config) {
-        validateConfig(config);
-        this.config = config;
-        this.processQueue = new ArrayBlockingQueue<>(1000);
-        this.activeProcesses = new AtomicInteger(0);
-        this.running = new AtomicBoolean(true);
-        this.metricsHistory = new CopyOnWriteArrayList<>();
-    }
-
-    /**
-     * 开始处理数据
-     */
-    public CompletableFuture<ProcessMetrics> process(int offset, int limit) {
-        ProcessMetrics metrics = initializeMetrics();
-        CompletableFuture<ProcessMetrics> resultFuture = new CompletableFuture<>();
-
-        try {
-            if (activeProcesses.incrementAndGet() <= config.getMaxConcurrent()) {
-                processDataBatches(offset, limit, metrics, resultFuture);
-            } else {
-                activeProcesses.decrementAndGet();
-                throw new RejectedExecutionException("Max concurrent processes reached");
-            }
-        } catch (Exception e) {
-            activeProcesses.decrementAndGet();
-            resultFuture.completeExceptionally(e);
-        }
-
-        return resultFuture;
-    }
-
-    private void processDataBatches(int offset, int limit, ProcessMetrics metrics,
-                                    CompletableFuture<ProcessMetrics> resultFuture) {
-        CompletableFuture.runAsync(() -> {
-            try {
-                int processed = 0;
-                while (running.get() && processed < limit) {
-                    List<T> batch = fetchData(offset + processed);
-                    if (CollectionUtils.isEmpty(batch)) {
-                        break;
-                    }
-
-                    processBatch(batch, metrics);
-                    processed += batch.size();
-                    updateProgress(metrics, processed, limit);
-                }
-
-                completeProcessing(metrics, resultFuture);
-            } catch (Exception e) {
-                handleProcessingError(e, metrics, resultFuture);
-            }
-        }, config.getProcessExecutor());
-    }
-
-    private List<T> fetchData(int offset) {
-        int retryCount = 0;
-        while (retryCount <= config.getMaxRetries()) {
-            try {
-                return config.getDataFetcher().apply(offset);
-            } catch (Exception e) {
-                if (++retryCount > config.getMaxRetries()) {
-                    log.error("Failed to fetch data after {} retries", config.getMaxRetries(), e);
-                    throw new RuntimeException("Data fetch failed", e);
-                }
-                sleep(calculateRetryDelay(retryCount));
-            }
-        }
-        return new ArrayList<>();
-    }
-
-    private void processBatch(List<T> batch, ProcessMetrics metrics) {
-        List<R> convertedBatch = new ArrayList<>();
-        for (T item : batch) {
-            try {
-                R converted = config.getDataConverter().apply(item);
-                if (converted != null) {
-                    convertedBatch.add(converted);
-                }
-            } catch (Exception e) {
-                log.error("Error converting item", e);
-                metrics.setFailedItems(metrics.getFailedItems() + 1);
-            }
-        }
-
-        if (!convertedBatch.isEmpty()) {
-            saveBatch(convertedBatch, metrics);
-        }
-    }
-
-    private void saveBatch(List<R> batch, ProcessMetrics metrics) {
-        int retryCount = 0;
-        while (retryCount <= config.getMaxRetries()) {
-            try {
-                CompletableFuture<Void> saveFuture = CompletableFuture.runAsync(() ->
-                                config.getDataSaver().accept(batch)
-                        , config.getSaveExecutor());
-
-                processQueue.put(saveFuture);
-                cleanupCompletedTasks();
-                return;
-            } catch (Exception e) {
-                if (++retryCount > config.getMaxRetries()) {
-                    log.error("Failed to save batch after {} retries", config.getMaxRetries(), e);
-                    metrics.setFailedItems(metrics.getFailedItems() + batch.size());
-                    throw new RuntimeException("Batch save failed", e);
-                }
-                sleep(calculateRetryDelay(retryCount));
-            }
-        }
-    }
-
-    private void cleanupCompletedTasks() {
-        processQueue.removeIf(future -> {
-            if (future.isDone()) {
-                try {
-                    future.get(0, TimeUnit.MILLISECONDS);
-                    return true;
-                } catch (Exception e) {
-                    log.error("Task completed with error", e);
-                    return true;
-                }
-            }
-            return false;
-        });
-    }
-
-    private ProcessMetrics initializeMetrics() {
-        return ProcessMetrics.builder()
-                .processorName(config.getProcessorName())
-                .startTime(System.currentTimeMillis())
-                .totalItems(0)
-                .processedItems(0)
-                .failedItems(0)
-                .progressPercentage(0.0)
-                .build();
-    }
-
-    private void updateProgress(ProcessMetrics metrics, long processed, long total) {
-        metrics.setProcessedItems(processed);
-        metrics.setTotalItems(total);
-        metrics.setProgressPercentage((double) processed / total * 100);
-
-        if (config.getProgressCallback() != null) {
-            config.getProgressCallback().accept(metrics);
-        }
-    }
-
-    private void completeProcessing(ProcessMetrics metrics, CompletableFuture<ProcessMetrics> resultFuture) {
-        metrics.setEndTime(System.currentTimeMillis());
-        metricsHistory.add(metrics);
-        activeProcesses.decrementAndGet();
-        resultFuture.complete(metrics);
-    }
-
-    private void handleProcessingError(Exception e, ProcessMetrics metrics,
-                                       CompletableFuture<ProcessMetrics> resultFuture) {
-        log.error("Error processing data", e);
-        metrics.setEndTime(System.currentTimeMillis());
-        metricsHistory.add(metrics);
-        activeProcesses.decrementAndGet();
-        resultFuture.completeExceptionally(e);
-    }
-
-    private long calculateRetryDelay(int retryCount) {
-        return config.getRetryDelayMs() * (long) Math.pow(2, retryCount - 1);
-    }
-
-    private void sleep(long millis) {
-        try {
-            Thread.sleep(millis);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException("Processing interrupted", e);
-        }
-    }
-
-    private void validateConfig(ProcessorConfig<T, R> config) {
-        if (config.getDataFetcher() == null) {
-            throw new IllegalArgumentException("DataFetcher cannot be null");
-        }
-        if (config.getDataConverter() == null) {
-            throw new IllegalArgumentException("DataConverter cannot be null");
-        }
-        if (config.getDataSaver() == null) {
-            throw new IllegalArgumentException("DataSaver cannot be null");
-        }
-        if (config.getProcessExecutor() == null) {
-            throw new IllegalArgumentException("ProcessExecutor cannot be null");
-        }
-        if (config.getSaveExecutor() == null) {
-            throw new IllegalArgumentException("SaveExecutor cannot be null");
-        }
-    }
-
-    /**
-     * 暂停处理
-     */
-    public void pause() {
-        running.set(false);
-    }
-
-    /**
-     * 恢复处理
-     */
-    public void resume() {
-        running.set(true);
-    }
-
-    /**
-     * 停止处理
-     */
-    public void shutdown() {
-        running.set(false);
-        config.getProcessExecutor().shutdown();
-        config.getSaveExecutor().shutdown();
-        try {
-            if (!config.getProcessExecutor().awaitTermination(30, TimeUnit.SECONDS)) {
-                config.getProcessExecutor().shutdownNow();
-            }
-            if (!config.getSaveExecutor().awaitTermination(30, TimeUnit.SECONDS)) {
-                config.getSaveExecutor().shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            config.getProcessExecutor().shutdownNow();
-            config.getSaveExecutor().shutdownNow();
-        }
-    }
-
-    /**
-     * 获取处理指标历史
-     */
-    public List<ProcessMetrics> getMetricsHistory() {
-        return new ArrayList<>(metricsHistory);
-    }
-
-    /**
-     * 获取当前活动处理数
-     */
-    public int getActiveProcessCount() {
-        return activeProcesses.get();
-    }
-
-    /**
-     * 获取处理队列大小
-     */
-    public int getQueueSize() {
-        return processQueue.size();
-    }
-
-    /**
-     * 是否正在运行
-     */
-    public boolean isRunning() {
-        return running.get();
-    }
-
-    /**
-     * 清除历史指标
-     */
-    public void clearMetricsHistory() {
-        metricsHistory.clear();
-    }
-}
-```
-
-## TableNameHelper.java
-
-```java
-package com.study.collect.business.testcase.utils;
-
-import com.study.collect.business.testcase.common.constants.CollectionConstants;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.util.Assert;
-
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.regex.Pattern;
-
-/**
- * 表名处理工具类
- */
-@Slf4j
-public class TableNameHelper {
-
-    private static final Map<String, String> TABLE_NAME_CACHE = new ConcurrentHashMap<>();
-    private static final Pattern TABLE_NAME_PATTERN = Pattern.compile("^[a-zA-Z0-9_]+$");
-    private static final int MAX_TABLE_NAME_LENGTH = 64;
-
-    /**
-     * 生成完整表名
-     * @param rootNode 根节点
-     * @return 完整表名
-     */
-    public static String getTableName(String rootNode) {
-        Assert.hasText(rootNode, "RootNode must not be empty");
-
-        return TABLE_NAME_CACHE.computeIfAbsent(rootNode, key -> {
-            String tableName = CollectionConstants.Collection.URI_COLLECTION_PREFIX + "_" + key;
-            validateTableName(tableName);
-            return tableName;
-        });
-    }
-
-    /**
-     * 获取rootNode
-     * @param uri URI
-     * @return rootNode
-     */
-    public static String extractRootNode(String uri) {
-        Assert.hasText(uri, "URI must not be empty");
-
-        int firstSlash = uri.indexOf('/');
-        if (firstSlash == -1) {
-            return uri;
-        }
-        return uri.substring(0, firstSlash);
-    }
-
-    /**
-     * 验证表名是否合法
-     */
-    private static void validateTableName(String tableName) {
-        if (!TABLE_NAME_PATTERN.matcher(tableName).matches()) {
-            throw new IllegalArgumentException("Invalid table name: " + tableName);
-        }
-        if (tableName.length() > MAX_TABLE_NAME_LENGTH) {
-            throw new IllegalArgumentException("Table name too long: " + tableName);
-        }
-    }
-
-    /**
-     * 检查URI是否属于指定表
-     * @param uri URI
-     * @param tableName 表名
-     * @return 是否属于
-     */
-    public static boolean isUriMatchTable(String uri, String tableName) {
-        String rootNode = extractRootNode(uri);
-        String expectedTableName = getTableName(rootNode);
-        return expectedTableName.equals(tableName);
-    }
-
-    /**
-     * 清除表名缓存
-     */
-    public static void clearCache() {
-        TABLE_NAME_CACHE.clear();
+    private Map<String, Object> buildTaskParams(CollectParam param) {
+        Map<String, Object> params = new HashMap<>();
+        params.put("rootNode", param.getRootNode());
+        params.put("version", param.getVersion());
+        params.put("incremental", param.getIncremental());
+        params.put("batchSize", param.getBatchSize());
+        params.put("serverUri", param.getServerUri());
+        return params;
+    }
+
+    private Map<String, Object> buildDeleteTaskParams(DeleteParam param) {
+        Map<String, Object> params = new HashMap<>();
+        params.put("rootNode", param.getRootNode());
+        params.put("urisCount", param.getUris().size());
+        params.put("hardDelete", param.getHardDelete());
+        params.put("batchSize", param.getBatchSize());
+        return params;
     }
 }
 ```

@@ -1,6 +1,7 @@
 package com.study.collect.business.testcase.model.param;
 
-import com.study.collect.business.testcase.constant.CollectionConstants;
+
+import com.study.collect.business.testcase.common.constants.CollectionConstants;
 import lombok.Data;
 import org.springframework.validation.annotation.Validated;
 
@@ -28,13 +29,13 @@ public class CollectParam {
 
     @Min(value = 50, message = "batchSize must be greater than 50")
     @Max(value = 1000, message = "batchSize must be less than 1000")
-    private Integer batchSize = CollectionConstants.DEFAULT_BATCH_SIZE;
+    private Integer batchSize = CollectionConstants.Process.DEFAULT_BATCH_SIZE;
 
     private Integer priority = 0;
 
     private Boolean allowDuplicate = false;
 
-    private Integer maxRetries = CollectionConstants.HTTP_MAX_RETRY;
+    private Integer maxRetries = CollectionConstants.Http.MAX_RETRY;
 
     private Integer timeout = 3600;
 

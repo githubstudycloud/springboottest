@@ -4,6 +4,7 @@ import com.study.collect.business.testcase.common.constants.CollectionConstants;
 import com.study.collect.business.testcase.common.utils.StreamProcessor;
 import com.study.collect.business.testcase.entity.UriEntity;
 import com.study.collect.business.testcase.model.param.CollectParam;
+import com.study.collect.business.testcase.model.param.PageParam;
 import com.study.collect.business.testcase.model.response.PageResponse;
 import com.study.collect.business.testcase.repository.UriRepository;
 import com.study.collect.business.testcase.service.http.UriHttpService;
@@ -42,9 +43,6 @@ public class CollectExecutor {
     @Qualifier("virtualThreadExecutor")
     private final ExecutorService virtualThreadExecutor;
 
-    /**
-     * 执行采集任务
-     */
     public CompletableFuture<StreamProcessor.ProcessMetrics> execute(
             CollectParam param,
             Consumer<StreamProcessor.ProcessMetrics> progressCallback
@@ -57,10 +55,10 @@ public class CollectExecutor {
                 .timeoutSeconds(param.getTimeout())
                 .maxRetries(param.getMaxRetries())
                 .retryDelayMs(CollectionConstants.Http.RETRY_INTERVAL)
-                .processExecutor(httpExecutor)
-                .saveExecutor(mongoExecutor)
+                .processExecutor(httpExecutor.getThreadPoolExecutor())
+                .saveExecutor(mongoExecutor.getThreadPoolExecutor())
                 // 数据获取函数
-                .dataFetcher(offset -> fetchUris(param, offset))
+                .dataFetcher(offset -> fetchUris(param, offset * param.getBatchSize()))
                 // 数据转换函数
                 .dataConverter(uri -> convertToEntity(param, uri))
                 // 数据保存函数
@@ -72,8 +70,26 @@ public class CollectExecutor {
         // 2. 创建处理器实例
         StreamProcessor<String, UriEntity> processor = new StreamProcessor<>(config);
 
-        // 3. 开始处理
-        return processor.process(0, Integer.MAX_VALUE);
+        // 3. 获取总数据量
+        int totalCount = countTotalUris(param);
+
+        // 4. 开始处理
+        return processor.process(0, totalCount);
+    }
+
+    // 获取总数据量
+    private int countTotalUris(CollectParam param) {
+        try {
+            PageResponse<String> firstPage = httpService.getUriListAsync(
+                    param,
+                    param.getVersion(),
+                    new PageParam(1, 1)
+            ).get();
+            return firstPage.getTotal().intValue();
+        } catch (Exception e) {
+            log.error("Failed to get total URI count", e);
+            throw new RuntimeException("Failed to get total URI count", e);
+        }
     }
 
     /**
@@ -90,7 +106,8 @@ public class CollectExecutor {
                             param.getBatchSize()
                     )
             ).get();
-            return response.getItems();
+//            return response.getItems();
+            return response.getItems() != null ? response.getItems() : new ArrayList<>();
         } catch (Exception e) {
             log.error("Error fetching URIs", e);
             throw new RuntimeException("Failed to fetch URIs", e);

@@ -1,6 +1,7 @@
 package com.study.collect.business.testcase.common.utils;
 
-import com.study.collect.business.testcase.constant.CollectionConstants;
+
+import com.study.collect.business.testcase.common.constants.CollectionConstants;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -20,7 +21,7 @@ public class RateLimiter {
     private final ScheduledExecutorService scheduler;
 
     public RateLimiter() {
-        this.permitsPerMinute = CollectionConstants.HTTP_MAX_REQUESTS_PER_MINUTE;
+        this.permitsPerMinute = CollectionConstants.Http.MAX_REQUESTS_PER_MINUTE;
         this.timestamps = new ConcurrentLinkedQueue<>();
         this.currentPermits = new AtomicInteger(0);
         this.scheduler = Executors.newSingleThreadScheduledExecutor(r -> {

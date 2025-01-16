@@ -1,6 +1,7 @@
 package com.study.collect.business.testcase.config;
 
-import com.study.collect.business.testcase.constant.CollectionConstants;
+
+import com.study.collect.business.testcase.common.constants.CollectionConstants;
 import com.study.collect.business.testcase.entity.UriEntity;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.pool2.BasePooledObjectFactory;
@@ -17,13 +18,16 @@ import java.lang.reflect.Modifier;
 @Configuration
 @Slf4j
 public class ObjectPoolConfig {
-
+    private final TestCaseCollectorProperties properties;
+    public ObjectPoolConfig(TestCaseCollectorProperties properties) {
+        this.properties = properties;
+    }
     @Bean(destroyMethod = "close")
     public GenericObjectPool<UriEntity> uriEntityPool() {
         GenericObjectPoolConfig<UriEntity> poolConfig = new GenericObjectPoolConfig<>();
-        poolConfig.setMaxTotal(CollectionConstants.POOL_MAX_TOTAL);
-        poolConfig.setMaxIdle(CollectionConstants.POOL_MAX_IDLE);
-        poolConfig.setMinIdle(CollectionConstants.POOL_MIN_IDLE);
+        poolConfig.setMaxTotal(properties.getPoolMaxTotal());
+        poolConfig.setMaxIdle(properties.getPoolMaxIdle());
+        poolConfig.setMinIdle(properties.getPoolMinIdle());
         poolConfig.setTestOnBorrow(true);
         poolConfig.setTestOnReturn(true);
         poolConfig.setTestWhileIdle(true);

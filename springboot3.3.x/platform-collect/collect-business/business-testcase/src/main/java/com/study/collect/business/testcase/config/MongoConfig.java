@@ -4,7 +4,7 @@ import com.mongodb.ConnectionString;
 import com.mongodb.MongoClientSettings;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
-import com.study.collect.business.testcase.common.constants.TestCaseCollectorProperties;
+
 import com.study.collect.business.testcase.common.constants.CollectionConstants;
 import lombok.Data;
 import org.springframework.beans.factory.annotation.Value;
@@ -27,7 +27,7 @@ import java.util.concurrent.TimeUnit;
 @Data
 public class MongoConfig extends AbstractMongoClientConfiguration {
 
-    private final com.study.collect.business.testcase.common.constants.TestCaseCollectorProperties properties;
+    private final TestCaseCollectorProperties properties;
 
     @Value("${spring.data.mongodb.uri}")
     private String uri;
