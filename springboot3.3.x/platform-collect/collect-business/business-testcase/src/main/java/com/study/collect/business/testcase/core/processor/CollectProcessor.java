@@ -33,54 +33,49 @@ public class CollectProcessor implements DataProcessor<CollectParam, Long> {
         ProcessorStatus status = new ProcessorStatus();
         taskStatusMap.put(param.getTaskId(), status);
 
-        CompletableFuture<Long> future = new CompletableFuture<>();
-        try {
-            // 获取版本列表
-            httpService.getAllVersions(param)
-                    .thenCompose(versions -> {
-                        // 更新进度
-                        status.update("Getting URIs for versions", 0.2);
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                // 获取版本列表
+                List<String> versions = httpService.getAllVersions(param);
+                status.update("Getting URIs for versions", 0.2);
 
-                        // 获取每个版本的URI列表
-                        List<CompletableFuture<List<String>>> uriFutures = versions.stream()
-                                .map(version -> httpService.getAllUrisForVersion(param, version))
-                                .collect(Collectors.toList());
+                // 获取URI列表
+                List<String> allUris = versions.stream()
+                        .map(version -> {
+                            try {
+                                return httpService.getAllUrisForVersion(param, version);
+                            } catch (Exception e) {
+                                log.error("Error getting URIs for version {}", version, e);
+                                return List.<String>of();
+                            }
+                        })
+                        .flatMap(List::stream)
+                        .distinct()
+                        .collect(Collectors.toList());
 
-                        return CompletableFuture.allOf(uriFutures.toArray(new CompletableFuture[0]))
-                                .thenApply(v -> uriFutures.stream()
-                                        .map(CompletableFuture::join)
-                                        .flatMap(List::stream)
-                                        .collect(Collectors.toList()));
-                    })
-                    .thenCompose(uris -> {
-                        // 更新进度
-                        status.update("Getting URI details", 0.4);
+                status.update("Getting URI details", 0.4);
 
-                        // 获取URI详情
-                        return httpService.batchGetUriDetails(param, uris, param.getBatchSize());
-                    })
-                    .thenAccept(details -> {
-                        // 更新进度
-                        status.update("Saving to database", 0.8);
+                // 获取URI详情
+                List<Map<String, Object>> details = httpService.batchGetUriDetails(param, allUris);
 
-                        // 保存到数据库
-                        long savedCount = saveToDatabase(param.getRootNode(), details);
-                        status.update("Completed", 1.0);
+                status.update("Saving to database", 0.8);
 
-                        future.complete(savedCount);
-                    })
-                    .exceptionally(throwable -> {
-                        status.error(throwable.getMessage());
-                        future.completeExceptionally(throwable);
-                        return null;
-                    });
+                // 保存到数据库
+                long savedCount = saveToDatabase(param.getRootNode(), details);
+                status.update("Completed", 1.0);
 
-        } catch (Exception e) {
-            status.error(e.getMessage());
-            future.completeExceptionally(e);
-        }
+                return savedCount;
+            } catch (Exception e) {
+                String errorMessage = e.getMessage() != null ? e.getMessage() : "Unknown error";
+                status.error(errorMessage);
+                throw new RuntimeException("Processing failed: " + errorMessage, e);
+            }
+        });
+    }
 
-        return future;
+    private long saveToDatabase(String rootNode, List<Map<String, Object>> details) {
+        // 实现保存到数据库的逻辑
+        return repository.batchUpsert(rootNode, details).getModifiedCount();
     }
 
     @Override
@@ -102,10 +97,7 @@ public class CollectProcessor implements DataProcessor<CollectParam, Long> {
     @Override
     public StreamProcessor.ProcessMetrics getProgress(String taskId) {
         ProcessorStatus status = taskStatusMap.get(taskId);
-        if (status != null) {
-            return status.toMetrics();
-        }
-        return null;
+        return status != null ? status.toMetrics() : null;
     }
 
     @Override

@@ -12,14 +12,9 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Consumer;
 
-/**
- * 队列管理器
- * 支持任务优先级排序、状态追踪、进度更新等功能
- */
 @Slf4j
 @Component
 public class QueueManager {
-
     private final ThreadPoolTaskExecutor taskExecutor;
     private final PriorityBlockingQueue<QueueItem<?>> taskQueue;
     private final ConcurrentHashMap<String, QueueItem<?>> taskMap;
@@ -27,7 +22,19 @@ public class QueueManager {
     private volatile boolean running = true;
 
     /**
-     * 队列项
+     * 队列项状态枚举
+     */
+    public enum QueueItemStatus {
+        QUEUED,         // 已入队
+        PROCESSING,     // 处理中
+        COMPLETED,      // 已完成
+        CANCELLED,      // 已取消
+        ERROR,          // 错误
+        RETRY_WAIT     // 等待重试
+    }
+
+    /**
+     * 队列项定义
      */
     private static class QueueItem<T> {
         final String taskId;
@@ -62,24 +69,11 @@ public class QueueManager {
         }
     }
 
-    /**
-     * 队列项状态
-     */
-    public enum QueueItemStatus {
-        QUEUED,         // 已入队
-        PROCESSING,     // 处理中
-        COMPLETED,      // 已完成
-        CANCELLED,      // 已取消
-        ERROR,          // 错误
-        RETRY_WAIT     // 等待重试
-    }
-
     public QueueManager(@Qualifier("taskExecutor") ThreadPoolTaskExecutor taskExecutor) {
         this.taskExecutor = taskExecutor;
         this.taskQueue = new PriorityBlockingQueue<>(
                 CollectionConstants.Process.TASK_QUEUE_CAPACITY,
-                Comparator
-                        .<QueueItem<?>>comparingInt(item -> item.priority)
+                Comparator.<QueueItem<?>>comparingInt(item -> item.priority)
                         .reversed()
                         .thenComparing(item -> item.createTime)
         );
@@ -152,7 +146,7 @@ public class QueueManager {
     public Map<String, Object> getTaskStatus(String taskId) {
         QueueItem<?> item = taskMap.get(taskId);
         if (item != null) {
-            Map<String, Object> status = new ConcurrentHashMap<>();
+            Map<String, Object> status = new HashMap<>();
             status.put("taskId", item.taskId);
             status.put("status", item.status);
             status.put("statusMessage", item.statusMessage);
@@ -169,30 +163,8 @@ public class QueueManager {
     }
 
     /**
-     * 获取所有活动任务状态
+     * 启动队列处理器
      */
-    public List<Map<String, Object>> getAllTaskStatus() {
-        List<Map<String, Object>> statuses = new ArrayList<>();
-        taskMap.values().forEach(item -> {
-            if (item.status == QueueItemStatus.QUEUED ||
-                    item.status == QueueItemStatus.PROCESSING ||
-                    item.status == QueueItemStatus.RETRY_WAIT) {
-                statuses.add(getTaskStatus(item.taskId));
-            }
-        });
-        return statuses;
-    }
-
-    /**
-     * 设置任务属性
-     */
-    public void setTaskAttribute(String taskId, String key, Object value) {
-        QueueItem<?> item = taskMap.get(taskId);
-        if (item != null) {
-            item.attributes.put(key, value);
-        }
-    }
-
     private void startQueueProcessor() {
         int processorCount = Runtime.getRuntime().availableProcessors();
         for (int i = 0; i < processorCount; i++) {
@@ -223,7 +195,9 @@ public class QueueManager {
         try {
             item.status = QueueItemStatus.PROCESSING;
             item.startTime = LocalDateTime.now();
-            item.processor.accept(item.task);
+
+            processTypedItem(item);
+
             item.status = QueueItemStatus.COMPLETED;
             item.progress = 100.0;
             item.endTime = LocalDateTime.now();
@@ -235,6 +209,11 @@ public class QueueManager {
                 taskMap.remove(item.taskId);
             }
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private <T> void processTypedItem(QueueItem<T> item) {
+        item.processor.accept(item.task);
     }
 
     private void handleProcessingError(QueueItem<?> item, Exception e) {
@@ -261,6 +240,9 @@ public class QueueManager {
         }, delay, TimeUnit.MILLISECONDS);
     }
 
+    /**
+     * 启动队列监控
+     */
     private void startQueueMonitor() {
         scheduledExecutor.scheduleAtFixedRate(() -> {
             try {
@@ -311,12 +293,12 @@ public class QueueManager {
      * 获取队列统计信息
      */
     public Map<String, Object> getQueueStats() {
-        Map<String, Object> stats = new ConcurrentHashMap<>();
+        Map<String, Object> stats = new HashMap<>();
         stats.put("queueSize", taskQueue.size());
         stats.put("activeTaskCount", getActiveTaskCount());
         stats.put("totalTaskCount", taskMap.size());
 
-        Map<QueueItemStatus, Long> statusCounts = new ConcurrentHashMap<>();
+        Map<QueueItemStatus, Long> statusCounts = new HashMap<>();
         taskMap.values().forEach(item ->
                 statusCounts.merge(item.status, 1L, Long::sum)
         );
@@ -365,6 +347,16 @@ public class QueueManager {
     public void resume() {
         running = true;
         startQueueProcessor();
+    }
+
+    /**
+     * 设置任务属性
+     */
+    public void setTaskAttribute(String taskId, String key, Object value) {
+        QueueItem<?> item = taskMap.get(taskId);
+        if (item != null) {
+            item.attributes.put(key, value);
+        }
     }
 
     @PreDestroy

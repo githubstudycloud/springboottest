@@ -2,4 +2,5 @@ com\study\collect\common\exception\BaseException.class
 com\study\collect\common\util\DateUtils.class
 com\study\collect\common\util\JsonUtils.class
 com\study\App.class
+com\study\collect\common\exception\GlobalExceptionHandler.class
 com\study\collect\common\model\Response.class

@@ -1,6 +1,5 @@
 package com.study.collect.business.testcase.model.param;
 
-
 import com.study.collect.business.testcase.common.constants.CollectionConstants;
 import lombok.Data;
 import org.springframework.validation.annotation.Validated;
@@ -9,6 +8,7 @@ import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotBlank;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Validated
@@ -26,6 +26,10 @@ public class CollectParam {
     private LocalDateTime startTime;
 
     private LocalDateTime endTime;
+
+    private List<String> uris;  // 添加 uris 字段
+
+    private Boolean hardDelete = false;  // 添加 hardDelete 字段
 
     @Min(value = 50, message = "batchSize must be greater than 50")
     @Max(value = 1000, message = "batchSize must be less than 1000")
