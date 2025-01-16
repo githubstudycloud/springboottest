@@ -278,8 +278,8 @@ public class UriRepository {
                                                     String versionType,
                                                     int page,
                                                     int size) {
-        MongoCollection<Document> collection = mongoOperations.getCollection(
-                mongoOperations.getCollectionName(UriEntity.class));
+        String collectionName = getCollectionName(rootNode);
+        MongoCollection<Document> collection = mongoTemplate.getCollection(collectionName);
 
         // 构建查询条件
         Document query = new Document();
@@ -306,7 +306,7 @@ public class UriRepository {
                     .map(doc -> doc.getString("uriHash"))
                     .into(new ArrayList<>());
         } catch (Exception e) {
-            log.error("Error executing native query", e);
+            log.error("Failed to execute native query in collection {}", collectionName, e);
             throw new RuntimeException("Query execution failed", e);
         }
     }
@@ -315,8 +315,8 @@ public class UriRepository {
      * 获取满足条件的总数
      */
     public long countUriHashesNative(String rootNode, String version, String versionType) {
-        MongoCollection<Document> collection = mongoOperations.getCollection(
-                mongoOperations.getCollectionName(UriEntity.class));
+        String collectionName = getCollectionName(rootNode);
+        MongoCollection<Document> collection = mongoTemplate.getCollection(collectionName);
 
         Document query = new Document();
         if (rootNode != null) {
@@ -329,7 +329,12 @@ public class UriRepository {
             query.append("versionType", versionType);
         }
 
-        return collection.countDocuments(query);
+        try {
+            return collection.countDocuments(query);
+        } catch (Exception e) {
+            log.error("Failed to count documents in collection {}", collectionName, e);
+            throw new RuntimeException("Count documents failed", e);
+        }
     }
 
     /**
@@ -340,16 +345,21 @@ public class UriRepository {
                                                 String versionType,
                                                 int page,
                                                 int size) {
-        long total = countUriHashesNative(rootNode, version, versionType);
-        List<String> items = findUriHashesNativeWithPage(rootNode, version, versionType, page, size);
+        try {
+            long total = countUriHashesNative(rootNode, version, versionType);
+            List<String> items = findUriHashesNativeWithPage(rootNode, version, versionType, page, size);
 
-        return PageResult.<String>builder()
-                .total(total)
-                .page(page)
-                .size(size)
-                .totalPages((int) Math.ceil((double) total / size))
-                .items(items)
-                .build();
+            return PageResult.<String>builder()
+                    .total(total)
+                    .page(page)
+                    .size(size)
+                    .totalPages((int) Math.ceil((double) total / size))
+                    .items(items)
+                    .build();
+        } catch (Exception e) {
+            log.error("Failed to get paged results for rootNode {}", rootNode, e);
+            throw new RuntimeException("Failed to get paged results", e);
+        }
     }
 
     /**
@@ -359,8 +369,8 @@ public class UriRepository {
                                       String version,
                                       String versionType,
                                       Consumer<String> consumer) {
-        MongoCollection<Document> collection = mongoOperations.getCollection(
-                mongoOperations.getCollectionName(UriEntity.class));
+        String collectionName = getCollectionName(rootNode);
+        MongoCollection<Document> collection = mongoTemplate.getCollection(collectionName);
 
         Document query = new Document();
         if (rootNode != null) {
@@ -382,7 +392,9 @@ public class UriRepository {
             while (cursor.hasNext()) {
                 consumer.accept(cursor.next().getString("uriHash"));
             }
+        } catch (Exception e) {
+            log.error("Failed to stream documents from collection {}", collectionName, e);
+            throw new RuntimeException("Streaming documents failed", e);
         }
     }
-
 }
