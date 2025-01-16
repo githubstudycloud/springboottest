@@ -1,41 +1,44 @@
 package com.study.collect.business.testcase.config;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.study.collect.business.testcase.common.constants.CollectionConstants;
+import io.micrometer.core.instrument.MeterRegistry;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.core.task.TaskDecorator;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
+import java.util.Map;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
-/**
- * 线程池配置
- */
+@Slf4j
 @Configuration
 @EnableAsync
-@Slf4j
+@RequiredArgsConstructor
 public class ThreadPoolConfig {
+
+    private final TestCaseCollectorProperties properties;
+    private final MeterRegistry meterRegistry;
 
     /**
      * HTTP请求线程池
      */
     @Bean(name = "httpExecutor")
     public ThreadPoolTaskExecutor httpExecutor() {
-        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(CollectionConstants.ThreadPool.HTTP_CORE_SIZE);
-        executor.setMaxPoolSize(CollectionConstants.ThreadPool.HTTP_MAX_SIZE);
-        executor.setQueueCapacity(CollectionConstants.ThreadPool.HTTP_QUEUE_SIZE);
-        executor.setKeepAliveSeconds((int) CollectionConstants.ThreadPool.HTTP_KEEP_ALIVE);
-        executor.setThreadNamePrefix("http-thread-");
-        executor.setRejectedExecutionHandler((r, e) -> {
-            log.warn("HTTP thread pool is full, task rejected");
-            throw new RejectedExecutionException("HTTP thread pool is full");
-        });
-        executor.setWaitForTasksToCompleteOnShutdown(true);
-        executor.setAwaitTerminationSeconds(60);
+        ThreadPoolTaskExecutor executor = createBaseExecutor(
+                "http-executor",
+                properties.getThreadPool().getHttpCoreSize(),
+                properties.getThreadPool().getHttpMaxSize(),
+                properties.getThreadPool().getHttpQueueSize()
+        );
+        // 配置任务装饰器，用于监控和统计
+        executor.setTaskDecorator(new MonitoringTaskDecorator("http"));
         return executor;
     }
 
@@ -44,18 +47,13 @@ public class ThreadPoolConfig {
      */
     @Bean(name = "mongoExecutor")
     public ThreadPoolTaskExecutor mongoExecutor() {
-        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(CollectionConstants.ThreadPool.MONGO_CORE_SIZE);
-        executor.setMaxPoolSize(CollectionConstants.ThreadPool.MONGO_MAX_SIZE);
-        executor.setQueueCapacity(CollectionConstants.ThreadPool.MONGO_QUEUE_SIZE);
-        executor.setKeepAliveSeconds((int) CollectionConstants.ThreadPool.MONGO_KEEP_ALIVE);
-        executor.setThreadNamePrefix("mongo-thread-");
-        executor.setRejectedExecutionHandler((r, e) -> {
-            log.warn("MongoDB thread pool is full, task rejected");
-            throw new RejectedExecutionException("MongoDB thread pool is full");
-        });
-        executor.setWaitForTasksToCompleteOnShutdown(true);
-        executor.setAwaitTerminationSeconds(60);
+        ThreadPoolTaskExecutor executor = createBaseExecutor(
+                "mongo-executor",
+                properties.getThreadPool().getMongoCoreSize(),
+                properties.getThreadPool().getMongoMaxSize(),
+                properties.getThreadPool().getMongoQueueSize()
+        );
+        executor.setTaskDecorator(new MonitoringTaskDecorator("mongo"));
         return executor;
     }
 
@@ -65,64 +63,185 @@ public class ThreadPoolConfig {
     @Bean(name = "taskExecutor")
     @Primary
     public ThreadPoolTaskExecutor taskExecutor() {
-        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(CollectionConstants.ThreadPool.TASK_CORE_SIZE);
-        executor.setMaxPoolSize(CollectionConstants.ThreadPool.TASK_MAX_SIZE);
-        executor.setQueueCapacity(CollectionConstants.ThreadPool.TASK_QUEUE_SIZE);
-        executor.setKeepAliveSeconds((int) CollectionConstants.ThreadPool.TASK_KEEP_ALIVE);
-        executor.setThreadNamePrefix("task-thread-");
-        executor.setRejectedExecutionHandler((r, e) -> {
-            log.warn("Task thread pool is full, task rejected");
-            throw new RejectedExecutionException("Task thread pool is full");
-        });
+        ThreadPoolTaskExecutor executor = createBaseExecutor(
+                "task-executor",
+                properties.getThreadPool().getTaskCoreSize(),
+                properties.getThreadPool().getTaskMaxSize(),
+                properties.getThreadPool().getTaskQueueSize()
+        );
+        executor.setTaskDecorator(new MonitoringTaskDecorator("task"));
+        // 自定义拒绝策略：记录日志并重试
+        executor.setRejectedExecutionHandler(new RetryRejectedExecutionHandler());
+        return executor;
+    }
+
+    /**
+     * 虚拟线程执行器（如果JDK版本支持）
+     */
+    @Bean(name = "virtualThreadExecutor")
+    public ExecutorService virtualThreadExecutor() {
+        if (properties.getThreadPool().isEnableVirtualThread()) {
+            try {
+                return Executors.newVirtualThreadPerTaskExecutor();
+            } catch (UnsupportedOperationException e) {
+                log.warn("Virtual threads not supported, falling back to normal thread pool");
+            }
+        }
+        return createFallbackExecutor();
+    }
+
+    /**
+     * 调度线程池
+     */
+    @Bean(name = "scheduledExecutor")
+    public ScheduledExecutorService scheduledExecutor() {
+        return new ScheduledThreadPoolExecutor(
+                2,
+                new ThreadFactoryBuilder()
+                        .setNameFormat("scheduled-thread-%d")
+                        .setDaemon(true)
+                        .build(),
+                (r, e) -> log.error("Task rejected from scheduler", new RejectedExecutionException())
+        );
+    }
+
+    /**
+     * 创建基础线程池配置
+     */
+    private ThreadPoolTaskExecutor createBaseExecutor(
+            String threadNamePrefix,
+            int coreSize,
+            int maxSize,
+            int queueCapacity
+    ) {
+        ThreadPoolTaskExecutor executor = new MonitoredThreadPoolTaskExecutor(meterRegistry, threadNamePrefix);
+        executor.setCorePoolSize(coreSize);
+        executor.setMaxPoolSize(maxSize);
+        executor.setQueueCapacity(queueCapacity);
+        executor.setKeepAliveSeconds((int)CollectionConstants.ThreadPool.HTTP_KEEP_ALIVE);
+        executor.setThreadNamePrefix(threadNamePrefix + "-");
+        executor.setAllowCoreThreadTimeOut(true);
         executor.setWaitForTasksToCompleteOnShutdown(true);
         executor.setAwaitTerminationSeconds(60);
         return executor;
     }
 
     /**
-     * 通用任务调度线程池
+     * 创建降级线程池
      */
-    @Bean(name = "scheduledExecutor")
-    public ScheduledExecutorService scheduledExecutor() {
-        return Executors.newScheduledThreadPool(2, new ThreadFactory() {
-            private final AtomicInteger counter = new AtomicInteger(1);
-            @Override
-            public Thread newThread(Runnable r) {
-                Thread thread = new Thread(r);
-                thread.setName("scheduled-thread-" + counter.getAndIncrement());
-                thread.setDaemon(true);
-                return thread;
-            }
-        });
+    private ExecutorService createFallbackExecutor() {
+        return new ThreadPoolExecutor(
+                Runtime.getRuntime().availableProcessors(),
+                Runtime.getRuntime().availableProcessors() * 2,
+                60L, TimeUnit.SECONDS,
+                new LinkedBlockingQueue<>(1000),
+                new ThreadFactoryBuilder()
+                        .setNameFormat("fallback-thread-%d")
+                        .build(),
+                new RetryRejectedExecutionHandler()
+        );
+    }
+}
+
+/**
+ * 可监控的线程池
+ */
+@Slf4j
+class MonitoredThreadPoolTaskExecutor extends ThreadPoolTaskExecutor {
+    private final MeterRegistry meterRegistry;
+    private final String poolName;
+
+    public MonitoredThreadPoolTaskExecutor(MeterRegistry meterRegistry, String poolName) {
+        this.meterRegistry = meterRegistry;
+        this.poolName = poolName;
     }
 
-    /**
-     * 虚拟线程池(如果JDK版本支持)
-     */
-    @Bean(name = "virtualThreadExecutor")
-    public ExecutorService virtualThreadExecutor() {
-        try {
-            // 尝试使用虚拟线程
-            return Executors.newVirtualThreadPerTaskExecutor();
-        } catch (UnsupportedOperationException e) {
-            // 降级使用普通线程池
-            log.warn("Virtual threads not supported, falling back to normal thread pool");
-            return new ThreadPoolExecutor(
-                    Runtime.getRuntime().availableProcessors(),
-                    Runtime.getRuntime().availableProcessors() * 2,
-                    60L, TimeUnit.SECONDS,
-                    new LinkedBlockingQueue<>(1000),
-                    new ThreadFactory() {
-                        private final AtomicInteger counter = new AtomicInteger(1);
-                        @Override
-                        public Thread newThread(Runnable r) {
-                            Thread thread = new Thread(r);
-                            thread.setName("fallback-thread-" + counter.getAndIncrement());
-                            return thread;
-                        }
-                    }
-            );
+    @Override
+    public void initialize() {
+        super.initialize();
+        // 注册监控指标
+        registerMetrics();
+    }
+
+    private void registerMetrics() {
+        meterRegistry.gauge(poolName + ".pool.size", this, ThreadPoolTaskExecutor::getPoolSize);
+        meterRegistry.gauge(poolName + ".active.count", this, ThreadPoolTaskExecutor::getActiveCount);
+        meterRegistry.gauge(poolName + ".queue.size", this, executor ->
+//                ((ThreadPoolExecutor) executor).getQueue().size());
+                this.getThreadPoolExecutor().getQueue().size());
+    }
+}
+
+/**
+ * 任务监控装饰器
+ */
+@Slf4j
+class MonitoringTaskDecorator implements TaskDecorator {
+    private final String poolName;
+    private final Map<String, AtomicInteger> taskCounters = new ConcurrentHashMap<>();
+
+    public MonitoringTaskDecorator(String poolName) {
+        this.poolName = poolName;
+    }
+
+    @Override
+    public Runnable decorate(Runnable runnable) {
+        String taskName = runnable.getClass().getSimpleName();
+        return () -> {
+            long startTime = System.currentTimeMillis();
+            try {
+                incrementTaskCount(taskName);
+                runnable.run();
+            } finally {
+                decrementTaskCount(taskName);
+                recordTaskDuration(taskName, System.currentTimeMillis() - startTime);
+            }
+        };
+    }
+
+    private void incrementTaskCount(String taskName) {
+        taskCounters.computeIfAbsent(taskName, k -> new AtomicInteger(0))
+                .incrementAndGet();
+    }
+
+    private void decrementTaskCount(String taskName) {
+        taskCounters.get(taskName).decrementAndGet();
+    }
+
+    private void recordTaskDuration(String taskName, long duration) {
+        log.debug("[{}] Task {} completed in {}ms", poolName, taskName, duration);
+    }
+}
+
+/**
+ * 重试拒绝策略
+ */
+@Slf4j
+class RetryRejectedExecutionHandler implements RejectedExecutionHandler {
+    private static final int MAX_RETRIES = 3;
+    private static final long RETRY_DELAY = 100; // ms
+
+    @Override
+    public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
+        int retries = 0;
+        while (retries < MAX_RETRIES) {
+            try {
+                if (!executor.isShutdown()) {
+                    Thread.sleep(RETRY_DELAY * (long)Math.pow(2, retries));
+                    executor.getQueue().put(r);
+                    return;
+                }
+                break;
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            } catch (Exception e) {
+                retries++;
+                if (retries == MAX_RETRIES) {
+                    log.error("Task rejected after {} retries", MAX_RETRIES, e);
+                    throw new RejectedExecutionException("Task rejected after " + MAX_RETRIES + " retries", e);
+                }
+            }
         }
     }
 }

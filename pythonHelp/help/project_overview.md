@@ -2515,14 +2515,9 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Consumer;
 
-/**
- * 队列管理器
- * 支持任务优先级排序、状态追踪、进度更新等功能
- */
 @Slf4j
 @Component
 public class QueueManager {
-
     private final ThreadPoolTaskExecutor taskExecutor;
     private final PriorityBlockingQueue<QueueItem<?>> taskQueue;
     private final ConcurrentHashMap<String, QueueItem<?>> taskMap;
@@ -2530,7 +2525,19 @@ public class QueueManager {
     private volatile boolean running = true;
 
     /**
-     * 队列项
+     * 队列项状态枚举
+     */
+    public enum QueueItemStatus {
+        QUEUED,         // 已入队
+        PROCESSING,     // 处理中
+        COMPLETED,      // 已完成
+        CANCELLED,      // 已取消
+        ERROR,          // 错误
+        RETRY_WAIT     // 等待重试
+    }
+
+    /**
+     * 队列项定义
      */
     private static class QueueItem<T> {
         final String taskId;
@@ -2565,24 +2572,11 @@ public class QueueManager {
         }
     }
 
-    /**
-     * 队列项状态
-     */
-    public enum QueueItemStatus {
-        QUEUED,         // 已入队
-        PROCESSING,     // 处理中
-        COMPLETED,      // 已完成
-        CANCELLED,      // 已取消
-        ERROR,          // 错误
-        RETRY_WAIT     // 等待重试
-    }
-
     public QueueManager(@Qualifier("taskExecutor") ThreadPoolTaskExecutor taskExecutor) {
         this.taskExecutor = taskExecutor;
         this.taskQueue = new PriorityBlockingQueue<>(
                 CollectionConstants.Process.TASK_QUEUE_CAPACITY,
-                Comparator
-                        .<QueueItem<?>>comparingInt(item -> item.priority)
+                Comparator.<QueueItem<?>>comparingInt(item -> item.priority)
                         .reversed()
                         .thenComparing(item -> item.createTime)
         );
@@ -2655,7 +2649,7 @@ public class QueueManager {
     public Map<String, Object> getTaskStatus(String taskId) {
         QueueItem<?> item = taskMap.get(taskId);
         if (item != null) {
-            Map<String, Object> status = new ConcurrentHashMap<>();
+            Map<String, Object> status = new HashMap<>();
             status.put("taskId", item.taskId);
             status.put("status", item.status);
             status.put("statusMessage", item.statusMessage);
@@ -2672,30 +2666,8 @@ public class QueueManager {
     }
 
     /**
-     * 获取所有活动任务状态
+     * 启动队列处理器
      */
-    public List<Map<String, Object>> getAllTaskStatus() {
-        List<Map<String, Object>> statuses = new ArrayList<>();
-        taskMap.values().forEach(item -> {
-            if (item.status == QueueItemStatus.QUEUED ||
-                    item.status == QueueItemStatus.PROCESSING ||
-                    item.status == QueueItemStatus.RETRY_WAIT) {
-                statuses.add(getTaskStatus(item.taskId));
-            }
-        });
-        return statuses;
-    }
-
-    /**
-     * 设置任务属性
-     */
-    public void setTaskAttribute(String taskId, String key, Object value) {
-        QueueItem<?> item = taskMap.get(taskId);
-        if (item != null) {
-            item.attributes.put(key, value);
-        }
-    }
-
     private void startQueueProcessor() {
         int processorCount = Runtime.getRuntime().availableProcessors();
         for (int i = 0; i < processorCount; i++) {
@@ -2726,7 +2698,9 @@ public class QueueManager {
         try {
             item.status = QueueItemStatus.PROCESSING;
             item.startTime = LocalDateTime.now();
-            item.processor.accept(item.task);
+
+            processTypedItem(item);
+
             item.status = QueueItemStatus.COMPLETED;
             item.progress = 100.0;
             item.endTime = LocalDateTime.now();
@@ -2738,6 +2712,11 @@ public class QueueManager {
                 taskMap.remove(item.taskId);
             }
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private <T> void processTypedItem(QueueItem<T> item) {
+        item.processor.accept(item.task);
     }
 
     private void handleProcessingError(QueueItem<?> item, Exception e) {
@@ -2764,6 +2743,9 @@ public class QueueManager {
         }, delay, TimeUnit.MILLISECONDS);
     }
 
+    /**
+     * 启动队列监控
+     */
     private void startQueueMonitor() {
         scheduledExecutor.scheduleAtFixedRate(() -> {
             try {
@@ -2814,12 +2796,12 @@ public class QueueManager {
      * 获取队列统计信息
      */
     public Map<String, Object> getQueueStats() {
-        Map<String, Object> stats = new ConcurrentHashMap<>();
+        Map<String, Object> stats = new HashMap<>();
         stats.put("queueSize", taskQueue.size());
         stats.put("activeTaskCount", getActiveTaskCount());
         stats.put("totalTaskCount", taskMap.size());
 
-        Map<QueueItemStatus, Long> statusCounts = new ConcurrentHashMap<>();
+        Map<QueueItemStatus, Long> statusCounts = new HashMap<>();
         taskMap.values().forEach(item ->
                 statusCounts.merge(item.status, 1L, Long::sum)
         );
@@ -2868,6 +2850,16 @@ public class QueueManager {
     public void resume() {
         running = true;
         startQueueProcessor();
+    }
+
+    /**
+     * 设置任务属性
+     */
+    public void setTaskAttribute(String taskId, String key, Object value) {
+        QueueItem<?> item = taskMap.get(taskId);
+        if (item != null) {
+            item.attributes.put(key, value);
+        }
     }
 
     @PreDestroy
@@ -3189,54 +3181,52 @@ public class CollectProcessor implements DataProcessor<CollectParam, Long> {
         ProcessorStatus status = new ProcessorStatus();
         taskStatusMap.put(param.getTaskId(), status);
 
-        CompletableFuture<Long> future = new CompletableFuture<>();
-        try {
-            // 获取版本列表
-            httpService.getAllVersions(param)
-                    .thenCompose(versions -> {
-                        // 更新进度
-                        status.update("Getting URIs for versions", 0.2);
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                // 获取版本列表
+                List<String> versions = httpService.getAllVersions(param);
+                status.update("Getting URIs for versions", 0.2);
 
-                        // 获取每个版本的URI列表
-                        List<CompletableFuture<List<String>>> uriFutures = versions.stream()
-                                .map(version -> httpService.getAllUrisForVersion(param, version))
-                                .collect(Collectors.toList());
+                // 获取URI列表
+                List<String> allUris = versions.stream()
+                        .map(version -> {
+                            try {
+                                return httpService.getAllUrisForVersion(param, version);
+                            } catch (Exception e) {
+                                log.error("Error getting URIs for version {}", version, e);
+                                return List.<String>of();
+                            }
+                        })
+                        .flatMap(List::stream)
+                        .distinct()
+                        .collect(Collectors.toList());
 
-                        return CompletableFuture.allOf(uriFutures.toArray(new CompletableFuture[0]))
-                                .thenApply(v -> uriFutures.stream()
-                                        .map(CompletableFuture::join)
-                                        .flatMap(List::stream)
-                                        .collect(Collectors.toList()));
-                    })
-                    .thenCompose(uris -> {
-                        // 更新进度
-                        status.update("Getting URI details", 0.4);
+                status.update("Getting URI details", 0.4);
 
-                        // 获取URI详情
-                        return httpService.batchGetUriDetails(param, uris, param.getBatchSize());
-                    })
-                    .thenAccept(details -> {
-                        // 更新进度
-                        status.update("Saving to database", 0.8);
+                // 获取URI详情
+                List<Map<String, Object>> details = httpService.batchGetUriDetails(param, allUris);
 
-                        // 保存到数据库
-                        long savedCount = saveToDatabase(param.getRootNode(), details);
-                        status.update("Completed", 1.0);
+                status.update("Saving to database", 0.8);
 
-                        future.complete(savedCount);
-                    })
-                    .exceptionally(throwable -> {
-                        status.error(throwable.getMessage());
-                        future.completeExceptionally(throwable);
-                        return null;
-                    });
+                // 保存到数据库
+                long savedCount = saveToDatabase(param.getRootNode(), details);
+                status.update("Completed", 1.0);
 
-        } catch (Exception e) {
-            status.error(e.getMessage());
-            future.completeExceptionally(e);
-        }
+                return savedCount;
+            } catch (Exception e) {
+                String errorMessage = e.getMessage() != null ? e.getMessage() : "Unknown error";
+                status.error(errorMessage);
+                throw new RuntimeException("Processing failed: " + errorMessage, e);
+            }
+        });
+    }
 
-        return future;
+    private long saveToDatabase(String rootNode, List<Map<String, Object>> details) {
+        // 实现保存到数据库的逻辑
+//        return repository.batchUpsert(rootNode, details).getModifiedCount();
+
+        // TODO: Optimize the type conversion and method call
+        return repository.batchUpsert(rootNode, (List<com.study.collect.business.testcase.entity.UriEntity>) (List<?>) details).getModifiedCount();
     }
 
     @Override
@@ -3258,10 +3248,7 @@ public class CollectProcessor implements DataProcessor<CollectParam, Long> {
     @Override
     public StreamProcessor.ProcessMetrics getProgress(String taskId) {
         ProcessorStatus status = taskStatusMap.get(taskId);
-        if (status != null) {
-            return status.toMetrics();
-        }
-        return null;
+        return status != null ? status.toMetrics() : null;
     }
 
     @Override
@@ -3902,7 +3889,6 @@ public class PageResult<T> {
 ```java
 package com.study.collect.business.testcase.model.param;
 
-
 import com.study.collect.business.testcase.common.constants.CollectionConstants;
 import lombok.Data;
 import org.springframework.validation.annotation.Validated;
@@ -3911,6 +3897,7 @@ import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotBlank;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Validated
@@ -3928,6 +3915,10 @@ public class CollectParam {
     private LocalDateTime startTime;
 
     private LocalDateTime endTime;
+
+    private List<String> uris;  // 添加 uris 字段
+
+    private Boolean hardDelete = false;  // 添加 hardDelete 字段
 
     @Min(value = 50, message = "batchSize must be greater than 50")
     @Max(value = 1000, message = "batchSize must be less than 1000")
@@ -5321,6 +5312,7 @@ package com.study.collect.business.testcase.service.impl;
 
 import com.study.collect.business.testcase.common.constants.CollectionConstants;
 import com.study.collect.business.testcase.common.utils.StreamProcessor;
+import com.study.collect.business.testcase.common.utils.TableNameHelper;
 import com.study.collect.business.testcase.repository.UriRepository;
 import lombok.Builder;
 import lombok.Data;
@@ -5335,10 +5327,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 
-/**
- * URI清理服务
- * 提供URI数据的清理和批量删除功能
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -5352,9 +5340,6 @@ public class UriCleanupService {
     @Qualifier("virtualThreadExecutor")
     private final ExecutorService virtualThreadExecutor;
 
-    /**
-     * 清理参数
-     */
     @Data
     @Builder
     public static class CleanupParams {
@@ -5367,9 +5352,6 @@ public class UriCleanupService {
         private long timeout = CollectionConstants.Process.TASK_TIMEOUT;
     }
 
-    /**
-     * 删除参数
-     */
     @Data
     @Builder
     public static class DeleteParams {
@@ -5382,9 +5364,6 @@ public class UriCleanupService {
         private long timeout = CollectionConstants.Process.TASK_TIMEOUT;
     }
 
-    /**
-     * 清理操作结果
-     */
     @Data
     @Builder
     public static class CleanupResult {
@@ -5395,54 +5374,49 @@ public class UriCleanupService {
         private Map<String, Object> details;
     }
 
-    /**
-     * 执行清理操作
-     * 清理不在指定URI列表中的数据
-     */
     public CompletableFuture<StreamProcessor.ProcessMetrics> cleanup(
             CleanupParams params,
             Consumer<StreamProcessor.ProcessMetrics> progressCallback
     ) {
         validateParams(params);
 
-        // 创建处理器配置
-        StreamProcessor.ProcessorConfig<List<String>, Long> config =
-                StreamProcessor.ProcessorConfig.<List<String>, Long>builder()
+        // 创建 Set 用于存储有效的 URI hashes
+        Set<String> validUriHashes = new HashSet<>();
+        for (String uri : params.getUris()) {
+            validUriHashes.add(TableNameHelper.generateUriHash(uri));
+        }
+
+        // 创建处理器配置，注意这里修改为使用 Set<String> 作为处理单元
+        StreamProcessor.ProcessorConfig<Set<String>, Long> config =
+                StreamProcessor.ProcessorConfig.<Set<String>, Long>builder()
                         .processorName("URI-Cleanup-" + params.getRootNode())
-                        .batchSize(params.getBatchSize())
-                        .maxConcurrent(1)  // 清理任务限制并发为1
+                        .batchSize(1) // 因为我们现在是处理整个 Set，所以批次大小为 1
+                        .maxConcurrent(1)
                         .timeoutSeconds(params.getTimeout())
                         .maxRetries(CollectionConstants.Http.MAX_RETRY)
                         .retryDelayMs(CollectionConstants.Http.RETRY_INTERVAL)
                         .processExecutor(virtualThreadExecutor)
-                        .saveExecutor(mongoExecutor)
-                        // 数据获取函数
-                        .dataFetcher(offset -> fetchBatch(params.getUris(), offset, params.getBatchSize()))
-                        // 数据转换函数
-                        .dataConverter(batch -> processCleanup(params.getRootNode(), new HashSet<>(batch),
+                        .saveExecutor(mongoExecutor.getThreadPoolExecutor())
+                        // 修改数据获取函数，直接返回包含单个 Set 的列表
+                        .dataFetcher(offset -> offset == 0 ?
+                                Collections.singletonList(validUriHashes) :
+                                Collections.emptyList())
+                        .dataConverter(uriHashes -> processCleanup(params.getRootNode(), uriHashes,
                                 params.isHardDelete()))
-                        // 数据保存函数
                         .dataSaver(this::updateMetrics)
-                        // 进度回调
                         .progressCallback(progressCallback)
                         .build();
 
-        // 创建处理器实例并开始处理
-        StreamProcessor<List<String>, Long> processor = new StreamProcessor<>(config);
-        return processor.process(0, params.getUris().size());
+        StreamProcessor<Set<String>, Long> processor = new StreamProcessor<>(config);
+        return processor.process(0, 1); // 只需处理一次
     }
 
-    /**
-     * 批量删除
-     * 删除指定的URI列表
-     */
     public CompletableFuture<StreamProcessor.ProcessMetrics> batchDelete(
             DeleteParams params,
             Consumer<StreamProcessor.ProcessMetrics> progressCallback
     ) {
         validateParams(params);
 
-        // 创建处理器配置
         StreamProcessor.ProcessorConfig<List<String>, Long> config =
                 StreamProcessor.ProcessorConfig.<List<String>, Long>builder()
                         .processorName("URI-Delete-" + params.getRootNode())
@@ -5452,73 +5426,54 @@ public class UriCleanupService {
                         .maxRetries(CollectionConstants.Http.MAX_RETRY)
                         .retryDelayMs(CollectionConstants.Http.RETRY_INTERVAL)
                         .processExecutor(virtualThreadExecutor)
-                        .saveExecutor(mongoExecutor)
-                        // 数据获取函数
+                        .saveExecutor(mongoExecutor.getThreadPoolExecutor())
+                        // 批量获取数据
                         .dataFetcher(offset -> fetchBatch(params.getUris(), offset, params.getBatchSize()))
-                        // 数据转换函数
                         .dataConverter(batch -> processDelete(params.getRootNode(), batch,
                                 params.isHardDelete()))
-                        // 数据保存函数
                         .dataSaver(this::updateMetrics)
-                        // 进度回调
                         .progressCallback(progressCallback)
                         .build();
 
-        // 创建处理器实例并开始处理
         StreamProcessor<List<String>, Long> processor = new StreamProcessor<>(config);
         return processor.process(0, params.getUris().size());
     }
 
-    /**
-     * 获取一批数据
-     */
-    private List<String> fetchBatch(List<String> allUris, int offset, int batchSize) {
+    private List<List<String>> fetchBatch(List<String> allUris, int offset, int batchSize) {
         int endIndex = Math.min(offset + batchSize, allUris.size());
-        return offset < allUris.size() ?
-                allUris.subList(offset, endIndex) :
-                Collections.emptyList();
+        if (offset < allUris.size()) {
+            return Collections.singletonList(allUris.subList(offset, endIndex));
+        }
+        return Collections.emptyList();
     }
 
-    /**
-     * 处理清理操作
-     */
-    private Long processCleanup(String rootNode, Set<String> validUris, boolean hardDelete) {
+    private Long processCleanup(String rootNode, Set<String> validUriHashes, boolean hardDelete) {
         try {
-            return hardDelete ?
-                    repository.deleteNotInUriHashes(rootNode, validUris) :
-                    repository.softDeleteNotInUriHashes(rootNode, validUris);
+            return (Long) (hardDelete ?
+                                repository.deleteNotInUriHashes(rootNode, validUriHashes) :
+                                repository.softDeleteNotInUriHashes(rootNode, validUriHashes));
         } catch (Exception e) {
             log.error("Error during cleanup for rootNode: {}", rootNode, e);
             throw new RuntimeException("Cleanup failed", e);
         }
     }
 
-    /**
-     * 处理删除操作
-     */
     private Long processDelete(String rootNode, List<String> uris, boolean hardDelete) {
         try {
-            return hardDelete ?
-                    repository.batchHardDelete(rootNode, uris) :
-                    repository.batchSoftDelete(rootNode, uris);
+            return (Long) (hardDelete ?
+                                repository.batchHardDelete(rootNode, uris) :
+                                repository.batchSoftDelete(rootNode, uris));
         } catch (Exception e) {
             log.error("Error during delete for rootNode: {}", rootNode, e);
             throw new RuntimeException("Delete failed", e);
         }
     }
 
-    /**
-     * 更新处理指标
-     */
     private void updateMetrics(List<Long> counts) {
-        // 可以实现具体的指标更新逻辑
         long total = counts.stream().mapToLong(Long::longValue).sum();
-        log.debug("Processed batch with total count: {}", total);
+        log.debug("Processed batch with total count: {}", Optional.of(total));
     }
 
-    /**
-     * 验证清理参数
-     */
     private void validateParams(CleanupParams params) {
         Objects.requireNonNull(params.getRootNode(), "RootNode must not be null");
         Objects.requireNonNull(params.getUris(), "URIs list must not be null");
@@ -5529,9 +5484,6 @@ public class UriCleanupService {
         }
     }
 
-    /**
-     * 验证删除参数
-     */
     private void validateParams(DeleteParams params) {
         Objects.requireNonNull(params.getRootNode(), "RootNode must not be null");
         Objects.requireNonNull(params.getUris(), "URIs list must not be null");
@@ -5540,20 +5492,6 @@ public class UriCleanupService {
                 params.getBatchSize() > CollectionConstants.Process.MAX_BATCH_SIZE) {
             throw new IllegalArgumentException("Invalid batch size: " + params.getBatchSize());
         }
-    }
-
-    /**
-     * 统计清理结果
-     */
-    private CleanupResult buildResult(List<Long> results, List<String> failedUris) {
-        long totalProcessed = results.stream().mapToLong(Long::longValue).sum();
-        return CleanupResult.builder()
-                .processedCount(totalProcessed)
-                .deletedCount(totalProcessed)
-                .errorCount(failedUris.size())
-                .failedUris(failedUris)
-                .details(new HashMap<>())
-                .build();
     }
 }
 ```

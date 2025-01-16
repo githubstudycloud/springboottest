@@ -1,23 +1,23 @@
 package com.study.collect.business.testcase.common.utils;
 
+import com.study.collect.business.testcase.common.constants.CollectionConstants;
 import lombok.Builder;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.util.CollectionUtils;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.time.Duration;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
  * 通用流式处理器
- * @param <T> 输入数据类型
- * @param <R> 输出数据类型
+ * @param <T> 源数据类型
+ * @param <R> 结果数据类型
  */
 @Slf4j
 public class StreamProcessor<T, R> {
@@ -25,20 +25,28 @@ public class StreamProcessor<T, R> {
     @Data
     @Builder
     public static class ProcessorConfig<T, R> {
+        // 基础配置
         private String processorName;
         private int batchSize;
         private int maxConcurrent;
         private long timeoutSeconds;
         private int maxRetries;
         private long retryDelayMs;
+        private boolean continueOnError;
+
+        // 线程池
         private ExecutorService processExecutor;
         private ExecutorService saveExecutor;
 
         // 处理函数
-        private Function<Integer, List<T>> dataFetcher;
-        private Function<T, R> dataConverter;
-        private Consumer<List<R>> dataSaver;
-        private Consumer<ProcessMetrics> progressCallback;
+        private Function<Integer, List<T>> dataFetcher;  // 数据获取函数
+        private Function<T, R> dataConverter;           // 数据转换函数
+        private Consumer<List<R>> dataSaver;           // 数据保存函数
+        private Consumer<ProcessMetrics> progressCallback; // 进度回调
+
+        // 验证器
+        private Function<T, Boolean> dataValidator;    // 数据验证函数
+        private Function<R, Boolean> resultValidator;  // 结果验证函数
     }
 
     @Data
@@ -49,15 +57,18 @@ public class StreamProcessor<T, R> {
         private long processedItems;
         private long failedItems;
         private long startTime;
-        private long endTime;
+        private Long endTime;
         private double progressPercentage;
         private Map<String, Object> customMetrics;
+        private String currentStage;
+        private String statusMessage;
     }
 
     private final ProcessorConfig<T, R> config;
     private final BlockingQueue<CompletableFuture<?>> processQueue;
     private final AtomicInteger activeProcesses;
     private final AtomicBoolean running;
+    private final AtomicReference<ProcessMetrics> currentMetrics;
     private final List<ProcessMetrics> metricsHistory;
 
     public StreamProcessor(ProcessorConfig<T, R> config) {
@@ -66,6 +77,7 @@ public class StreamProcessor<T, R> {
         this.processQueue = new ArrayBlockingQueue<>(1000);
         this.activeProcesses = new AtomicInteger(0);
         this.running = new AtomicBoolean(true);
+        this.currentMetrics = new AtomicReference<>(initializeMetrics());
         this.metricsHistory = new CopyOnWriteArrayList<>();
     }
 
@@ -73,12 +85,11 @@ public class StreamProcessor<T, R> {
      * 开始处理数据
      */
     public CompletableFuture<ProcessMetrics> process(int offset, int limit) {
-        ProcessMetrics metrics = initializeMetrics();
         CompletableFuture<ProcessMetrics> resultFuture = new CompletableFuture<>();
 
         try {
             if (activeProcesses.incrementAndGet() <= config.getMaxConcurrent()) {
-                processDataBatches(offset, limit, metrics, resultFuture);
+                processDataBatches(offset, limit, resultFuture);
             } else {
                 activeProcesses.decrementAndGet();
                 throw new RejectedExecutionException("Max concurrent processes reached");
@@ -91,25 +102,38 @@ public class StreamProcessor<T, R> {
         return resultFuture;
     }
 
-    private void processDataBatches(int offset, int limit, ProcessMetrics metrics,
-                                    CompletableFuture<ProcessMetrics> resultFuture) {
+    private void processDataBatches(
+            int offset,
+            int limit,
+            CompletableFuture<ProcessMetrics> resultFuture
+    ) {
         CompletableFuture.runAsync(() -> {
             try {
                 int processed = 0;
+                updateMetrics("FETCHING", "Starting data fetch", processed, limit);
+
                 while (running.get() && processed < limit) {
+                    // 获取一批数据
                     List<T> batch = fetchData(offset + processed);
-                    if (CollectionUtils.isEmpty(batch)) {
+                    if (batch.isEmpty()) {
                         break;
                     }
 
-                    processBatch(batch, metrics);
+                    // 处理这批数据
+                    processBatch(batch);
                     processed += batch.size();
-                    updateProgress(metrics, processed, limit);
+
+                    // 更新进度
+                    updateMetrics("PROCESSING",
+                            String.format("Processed %d/%d items", processed, limit),
+                            processed, limit);
                 }
 
-                completeProcessing(metrics, resultFuture);
+                // 完成处理
+                completeProcessing(resultFuture);
+
             } catch (Exception e) {
-                handleProcessingError(e, metrics, resultFuture);
+                handleProcessingError(e, resultFuture);
             }
         }, config.getProcessExecutor());
     }
@@ -118,38 +142,50 @@ public class StreamProcessor<T, R> {
         int retryCount = 0;
         while (retryCount <= config.getMaxRetries()) {
             try {
-                return config.getDataFetcher().apply(offset);
+                List<T> data = config.getDataFetcher().apply(offset);
+
+                // 验证数据
+                if (config.getDataValidator() != null) {
+                    data = validateData(data);
+                }
+
+                return data;
             } catch (Exception e) {
                 if (++retryCount > config.getMaxRetries()) {
                     log.error("Failed to fetch data after {} retries", config.getMaxRetries(), e);
-                    throw new RuntimeException("Data fetch failed", e);
+                    if (!config.isContinueOnError()) {
+                        throw new RuntimeException("Data fetch failed", e);
+                    }
+                    return Collections.emptyList();
                 }
                 sleep(calculateRetryDelay(retryCount));
             }
         }
-        return new ArrayList<>();
+        return Collections.emptyList();
     }
 
-    private void processBatch(List<T> batch, ProcessMetrics metrics) {
+    private void processBatch(List<T> batch) {
         List<R> convertedBatch = new ArrayList<>();
+
+        // 转换数据
         for (T item : batch) {
             try {
                 R converted = config.getDataConverter().apply(item);
-                if (converted != null) {
+                if (converted != null && (config.getResultValidator() == null ||
+                        config.getResultValidator().apply(converted))) {
                     convertedBatch.add(converted);
                 }
             } catch (Exception e) {
-                log.error("Error converting item", e);
-                metrics.setFailedItems(metrics.getFailedItems() + 1);
+                handleItemError(item, e);
             }
         }
 
         if (!convertedBatch.isEmpty()) {
-            saveBatch(convertedBatch, metrics);
+            saveBatch(convertedBatch);
         }
     }
 
-    private void saveBatch(List<R> batch, ProcessMetrics metrics) {
+    private void saveBatch(List<R> batch) {
         int retryCount = 0;
         while (retryCount <= config.getMaxRetries()) {
             try {
@@ -163,12 +199,26 @@ public class StreamProcessor<T, R> {
             } catch (Exception e) {
                 if (++retryCount > config.getMaxRetries()) {
                     log.error("Failed to save batch after {} retries", config.getMaxRetries(), e);
-                    metrics.setFailedItems(metrics.getFailedItems() + batch.size());
-                    throw new RuntimeException("Batch save failed", e);
+                    if (!config.isContinueOnError()) {
+                        throw new RuntimeException("Batch save failed", e);
+                    }
                 }
                 sleep(calculateRetryDelay(retryCount));
             }
         }
+    }
+
+    private List<T> validateData(List<T> data) {
+        return data.stream()
+                .filter(item -> {
+                    try {
+                        return config.getDataValidator().apply(item);
+                    } catch (Exception e) {
+                        log.warn("Data validation failed for item: {}", item, e);
+                        return false;
+                    }
+                })
+                .toList();
     }
 
     private void cleanupCompletedTasks() {
@@ -194,37 +244,48 @@ public class StreamProcessor<T, R> {
                 .processedItems(0)
                 .failedItems(0)
                 .progressPercentage(0.0)
+                .customMetrics(new ConcurrentHashMap<>())
                 .build();
     }
 
-    private void updateProgress(ProcessMetrics metrics, long processed, long total) {
+    private void updateMetrics(String stage, String message, long processed, long total) {
+        ProcessMetrics metrics = currentMetrics.get();
+        metrics.setCurrentStage(stage);
+        metrics.setStatusMessage(message);
         metrics.setProcessedItems(processed);
         metrics.setTotalItems(total);
-        metrics.setProgressPercentage((double) processed / total * 100);
+        metrics.setProgressPercentage(total > 0 ? (processed * 100.0) / total : 0.0);
 
         if (config.getProgressCallback() != null) {
             config.getProgressCallback().accept(metrics);
         }
     }
 
-    private void completeProcessing(ProcessMetrics metrics, CompletableFuture<ProcessMetrics> resultFuture) {
+    private void handleItemError(T item, Exception e) {
+        ProcessMetrics metrics = currentMetrics.get();
+        metrics.setFailedItems(metrics.getFailedItems() + 1);
+        log.error("Error processing item: {}", item, e);
+    }
+
+    private void completeProcessing(CompletableFuture<ProcessMetrics> resultFuture) {
+        ProcessMetrics metrics = currentMetrics.get();
         metrics.setEndTime(System.currentTimeMillis());
         metricsHistory.add(metrics);
         activeProcesses.decrementAndGet();
         resultFuture.complete(metrics);
     }
 
-    private void handleProcessingError(Exception e, ProcessMetrics metrics,
-                                       CompletableFuture<ProcessMetrics> resultFuture) {
-        log.error("Error processing data", e);
+    private void handleProcessingError(Exception e, CompletableFuture<ProcessMetrics> resultFuture) {
+        ProcessMetrics metrics = currentMetrics.get();
         metrics.setEndTime(System.currentTimeMillis());
+        metrics.setStatusMessage("Error: " + e.getMessage());
         metricsHistory.add(metrics);
         activeProcesses.decrementAndGet();
         resultFuture.completeExceptionally(e);
     }
 
     private long calculateRetryDelay(int retryCount) {
-        return config.getRetryDelayMs() * (long) Math.pow(2, retryCount - 1);
+        return config.getRetryDelayMs() * (long)Math.pow(2, retryCount - 1);
     }
 
     private void sleep(long millis) {
@@ -237,90 +298,45 @@ public class StreamProcessor<T, R> {
     }
 
     private void validateConfig(ProcessorConfig<T, R> config) {
-        if (config.getDataFetcher() == null) {
-            throw new IllegalArgumentException("DataFetcher cannot be null");
-        }
-        if (config.getDataConverter() == null) {
-            throw new IllegalArgumentException("DataConverter cannot be null");
-        }
-        if (config.getDataSaver() == null) {
-            throw new IllegalArgumentException("DataSaver cannot be null");
-        }
-        if (config.getProcessExecutor() == null) {
-            throw new IllegalArgumentException("ProcessExecutor cannot be null");
-        }
-        if (config.getSaveExecutor() == null) {
-            throw new IllegalArgumentException("SaveExecutor cannot be null");
-        }
+        Objects.requireNonNull(config.getDataFetcher(), "DataFetcher cannot be null");
+        Objects.requireNonNull(config.getDataConverter(), "DataConverter cannot be null");
+        Objects.requireNonNull(config.getDataSaver(), "DataSaver cannot be null");
+        Objects.requireNonNull(config.getProcessExecutor(), "ProcessExecutor cannot be null");
+        Objects.requireNonNull(config.getSaveExecutor(), "SaveExecutor cannot be null");
     }
 
-    /**
-     * 暂停处理
-     */
+    // 公共方法
     public void pause() {
         running.set(false);
     }
 
-    /**
-     * 恢复处理
-     */
     public void resume() {
         running.set(true);
     }
 
-    /**
-     * 停止处理
-     */
     public void shutdown() {
         running.set(false);
-        config.getProcessExecutor().shutdown();
-        config.getSaveExecutor().shutdown();
-        try {
-            if (!config.getProcessExecutor().awaitTermination(30, TimeUnit.SECONDS)) {
-                config.getProcessExecutor().shutdownNow();
-            }
-            if (!config.getSaveExecutor().awaitTermination(30, TimeUnit.SECONDS)) {
-                config.getSaveExecutor().shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            config.getProcessExecutor().shutdownNow();
-            config.getSaveExecutor().shutdownNow();
-        }
+        processQueue.clear();
+        activeProcesses.set(0);
     }
 
-    /**
-     * 获取处理指标历史
-     */
     public List<ProcessMetrics> getMetricsHistory() {
         return new ArrayList<>(metricsHistory);
     }
 
-    /**
-     * 获取当前活动处理数
-     */
-    public int getActiveProcessCount() {
-        return activeProcesses.get();
+    public ProcessMetrics getCurrentMetrics() {
+        return currentMetrics.get();
     }
 
-    /**
-     * 获取处理队列大小
-     */
-    public int getQueueSize() {
-        return processQueue.size();
-    }
-
-    /**
-     * 是否正在运行
-     */
     public boolean isRunning() {
         return running.get();
     }
 
-    /**
-     * 清除历史指标
-     */
-    public void clearMetricsHistory() {
-        metricsHistory.clear();
+    public int getActiveProcessCount() {
+        return activeProcesses.get();
+    }
+
+    public int getQueueSize() {
+        return processQueue.size();
     }
 }

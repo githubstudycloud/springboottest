@@ -1,139 +1,149 @@
 package com.study.collect.business.testcase.core.manager;
 
 import com.study.collect.business.testcase.common.constants.CollectionConstants;
+import com.study.collect.business.testcase.config.TestCaseCollectorProperties;
+import io.micrometer.core.instrument.MeterRegistry;
+import lombok.Builder;
+import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PreDestroy;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
+/**
+ * 队列管理器
+ */
 @Slf4j
 @Component
 public class QueueManager {
-    private final ThreadPoolTaskExecutor taskExecutor;
-    private final PriorityBlockingQueue<QueueItem<?>> taskQueue;
-    private final ConcurrentHashMap<String, QueueItem<?>> taskMap;
+
+    private final Map<String, PriorityBlockingQueue<QueueItem<?>>> typeQueues;
+    private final ConcurrentHashMap<String, QueueItem<?>> itemMap;
     private final ScheduledExecutorService scheduledExecutor;
+    private final ThreadPoolTaskExecutor processorExecutor;
+    private final MeterRegistry meterRegistry;
+    private final int maxQueueSize;
     private volatile boolean running = true;
+    private final AtomicInteger activeProcesses = new AtomicInteger(0);
 
     /**
-     * 队列项状态枚举
+     * 队列项状态
      */
-    public enum QueueItemStatus {
-        QUEUED,         // 已入队
-        PROCESSING,     // 处理中
-        COMPLETED,      // 已完成
-        CANCELLED,      // 已取消
-        ERROR,          // 错误
-        RETRY_WAIT     // 等待重试
+    public enum ItemStatus {
+        QUEUED,
+        PROCESSING,
+        COMPLETED,
+        CANCELLED,
+        ERROR,
+        RETRY_WAIT
     }
 
     /**
-     * 队列项定义
+     * 队列项信息
      */
+    @Data
+    @Builder
     private static class QueueItem<T> {
-        final String taskId;
-        final T task;
-        volatile int priority;
-        final CompletableFuture<Void> future;
-        final Consumer<T> processor;
-        final LocalDateTime createTime;
-        volatile QueueItemStatus status;
-        volatile String statusMessage;
-        volatile double progress;
-        volatile LocalDateTime startTime;
-        volatile LocalDateTime endTime;
-        volatile int retryCount;
-        final Map<String, Object> attributes;
-
-        QueueItem(String taskId, T task, int priority, Consumer<T> processor) {
-            this.taskId = taskId;
-            this.task = task;
-            this.priority = priority;
-            this.processor = processor;
-            this.future = new CompletableFuture<>();
-            this.createTime = LocalDateTime.now();
-            this.status = QueueItemStatus.QUEUED;
-            this.progress = 0.0;
-            this.retryCount = 0;
-            this.attributes = new ConcurrentHashMap<>();
-        }
-
-        boolean shouldRetry() {
-            return retryCount < CollectionConstants.Http.MAX_RETRY;
-        }
+        private final String itemId;
+        private final String type;
+        private final T item;
+        private volatile int priority;
+        private final CompletableFuture<Void> future;
+        private final Consumer<T> processor;
+        private final LocalDateTime createTime;
+        private LocalDateTime startTime;
+        private LocalDateTime endTime;
+        private volatile ItemStatus status;
+        private String statusMessage;
+        private Double progress;
+        private int retryCount;
+        private LocalDateTime lastRetryTime;
+        private Map<String, Object> attributes;
+        private Long timeoutSeconds;
+        private ScheduledFuture<?> timeoutFuture;
     }
 
-    public QueueManager(@Qualifier("taskExecutor") ThreadPoolTaskExecutor taskExecutor) {
-        this.taskExecutor = taskExecutor;
-        this.taskQueue = new PriorityBlockingQueue<>(
-                CollectionConstants.Process.TASK_QUEUE_CAPACITY,
-                Comparator.<QueueItem<?>>comparingInt(item -> item.priority)
-                        .reversed()
-                        .thenComparing(item -> item.createTime)
-        );
-        this.taskMap = new ConcurrentHashMap<>();
-        this.scheduledExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
-            Thread thread = new Thread(r);
-            thread.setName("queue-monitor");
-            thread.setDaemon(true);
-            return thread;
-        });
+    public QueueManager(
+            ScheduledExecutorService scheduledExecutor,
+            ThreadPoolTaskExecutor processorExecutor,
+            MeterRegistry meterRegistry,
+            TestCaseCollectorProperties properties
+    ) {
+        this.typeQueues = new ConcurrentHashMap<>();
+        this.itemMap = new ConcurrentHashMap<>();
+        this.scheduledExecutor = scheduledExecutor;
+        this.processorExecutor = processorExecutor;
+        this.meterRegistry = meterRegistry;
+        this.maxQueueSize = properties.getTask().getQueueCapacity();
 
-        startQueueProcessor();
-        startQueueMonitor();
+        // 启动监控和清理任务
+        startMonitoring();
+        startCleanupTask();
+        registerMetrics();
     }
 
     /**
-     * 添加任务到队列
+     * 入队
      */
     public <T> CompletableFuture<Void> enqueue(
-            String taskId,
-            T task,
+            String type,
+            T item,
             int priority,
-            Consumer<T> processor
+            Consumer<T> processor,
+            Long timeoutSeconds
     ) {
-        QueueItem<T> item = new QueueItem<>(taskId, task, priority, processor);
-        if (taskMap.putIfAbsent(taskId, item) != null) {
-            throw new IllegalStateException("Task " + taskId + " already exists");
-        }
-        taskQueue.offer(item);
-        log.info("Task {} added to queue with priority {}", taskId, priority);
-        return item.future;
-    }
+        validateQueueCapacity();
+        String itemId = generateItemId();
 
-    /**
-     * 更新任务优先级
-     */
-    public boolean updatePriority(String taskId, int newPriority) {
-        QueueItem<?> item = taskMap.get(taskId);
-        if (item != null && item.status == QueueItemStatus.QUEUED) {
-            item.priority = newPriority;
-            refreshQueue();
-            log.info("Updated priority for task {} to {}", taskId, newPriority);
-            return true;
+        QueueItem<T> queueItem = QueueItem.<T>builder()
+                .itemId(itemId)
+                .type(type)
+                .item(item)
+                .priority(priority)
+                .future(new CompletableFuture<>())
+                .processor(processor)
+                .createTime(LocalDateTime.now())
+                .status(ItemStatus.QUEUED)
+                .progress(0.0)
+                .retryCount(0)
+                .attributes(new ConcurrentHashMap<>())
+                .timeoutSeconds(timeoutSeconds)
+                .build();
+
+        if (itemMap.putIfAbsent(itemId, queueItem) != null) {
+            throw new IllegalStateException("Item " + itemId + " already exists");
         }
-        return false;
+
+        getOrCreateQueue(type).offer(queueItem);
+        scheduleTimeout(queueItem);
+
+        // 启动处理
+        processNextItem(type);
+
+        return queueItem.getFuture();
     }
 
     /**
      * 取消任务
      */
-    public boolean cancel(String taskId) {
-        QueueItem<?> item = taskMap.get(taskId);
-        if (item != null && (item.status == QueueItemStatus.QUEUED ||
-                item.status == QueueItemStatus.RETRY_WAIT)) {
-            if (taskQueue.remove(item)) {
-                item.status = QueueItemStatus.CANCELLED;
-                item.endTime = LocalDateTime.now();
-                item.future.cancel(true);
-                taskMap.remove(taskId);
-                log.info("Task {} cancelled", taskId);
+    public boolean cancel(String itemId) {
+        QueueItem<?> item = itemMap.get(itemId);
+        if (item != null && canCancel(item.getStatus())) {
+            PriorityBlockingQueue<QueueItem<?>> queue = typeQueues.get(item.getType());
+            if (queue != null && queue.remove(item)) {
+                item.setStatus(ItemStatus.CANCELLED);
+                item.setEndTime(LocalDateTime.now());
+                item.getFuture().cancel(true);
+                cancelTimeout(item);
+                itemMap.remove(itemId);
                 return true;
             }
         }
@@ -141,152 +151,267 @@ public class QueueManager {
     }
 
     /**
-     * 获取任务状态
+     * 更新优先级
      */
-    public Map<String, Object> getTaskStatus(String taskId) {
-        QueueItem<?> item = taskMap.get(taskId);
+    public boolean updatePriority(String itemId, int newPriority) {
+        QueueItem<?> item = itemMap.get(itemId);
+        if (item != null && item.getStatus() == ItemStatus.QUEUED) {
+            PriorityBlockingQueue<QueueItem<?>> queue = typeQueues.get(item.getType());
+            if (queue != null && queue.remove(item)) {
+                item.setPriority(newPriority);
+                queue.offer(item);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 获取队列状态
+     */
+    public Map<String, Object> getQueueStatus(String itemId) {
+        QueueItem<?> item = itemMap.get(itemId);
         if (item != null) {
             Map<String, Object> status = new HashMap<>();
-            status.put("taskId", item.taskId);
-            status.put("status", item.status);
-            status.put("statusMessage", item.statusMessage);
-            status.put("progress", item.progress);
-            status.put("createTime", item.createTime);
-            status.put("startTime", item.startTime);
-            status.put("endTime", item.endTime);
-            status.put("priority", item.priority);
-            status.put("retryCount", item.retryCount);
-            status.put("attributes", new HashMap<>(item.attributes));
+            status.put("itemId", item.getItemId());
+            status.put("type", item.getType());
+            status.put("status", item.getStatus());
+            status.put("statusMessage", item.getStatusMessage());
+            status.put("progress", item.getProgress());
+            status.put("createTime", item.getCreateTime());
+            status.put("startTime", item.getStartTime());
+            status.put("endTime", item.getEndTime());
+            status.put("priority", item.getPriority());
+            status.put("retryCount", item.getRetryCount());
+            status.put("attributes", new HashMap<>(item.getAttributes()));
             return status;
         }
         return null;
     }
 
-    /**
-     * 启动队列处理器
-     */
-    private void startQueueProcessor() {
-        int processorCount = Runtime.getRuntime().availableProcessors();
-        for (int i = 0; i < processorCount; i++) {
-            taskExecutor.execute(new QueueProcessor());
+    private void processNextItem(String type) {
+        PriorityBlockingQueue<QueueItem<?>> queue = typeQueues.get(type);
+        if (queue == null || queue.isEmpty()) {
+            return;
         }
-    }
 
-    private class QueueProcessor implements Runnable {
-        @Override
-        public void run() {
-            while (running) {
-                try {
-                    QueueItem<?> item = taskQueue.poll(1, TimeUnit.SECONDS);
-                    if (item != null) {
-                        processItem(item);
-                    }
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    break;
-                } catch (Exception e) {
-                    log.error("Error in queue processor", e);
+        processorExecutor.execute(() -> {
+            while (running && activeProcesses.get() < processorExecutor.getMaxPoolSize()) {
+                QueueItem<?> item = queue.poll();
+                if (item == null) break;
+
+                if (item.getStatus() == ItemStatus.QUEUED) {
+                    processItem(item);
                 }
             }
-        }
-    }
-
-    private void processItem(QueueItem<?> item) {
-        try {
-            item.status = QueueItemStatus.PROCESSING;
-            item.startTime = LocalDateTime.now();
-
-            processTypedItem(item);
-
-            item.status = QueueItemStatus.COMPLETED;
-            item.progress = 100.0;
-            item.endTime = LocalDateTime.now();
-            item.future.complete(null);
-        } catch (Exception e) {
-            handleProcessingError(item, e);
-        } finally {
-            if (item.status != QueueItemStatus.RETRY_WAIT) {
-                taskMap.remove(item.taskId);
-            }
-        }
+        });
     }
 
     @SuppressWarnings("unchecked")
-    private <T> void processTypedItem(QueueItem<T> item) {
-        item.processor.accept(item.task);
-    }
+    private <T> void processItem(QueueItem<T> item) {
+        if (!running) return;
 
-    private void handleProcessingError(QueueItem<?> item, Exception e) {
-        log.error("Error processing task: {}", item.taskId, e);
-        if (item.shouldRetry()) {
-            scheduleRetry(item);
-        } else {
-            item.status = QueueItemStatus.ERROR;
-            item.statusMessage = e.getMessage();
-            item.endTime = LocalDateTime.now();
-            item.future.completeExceptionally(e);
+        try {
+            activeProcesses.incrementAndGet();
+            item.setStatus(ItemStatus.PROCESSING);
+            item.setStartTime(LocalDateTime.now());
+
+            CompletableFuture.runAsync(() -> {
+                try {
+                    item.getProcessor().accept(item.getItem());
+                    completeItem(item, true, null);
+                } catch (Exception e) {
+                    handleProcessingError(item, e);
+                }
+            }, processorExecutor).exceptionally(throwable -> {
+                handleProcessingError(item, throwable);
+                return null;
+            });
+
+        } finally {
+            activeProcesses.decrementAndGet();
         }
     }
 
-    private void scheduleRetry(QueueItem<?> item) {
-        item.status = QueueItemStatus.RETRY_WAIT;
-        item.retryCount++;
-        long delay = CollectionConstants.Http.RETRY_INTERVAL * (1L << (item.retryCount - 1));
+    private <T> void completeItem(QueueItem<T> item, boolean success, Throwable error) {
+        if (success) {
+            item.setStatus(ItemStatus.COMPLETED);
+            item.getFuture().complete(null);
+        } else {
+            item.setStatus(ItemStatus.ERROR);
+            item.getFuture().completeExceptionally(error);
+        }
+
+        item.setEndTime(LocalDateTime.now());
+        cancelTimeout(item);
+
+        // 处理下一个任务
+        processNextItem(item.getType());
+    }
+
+    private <T> void handleProcessingError(QueueItem<T> item, Throwable error) {
+        log.error("Error processing item: {}", item.getItemId(), error);
+
+        if (canRetry(item)) {
+            scheduleRetry(item);
+        } else {
+            completeItem(item, false, error);
+        }
+    }
+
+    private <T> void scheduleRetry(QueueItem<T> item) {
+        item.setStatus(ItemStatus.RETRY_WAIT);
+        item.setRetryCount(item.getRetryCount() + 1);
+        item.setLastRetryTime(LocalDateTime.now());
+
+        long delay = calculateRetryDelay(item.getRetryCount());
         scheduledExecutor.schedule(() -> {
-            if (item.status == QueueItemStatus.RETRY_WAIT) {
-                item.status = QueueItemStatus.QUEUED;
-                taskQueue.offer(item);
+            if (item.getStatus() == ItemStatus.RETRY_WAIT) {
+                item.setStatus(ItemStatus.QUEUED);
+                getOrCreateQueue(item.getType()).offer(item);
+                processNextItem(item.getType());
             }
         }, delay, TimeUnit.MILLISECONDS);
     }
 
-    /**
-     * 启动队列监控
-     */
-    private void startQueueMonitor() {
-        scheduledExecutor.scheduleAtFixedRate(() -> {
-            try {
-                monitorQueueHealth();
-                cleanupCompletedTasks();
-            } catch (Exception e) {
-                log.error("Error in queue monitor", e);
+    private <T> void scheduleTimeout(QueueItem<T> item) {
+        if (item.getTimeoutSeconds() != null && item.getTimeoutSeconds() > 0) {
+            item.setTimeoutFuture(scheduledExecutor.schedule(() -> {
+                if (!isTerminalStatus(item.getStatus())) {
+                    completeItem(item, false,
+                            new TimeoutException("Item processing timed out after " +
+                                    item.getTimeoutSeconds() + " seconds"));
+                }
+            }, item.getTimeoutSeconds(), TimeUnit.SECONDS));
+        }
+    }
+
+    private <T> void cancelTimeout(QueueItem<T> item) {
+        if (item.getTimeoutFuture() != null) {
+            item.getTimeoutFuture().cancel(false);
+        }
+    }
+
+    private PriorityBlockingQueue<QueueItem<?>> getOrCreateQueue(String type) {
+        return typeQueues.computeIfAbsent(type, k -> new PriorityBlockingQueue<>(
+                maxQueueSize,
+                Comparator.<QueueItem<?>>comparingInt(i -> i.priority).reversed()
+                        .thenComparing(i -> i.createTime)
+        ));
+    }
+
+    private void startMonitoring() {
+        scheduledExecutor.scheduleAtFixedRate(this::monitorQueues,
+                1, 1, TimeUnit.MINUTES);
+    }
+
+    private void startCleanupTask() {
+        scheduledExecutor.scheduleAtFixedRate(this::cleanup,
+                1, 1, TimeUnit.HOURS);
+    }
+
+    private void registerMetrics() {
+        meterRegistry.gauge("queue.total_items", itemMap, Map::size);
+        meterRegistry.gauge("queue.active_processes", activeProcesses);
+        typeQueues.forEach((type, queue) ->
+                meterRegistry.gauge("queue.size." + type, queue, Queue::size));
+    }
+
+    private void monitorQueues() {
+        if (!running) return;
+
+        try {
+            Map<String, Map<ItemStatus, Long>> statusCounts = new HashMap<>();
+            Map<String, List<String>> stuckItems = new HashMap<>();
+
+            LocalDateTime threshold = LocalDateTime.now().minusMinutes(30);
+
+            itemMap.values().forEach(item -> {
+                // 统计状态
+                statusCounts.computeIfAbsent(item.getType(), k -> new HashMap<>())
+                        .merge(item.getStatus(), 1L, Long::sum);
+
+                // 检查卡住的项
+                if (item.getStatus() == ItemStatus.PROCESSING &&
+                        item.getStartTime().isBefore(threshold)) {
+                    stuckItems.computeIfAbsent(item.getType(), k -> new ArrayList<>())
+                            .add(item.getItemId());
+                }
+            });
+
+            log.info("Queue status: {}", statusCounts);
+            if (!stuckItems.isEmpty()) {
+                log.warn("Stuck items detected: {}", stuckItems);
             }
-        }, 1, 1, TimeUnit.MINUTES);
+
+        } catch (Exception e) {
+            log.error("Error monitoring queues", e);
+        }
     }
 
-    private void monitorQueueHealth() {
-        int queueSize = taskQueue.size();
-        int activeTaskCount = (int) taskMap.values().stream()
-                .filter(item -> item.status == QueueItemStatus.PROCESSING)
-                .count();
+    private void cleanup() {
+        if (!running) return;
 
-        log.info("Queue status - Size: {}, Active tasks: {}", queueSize, activeTaskCount);
-
-        LocalDateTime threshold = LocalDateTime.now().minusHours(1);
-        taskMap.values().stream()
-                .filter(item -> item.status == QueueItemStatus.QUEUED &&
-                        item.createTime.isBefore(threshold))
-                .forEach(item ->
-                        log.warn("Task {} has been queued for more than 1 hour", item.taskId)
-                );
+        try {
+            LocalDateTime cutoff = LocalDateTime.now().minusHours(24);
+            itemMap.entrySet().removeIf(entry -> {
+                QueueItem<?> item = entry.getValue();
+                return isTerminalStatus(item.getStatus()) &&
+                        item.getEndTime() != null &&
+                        item.getEndTime().isBefore(cutoff);
+            });
+        } catch (Exception e) {
+            log.error("Error during cleanup", e);
+        }
     }
 
-    private void cleanupCompletedTasks() {
-        LocalDateTime threshold = LocalDateTime.now().minusHours(24);
-        taskMap.entrySet().removeIf(entry -> {
-            QueueItem<?> item = entry.getValue();
-            return (item.status == QueueItemStatus.COMPLETED ||
-                    item.status == QueueItemStatus.ERROR ||
-                    item.status == QueueItemStatus.CANCELLED) &&
-                    item.endTime != null &&
-                    item.endTime.isBefore(threshold);
+    private String generateItemId() {
+        return UUID.randomUUID().toString();
+    }
+
+    private void validateQueueCapacity() {
+        if (itemMap.size() >= maxQueueSize) {
+            throw new IllegalStateException("Queue capacity exceeded");
+        }
+    }
+
+    private boolean canCancel(ItemStatus status) {
+        return status == ItemStatus.QUEUED || status == ItemStatus.RETRY_WAIT;
+    }
+
+    private boolean canRetry(QueueItem<?> item) {
+        return item.getRetryCount() < CollectionConstants.Http.MAX_RETRY;
+    }
+
+    private boolean isTerminalStatus(ItemStatus status) {
+        return status == ItemStatus.COMPLETED ||
+                status == ItemStatus.CANCELLED ||
+                status == ItemStatus.ERROR;
+    }
+
+    private long calculateRetryDelay(int retryCount) {
+        return CollectionConstants.Http.RETRY_INTERVAL * (long)Math.pow(2, retryCount - 1);
+    }
+
+    @PreDestroy
+    public void shutdown() {
+        running = false;
+        processorExecutor.shutdown();
+        clearQueues();
+    }
+
+    private void clearQueues() {
+        itemMap.values().forEach(item -> {
+            if (!isTerminalStatus(item.getStatus())) {
+                item.setStatus(ItemStatus.CANCELLED);
+                item.setEndTime(LocalDateTime.now());
+                item.getFuture().cancel(true);
+                cancelTimeout(item);
+            }
         });
-    }
 
-    private void refreshQueue() {
-        List<QueueItem<?>> items = new ArrayList<>();
-        taskQueue.drainTo(items);
-        taskQueue.addAll(items);
+        typeQueues.clear();
+        itemMap.clear();
     }
 
     /**
@@ -294,95 +419,24 @@ public class QueueManager {
      */
     public Map<String, Object> getQueueStats() {
         Map<String, Object> stats = new HashMap<>();
-        stats.put("queueSize", taskQueue.size());
-        stats.put("activeTaskCount", getActiveTaskCount());
-        stats.put("totalTaskCount", taskMap.size());
 
-        Map<QueueItemStatus, Long> statusCounts = new HashMap<>();
-        taskMap.values().forEach(item ->
-                statusCounts.merge(item.status, 1L, Long::sum)
-        );
+        // 队列大小统计
+        Map<String, Integer> queueSizes = new HashMap<>();
+        typeQueues.forEach((type, queue) ->
+                queueSizes.put(type, queue.size()));
+
+        // 状态统计
+        Map<ItemStatus, Long> statusCounts = itemMap.values().stream()
+                .collect(Collectors.groupingBy(
+                        QueueItem::getStatus,
+                        Collectors.counting()
+                ));
+
+        stats.put("queueSizes", queueSizes);
         stats.put("statusCounts", statusCounts);
+        stats.put("totalItems", itemMap.size());
+        stats.put("activeProcesses", activeProcesses.get());
 
         return stats;
-    }
-
-    /**
-     * 获取队列大小
-     */
-    public int getQueueSize() {
-        return taskQueue.size();
-    }
-
-    /**
-     * 获取活动任务数
-     */
-    public int getActiveTaskCount() {
-        return (int) taskMap.values().stream()
-                .filter(item -> item.status == QueueItemStatus.PROCESSING)
-                .count();
-    }
-
-    /**
-     * 更新任务进度
-     */
-    public void updateTaskProgress(String taskId, double progress, String message) {
-        QueueItem<?> item = taskMap.get(taskId);
-        if (item != null) {
-            item.progress = progress;
-            item.statusMessage = message;
-        }
-    }
-
-    /**
-     * 暂停队列处理
-     */
-    public void pause() {
-        running = false;
-    }
-
-    /**
-     * 恢复队列处理
-     */
-    public void resume() {
-        running = true;
-        startQueueProcessor();
-    }
-
-    /**
-     * 设置任务属性
-     */
-    public void setTaskAttribute(String taskId, String key, Object value) {
-        QueueItem<?> item = taskMap.get(taskId);
-        if (item != null) {
-            item.attributes.put(key, value);
-        }
-    }
-
-    @PreDestroy
-    public void shutdown() {
-        running = false;
-        scheduledExecutor.shutdown();
-        try {
-            if (!scheduledExecutor.awaitTermination(60, TimeUnit.SECONDS)) {
-                scheduledExecutor.shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            scheduledExecutor.shutdownNow();
-            Thread.currentThread().interrupt();
-        }
-
-        taskMap.values().forEach(item -> {
-            if (item.status == QueueItemStatus.QUEUED ||
-                    item.status == QueueItemStatus.PROCESSING ||
-                    item.status == QueueItemStatus.RETRY_WAIT) {
-                item.status = QueueItemStatus.CANCELLED;
-                item.endTime = LocalDateTime.now();
-                item.future.cancel(true);
-            }
-        });
-
-        taskQueue.clear();
-        taskMap.clear();
     }
 }
