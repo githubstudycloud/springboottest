@@ -1,10 +1,11 @@
 package com.study.collect.business.testcase.service.impl;
 
-
 import com.study.collect.business.testcase.core.executor.CollectExecutor;
 import com.study.collect.business.testcase.core.executor.DeleteExecutor;
 import com.study.collect.business.testcase.core.manager.QueueManager;
 import com.study.collect.business.testcase.core.manager.TaskManager;
+import com.study.collect.business.testcase.core.processor.CollectProcessor;
+import com.study.collect.business.testcase.core.processor.DeleteProcessor;
 import com.study.collect.business.testcase.entity.UriEntity;
 import com.study.collect.business.testcase.model.param.CollectParam;
 import com.study.collect.business.testcase.model.param.DeleteParam;
@@ -13,7 +14,6 @@ import com.study.collect.business.testcase.model.response.AsyncResponse;
 import com.study.collect.business.testcase.model.response.TaskResponse;
 import com.study.collect.business.testcase.repository.UriRepository;
 import com.study.collect.business.testcase.service.UriCollectService;
-import com.study.collect.business.testcase.service.http.UriHttpService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -21,10 +21,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -35,8 +32,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class UriCollectServiceImpl implements UriCollectService {
 
-    private final UriHttpService httpService;
     private final UriRepository repository;
+    private final CollectProcessor collectProcessor;
+    private final DeleteProcessor deleteProcessor;
     private final CollectExecutor collectExecutor;
     private final DeleteExecutor deleteExecutor;
     private final TaskManager taskManager;
@@ -45,34 +43,35 @@ public class UriCollectServiceImpl implements UriCollectService {
 
     @Override
     public AsyncResponse<String> collectData(CollectParam param) {
-        // 1. 创建任务
-        Map<String, Object> taskParams = new HashMap<>();
-        taskParams.put("rootNode", param.getRootNode());
-        taskParams.put("serverUri", param.getServerUri());
-        taskParams.put("version", param.getVersion());
-        taskParams.put("incremental", param.getIncremental());
+        try {
+            // 1. 创建任务
+            Map<String, Object> taskParams = buildTaskParams(param);
+            TaskResponse task = taskManager.createTask("COLLECT", taskParams, param.getPriority());
+            String taskId = task.getTaskId();
+            param.setTaskId(taskId);
 
-        TaskResponse task = taskManager.createTask("COLLECT", taskParams, param.getPriority());
-        String taskId = task.getTaskId();
-        param.setTaskId(taskId);
+            // 2. 将任务加入队列
+            queueManager.enqueue(
+                    taskId,
+                    param,
+                    param.getPriority(),
+                    this::processCollectTask
+            ).exceptionally(throwable -> {
+                handleTaskError(taskId, "Collection queuing failed", throwable);
+                return null;
+            });
 
-        // 2. 将任务加入队列
-        queueManager.enqueue(
-                taskId,
-                param,
-                param.getPriority(),
-                this::processCollectTask
-        ).exceptionally(throwable -> {
-            taskManager.updateTaskStatus(taskId, "ERROR", throwable.getMessage());
-            return null;
-        });
+            // 3. 返回异步响应
+            return AsyncResponse.<String>builder()
+                    .taskId(taskId)
+                    .status("QUEUED")
+                    .message("Data collection task queued successfully")
+                    .build();
 
-        // 3. 返回异步响应
-        return AsyncResponse.<String>builder()
-                .taskId(taskId)
-                .status("QUEUED")
-                .message("Data collection task queued successfully")
-                .build();
+        } catch (Exception e) {
+            log.error("Failed to initiate collection task", e);
+            throw new RuntimeException("Failed to start collection task", e);
+        }
     }
 
     private void processCollectTask(CollectParam param) {
@@ -81,27 +80,23 @@ public class UriCollectServiceImpl implements UriCollectService {
             taskManager.updateTaskStatus(taskId, "PROCESSING", "Starting data collection");
 
             // 1. 执行采集
-            collectExecutor.execute(param, metrics -> {
-                taskManager.updateTaskProgress(
-                        taskId,
-                        metrics.getProcessedItems(),
-                        metrics.getTotalItems()
-                );
-            }).thenAccept(metrics -> {
-                // 2. 如果是增量同步，执行清理
-                if (param.getIncremental()) {
-                    cleanupIncrementalData(param, taskId);
-                }
+            collectProcessor.process(param)
+                    .thenAccept(result -> {
+                        // 2. 如果是增量同步，执行清理
+                        if (param.getIncremental()) {
+                            cleanupIncrementalData(param, taskId);
+                        }
 
-                taskManager.updateTaskStatus(
-                        taskId,
-                        "COMPLETED",
-                        String.format("Processed %d URIs", metrics.getProcessedItems())
-                );
-            }).exceptionally(throwable -> {
-                handleTaskError(taskId, "Collection failed", throwable);
-                return null;
-            });
+                        taskManager.updateTaskStatus(
+                                taskId,
+                                "COMPLETED",
+                                String.format("Processed %d URIs", result)
+                        );
+                    })
+                    .exceptionally(throwable -> {
+                        handleTaskError(taskId, "Collection failed", throwable);
+                        return null;
+                    });
 
         } catch (Exception e) {
             handleTaskError(taskId, "Task processing failed", e);
@@ -137,33 +132,35 @@ public class UriCollectServiceImpl implements UriCollectService {
 
     @Override
     public AsyncResponse<Long> deleteData(DeleteParam param) {
-        // 1. 创建任务
-        Map<String, Object> taskParams = new HashMap<>();
-        taskParams.put("rootNode", param.getRootNode());
-        taskParams.put("urisCount", param.getUris().size());
-        taskParams.put("hardDelete", param.getHardDelete());
+        try {
+            // 1. 创建任务
+            Map<String, Object> taskParams = buildDeleteTaskParams(param);
+            TaskResponse task = taskManager.createTask("DELETE", taskParams, param.getPriority());
+            String taskId = task.getTaskId();
+            param.setTaskId(taskId);
 
-        TaskResponse task = taskManager.createTask("DELETE", taskParams, param.getPriority());
-        String taskId = task.getTaskId();
-        param.setTaskId(taskId);
+            // 2. 将任务加入队列
+            queueManager.enqueue(
+                    taskId,
+                    param,
+                    param.getPriority(),
+                    this::processDeleteTask
+            ).exceptionally(throwable -> {
+                handleTaskError(taskId, "Delete queuing failed", throwable);
+                return null;
+            });
 
-        // 2. 将任务加入队列
-        queueManager.enqueue(
-                taskId,
-                param,
-                param.getPriority(),
-                this::processDeleteTask
-        ).exceptionally(throwable -> {
-            taskManager.updateTaskStatus(taskId, "ERROR", throwable.getMessage());
-            return null;
-        });
+            // 3. 返回异步响应
+            return AsyncResponse.<Long>builder()
+                    .taskId(taskId)
+                    .status("QUEUED")
+                    .message("Delete task queued successfully")
+                    .build();
 
-        // 3. 返回异步响应
-        return AsyncResponse.<Long>builder()
-                .taskId(taskId)
-                .status("QUEUED")
-                .message("Delete task queued successfully")
-                .build();
+        } catch (Exception e) {
+            log.error("Failed to initiate delete task", e);
+            throw new RuntimeException("Failed to start delete task", e);
+        }
     }
 
     private void processDeleteTask(DeleteParam param) {
@@ -171,22 +168,18 @@ public class UriCollectServiceImpl implements UriCollectService {
         try {
             taskManager.updateTaskStatus(taskId, "PROCESSING", "Starting data deletion");
 
-            deleteExecutor.execute(param, metrics -> {
-                taskManager.updateTaskProgress(
-                        taskId,
-                        metrics.getProcessedItems(),
-                        metrics.getTotalItems()
-                );
-            }).thenAccept(metrics -> {
-                taskManager.updateTaskStatus(
-                        taskId,
-                        "COMPLETED",
-                        String.format("Deleted %d URIs", metrics.getProcessedItems())
-                );
-            }).exceptionally(throwable -> {
-                handleTaskError(taskId, "Deletion failed", throwable);
-                return null;
-            });
+            deleteProcessor.process(param)
+                    .thenAccept(result -> {
+                        taskManager.updateTaskStatus(
+                                taskId,
+                                "COMPLETED",
+                                String.format("Deleted %d URIs", result)
+                        );
+                    })
+                    .exceptionally(throwable -> {
+                        handleTaskError(taskId, "Deletion failed", throwable);
+                        return null;
+                    });
 
         } catch (Exception e) {
             handleTaskError(taskId, "Task processing failed", e);
@@ -275,13 +268,36 @@ public class UriCollectServiceImpl implements UriCollectService {
     }
 
     private String extractRootNode(String uri) {
-        String[] parts = uri.split("/");
-        return parts.length > 0 ? parts[0] : "";
+        return Optional.ofNullable(uri)
+                .map(u -> {
+                    String[] parts = u.split("/");
+                    return parts.length > 0 ? parts[0] : "";
+                })
+                .orElse("");
     }
 
     private void handleTaskError(String taskId, String message, Throwable throwable) {
         log.error(message + " - Task: {}", taskId, throwable);
         taskManager.updateTaskStatus(taskId, "ERROR",
                 message + ": " + throwable.getMessage());
+    }
+
+    private Map<String, Object> buildTaskParams(CollectParam param) {
+        Map<String, Object> params = new HashMap<>();
+        params.put("rootNode", param.getRootNode());
+        params.put("version", param.getVersion());
+        params.put("incremental", param.getIncremental());
+        params.put("batchSize", param.getBatchSize());
+        params.put("serverUri", param.getServerUri());
+        return params;
+    }
+
+    private Map<String, Object> buildDeleteTaskParams(DeleteParam param) {
+        Map<String, Object> params = new HashMap<>();
+        params.put("rootNode", param.getRootNode());
+        params.put("urisCount", param.getUris().size());
+        params.put("hardDelete", param.getHardDelete());
+        params.put("batchSize", param.getBatchSize());
+        return params;
     }
 }

@@ -1,4 +1,4 @@
-package com.study.collect.business.testcase.constant;
+package com.study.collect.business.testcase.common.constants;
 
 /**
  * 版本类型枚举

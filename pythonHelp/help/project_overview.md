@@ -30,13 +30,21 @@ business-testcase/
                                         VersionType.java
                                     controller/
                                         UriCollectController.java
+                                    core/
+                                        executor/
+                                            CollectExecutor.java
+                                            DeleteExecutor.java
+                                        manager/
+                                            QueueManager.java
+                                            TaskManager.java
+                                        processor/
+                                            CollectProcessor.java
+                                            DataProcessor.java
+                                            DeleteProcessor.java
                                     entity/
                                         BaseEntity.java
                                         UriEntity.java
                                         VersionEntity.java
-                                    manager/
-                                        CollectTaskManager.java
-                                        QueueManager.java
                                     model/
                                         PageResult.java
                                         param/
@@ -70,7 +78,8 @@ business-testcase/
                                         HttpUtil.java
                                         ListCompareUtil.java
                                         RateLimiter.java
-                                        StreamProcessManager.java
+                                        StreamProcessor.java
+                                        TableNameHelper.java
             resources/
                 META-INF/
                     spring.factories
@@ -665,94 +674,130 @@ public class TestCaseConfig {
 ```java
 package com.study.collect.business.testcase.config;
 
-import com.study.collect.business.testcase.constant.CollectionConstants;
+import com.study.collect.business.testcase.common.constants.CollectionConstants;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
+/**
+ * 线程池配置
+ */
 @Configuration
 @EnableAsync
 @Slf4j
 public class ThreadPoolConfig {
 
-    @Bean(name = "collectExecutor")
-    public ExecutorService collectExecutor() {
-        return new ThreadPoolExecutor(
-                CollectionConstants.CORE_POOL_SIZE,
-                CollectionConstants.MAX_POOL_SIZE,
-                CollectionConstants.KEEP_ALIVE_TIME,
-                TimeUnit.SECONDS,
-                new ArrayBlockingQueue<>(CollectionConstants.QUEUE_CAPACITY),
-                new ThreadFactory() {
-                    private int count = 0;
-                    @Override
-                    public Thread newThread(Runnable r) {
-                        Thread thread = new Thread(r);
-                        thread.setName("collect-thread-" + count++);
-                        thread.setDaemon(true);
-                        return thread;
-                    }
-                },
-                new ThreadPoolExecutor.CallerRunsPolicy()
-        );
-    }
-
+    /**
+     * HTTP请求线程池
+     */
     @Bean(name = "httpExecutor")
     public ThreadPoolTaskExecutor httpExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(CollectionConstants.CORE_POOL_SIZE);
-        executor.setMaxPoolSize(CollectionConstants.MAX_POOL_SIZE);
-        executor.setQueueCapacity(CollectionConstants.QUEUE_CAPACITY);
-        executor.setKeepAliveSeconds((int)CollectionConstants.KEEP_ALIVE_TIME);
+        executor.setCorePoolSize(CollectionConstants.ThreadPool.HTTP_CORE_SIZE);
+        executor.setMaxPoolSize(CollectionConstants.ThreadPool.HTTP_MAX_SIZE);
+        executor.setQueueCapacity(CollectionConstants.ThreadPool.HTTP_QUEUE_SIZE);
+        executor.setKeepAliveSeconds((int) CollectionConstants.ThreadPool.HTTP_KEEP_ALIVE);
         executor.setThreadNamePrefix("http-thread-");
-        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        executor.setRejectedExecutionHandler((r, e) -> {
+            log.warn("HTTP thread pool is full, task rejected");
+            throw new RejectedExecutionException("HTTP thread pool is full");
+        });
         executor.setWaitForTasksToCompleteOnShutdown(true);
         executor.setAwaitTerminationSeconds(60);
         return executor;
     }
 
+    /**
+     * MongoDB操作线程池
+     */
     @Bean(name = "mongoExecutor")
     public ThreadPoolTaskExecutor mongoExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(CollectionConstants.CORE_POOL_SIZE);
-        executor.setMaxPoolSize(CollectionConstants.MAX_POOL_SIZE);
-        executor.setQueueCapacity(CollectionConstants.QUEUE_CAPACITY);
-        executor.setKeepAliveSeconds((int)CollectionConstants.KEEP_ALIVE_TIME);
+        executor.setCorePoolSize(CollectionConstants.ThreadPool.MONGO_CORE_SIZE);
+        executor.setMaxPoolSize(CollectionConstants.ThreadPool.MONGO_MAX_SIZE);
+        executor.setQueueCapacity(CollectionConstants.ThreadPool.MONGO_QUEUE_SIZE);
+        executor.setKeepAliveSeconds((int) CollectionConstants.ThreadPool.MONGO_KEEP_ALIVE);
         executor.setThreadNamePrefix("mongo-thread-");
-        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        executor.setRejectedExecutionHandler((r, e) -> {
+            log.warn("MongoDB thread pool is full, task rejected");
+            throw new RejectedExecutionException("MongoDB thread pool is full");
+        });
         executor.setWaitForTasksToCompleteOnShutdown(true);
         executor.setAwaitTerminationSeconds(60);
         return executor;
     }
 
+    /**
+     * 任务处理线程池
+     */
     @Bean(name = "taskExecutor")
+    @Primary
     public ThreadPoolTaskExecutor taskExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(CollectionConstants.MAX_CONCURRENT_TASKS);
-        executor.setMaxPoolSize(CollectionConstants.MAX_CONCURRENT_TASKS);
-        executor.setQueueCapacity(CollectionConstants.TASK_QUEUE_CAPACITY);
+        executor.setCorePoolSize(CollectionConstants.ThreadPool.TASK_CORE_SIZE);
+        executor.setMaxPoolSize(CollectionConstants.ThreadPool.TASK_MAX_SIZE);
+        executor.setQueueCapacity(CollectionConstants.ThreadPool.TASK_QUEUE_SIZE);
+        executor.setKeepAliveSeconds((int) CollectionConstants.ThreadPool.TASK_KEEP_ALIVE);
         executor.setThreadNamePrefix("task-thread-");
         executor.setRejectedExecutionHandler((r, e) -> {
-            log.warn("Task queue is full, task rejected");
-            throw new RejectedExecutionException("Task queue is full");
+            log.warn("Task thread pool is full, task rejected");
+            throw new RejectedExecutionException("Task thread pool is full");
         });
         executor.setWaitForTasksToCompleteOnShutdown(true);
         executor.setAwaitTerminationSeconds(60);
         return executor;
     }
 
-    @Bean
+    /**
+     * 通用任务调度线程池
+     */
+    @Bean(name = "scheduledExecutor")
     public ScheduledExecutorService scheduledExecutor() {
-        return Executors.newScheduledThreadPool(2, r -> {
-            Thread thread = new Thread(r);
-            thread.setName("scheduled-thread");
-            thread.setDaemon(true);
-            return thread;
+        return Executors.newScheduledThreadPool(2, new ThreadFactory() {
+            private final AtomicInteger counter = new AtomicInteger(1);
+            @Override
+            public Thread newThread(Runnable r) {
+                Thread thread = new Thread(r);
+                thread.setName("scheduled-thread-" + counter.getAndIncrement());
+                thread.setDaemon(true);
+                return thread;
+            }
         });
+    }
+
+    /**
+     * 虚拟线程池(如果JDK版本支持)
+     */
+    @Bean(name = "virtualThreadExecutor")
+    public ExecutorService virtualThreadExecutor() {
+        try {
+            // 尝试使用虚拟线程
+            return Executors.newVirtualThreadPerTaskExecutor();
+        } catch (UnsupportedOperationException e) {
+            // 降级使用普通线程池
+            log.warn("Virtual threads not supported, falling back to normal thread pool");
+            return new ThreadPoolExecutor(
+                    Runtime.getRuntime().availableProcessors(),
+                    Runtime.getRuntime().availableProcessors() * 2,
+                    60L, TimeUnit.SECONDS,
+                    new LinkedBlockingQueue<>(1000),
+                    new ThreadFactory() {
+                        private final AtomicInteger counter = new AtomicInteger(1);
+                        @Override
+                        public Thread newThread(Runnable r) {
+                            Thread thread = new Thread(r);
+                            thread.setName("fallback-thread-" + counter.getAndIncrement());
+                            return thread;
+                        }
+                    }
+            );
+        }
     }
 }
 ```
@@ -763,52 +808,84 @@ public class ThreadPoolConfig {
 package com.study.collect.business.testcase.constant;
 
 /**
- * 集合相关常量
+ * 系统常量配置
  */
-public class CollectionConstants {
-    // 集合前缀
-    public static final String URI_COLLECTION_PREFIX = "uri_collect";
+public final class CollectionConstants {
 
-    // 批处理相关
-    public static final int DEFAULT_BATCH_SIZE = 200;
-    public static final int MAX_BATCH_SIZE = 1000;
-    public static final int MIN_BATCH_SIZE = 50;
+    // 集合相关
+    public static final class Collection {
+        public static final String URI_COLLECTION_PREFIX = "uri_collect";
+        public static final String VERSION_PREFIX = "V";
+        public static final String VERSION_SEPARATOR = "_";
 
-    // HTTP请求相关
-    public static final int HTTP_MAX_REQUESTS_PER_MINUTE = 500;
-    public static final int HTTP_CONNECT_TIMEOUT = 5000;
-    public static final int HTTP_READ_TIMEOUT = 15000;
-    public static final int HTTP_MAX_RETRY = 3;
-    public static final long HTTP_RETRY_INTERVAL = 1000L;
+        private Collection() {}
+    }
+
+    // HTTP相关
+    public static final class Http {
+        public static final int MAX_REQUESTS_PER_MINUTE = 500;
+        public static final int CONNECT_TIMEOUT = 5000;
+        public static final int READ_TIMEOUT = 15000;
+        public static final int MAX_RETRY = 3;
+        public static final long RETRY_INTERVAL = 1000L;
+
+        private Http() {}
+    }
 
     // 线程池相关
-    public static final int CORE_POOL_SIZE = Runtime.getRuntime().availableProcessors() * 2;
-    public static final int MAX_POOL_SIZE = Runtime.getRuntime().availableProcessors() * 4;
-    public static final int QUEUE_CAPACITY = 5000;
-    public static final long KEEP_ALIVE_TIME = 60L;
+    public static final class ThreadPool {
+        // HTTP请求线程池
+        public static final int HTTP_CORE_SIZE = Runtime.getRuntime().availableProcessors() * 2;
+        public static final int HTTP_MAX_SIZE = Runtime.getRuntime().availableProcessors() * 4;
+        public static final int HTTP_QUEUE_SIZE = 5000;
+        public static final long HTTP_KEEP_ALIVE = 60L;
 
-    // MongoDB相关
-    public static final int MONGO_BATCH_SIZE = 1000;
-    public static final int MONGO_MAX_POOL_SIZE = 100;
-    public static final int MONGO_MIN_POOL_SIZE = 20;
+        // MongoDB操作线程池
+        public static final int MONGO_CORE_SIZE = Runtime.getRuntime().availableProcessors();
+        public static final int MONGO_MAX_SIZE = Runtime.getRuntime().availableProcessors() * 2;
+        public static final int MONGO_QUEUE_SIZE = 10000;
+        public static final long MONGO_KEEP_ALIVE = 60L;
+
+        // 任务处理线程池
+        public static final int TASK_CORE_SIZE = 5;
+        public static final int TASK_MAX_SIZE = 10;
+        public static final int TASK_QUEUE_SIZE = 100;
+        public static final long TASK_KEEP_ALIVE = 60L;
+
+        private ThreadPool() {}
+    }
+
+    // 数据库相关
+    public static final class Database {
+        public static final int MONGO_BATCH_SIZE = 1000;
+        public static final int MONGO_MAX_POOL_SIZE = 100;
+        public static final int MONGO_MIN_POOL_SIZE = 20;
+
+        private Database() {}
+    }
+
+    // 处理相关
+    public static final class Process {
+        public static final int DEFAULT_BATCH_SIZE = 200;
+        public static final int MAX_BATCH_SIZE = 1000;
+        public static final int MIN_BATCH_SIZE = 50;
+        public static final long TASK_TIMEOUT = 3600L;
+        public static final int MAX_CONCURRENT_TASKS = 10;
+        public static final int TASK_QUEUE_CAPACITY = 100;
+
+        private Process() {}
+    }
 
     // 对象池相关
-    public static final int POOL_MAX_TOTAL = 20;
-    public static final int POOL_MAX_IDLE = 10;
-    public static final int POOL_MIN_IDLE = 5;
+    public static final class Pool {
+        public static final int MAX_TOTAL = 20;
+        public static final int MAX_IDLE = 10;
+        public static final int MIN_IDLE = 5;
 
-    // 任务相关
-    public static final long TASK_TIMEOUT = 3600L;  // 单位：秒
-    public static final int MAX_CONCURRENT_TASKS = 10;
-    public static final int TASK_QUEUE_CAPACITY = 100;
-
-    // 版本相关
-    public static final String VERSION_PREFIX = "V";
-    public static final String VERSION_SEPARATOR = "_";
-
-    private CollectionConstants() {
-        // 私有构造函数，防止实例化
+        private Pool() {}
     }
+
+    private CollectionConstants() {}
 }
 ```
 
@@ -942,6 +1019,1101 @@ public class UriCollectController {
                 .body("Error processing request: " + e.getMessage());
     }
 }
+```
+
+## CollectExecutor.java
+
+```java
+package com.study.collect.business.testcase.core.executor;
+
+import com.study.collect.business.testcase.common.constants.CollectionConstants;
+import com.study.collect.business.testcase.utils.StreamProcessor;
+import com.study.collect.business.testcase.entity.UriEntity;
+import com.study.collect.business.testcase.model.param.CollectParam;
+import com.study.collect.business.testcase.model.response.PageResponse;
+import com.study.collect.business.testcase.repository.UriRepository;
+import com.study.collect.business.testcase.service.http.UriHttpService;
+import com.study.collect.business.testcase.utils.RateLimiter;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.pool2.ObjectPool;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.springframework.stereotype.Component;
+
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.function.Consumer;
+
+/**
+ * URI采集执行器
+ */
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class CollectExecutor {
+
+    private final UriHttpService httpService;
+    private final UriRepository repository;
+    private final ObjectPool<UriEntity> entityPool;
+    private final RateLimiter rateLimiter;
+
+    @Qualifier("httpExecutor")
+    private final ThreadPoolTaskExecutor httpExecutor;
+
+    @Qualifier("mongoExecutor")
+    private final ThreadPoolTaskExecutor mongoExecutor;
+
+    @Qualifier("virtualThreadExecutor")
+    private final ExecutorService virtualThreadExecutor;
+
+    /**
+     * 执行采集任务
+     */
+    public CompletableFuture<StreamProcessor.ProcessMetrics> execute(
+            CollectParam param,
+            Consumer<StreamProcessor.ProcessMetrics> progressCallback
+    ) {
+        // 1. 创建处理器配置
+        StreamProcessor.ProcessorConfig<String, UriEntity> config = StreamProcessor.ProcessorConfig.<String, UriEntity>builder()
+                .processorName("URI-Collect-" + param.getRootNode())
+                .batchSize(param.getBatchSize())
+                .maxConcurrent(CollectionConstants.Process.MAX_CONCURRENT_TASKS)
+                .timeoutSeconds(param.getTimeout())
+                .maxRetries(param.getMaxRetries())
+                .retryDelayMs(CollectionConstants.Http.RETRY_INTERVAL)
+                .processExecutor(httpExecutor)
+                .saveExecutor(mongoExecutor)
+                // 数据获取函数
+                .dataFetcher(offset -> fetchUris(param, offset))
+                // 数据转换函数
+                .dataConverter(uri -> convertToEntity(param, uri))
+                // 数据保存函数
+                .dataSaver(entities -> saveEntities(param.getRootNode(), entities))
+                // 进度回调
+                .progressCallback(progressCallback)
+                .build();
+
+        // 2. 创建处理器实例
+        StreamProcessor<String, UriEntity> processor = new StreamProcessor<>(config);
+
+        // 3. 开始处理
+        return processor.process(0, Integer.MAX_VALUE);
+    }
+
+    /**
+     * 获取URI列表
+     */
+    private List<String> fetchUris(CollectParam param, int offset) {
+        try {
+            rateLimiter.acquire(); // 限流控制
+            PageResponse<String> response = httpService.getUriListAsync(
+                    param,
+                    param.getVersion(),
+                    new com.study.collect.business.testcase.model.param.PageParam(
+                            offset / param.getBatchSize() + 1,
+                            param.getBatchSize()
+                    )
+            ).get();
+            return response.getItems();
+        } catch (Exception e) {
+            log.error("Error fetching URIs", e);
+            throw new RuntimeException("Failed to fetch URIs", e);
+        }
+    }
+
+    /**
+     * 转换为实体
+     */
+    private UriEntity convertToEntity(CollectParam param, String uri) {
+        UriEntity entity = null;
+        try {
+            entity = entityPool.borrowObject();
+            rateLimiter.acquire(); // 限流控制
+
+            // 获取URI详情
+            List<Map<String, Object>> details = httpService.getUriDetailsAsync(
+                    param,
+                    Collections.singletonList(uri)
+            ).get();
+
+            if (!details.isEmpty()) {
+                Map<String, Object> detail = details.get(0);
+                fillEntity(entity, param.getRootNode(), param.getVersion(), uri, detail);
+            }
+
+            return entity;
+        } catch (Exception e) {
+            log.error("Error converting URI to entity: {}", uri, e);
+            if (entity != null) {
+                try {
+                    entityPool.returnObject(entity);
+                } catch (Exception ex) {
+                    log.error("Error returning entity to pool", ex);
+                }
+            }
+            throw new RuntimeException("Failed to convert URI", e);
+        }
+    }
+
+    /**
+     * 保存实体列表
+     */
+    private void saveEntities(String rootNode, List<UriEntity> entities) {
+        try {
+            repository.batchUpsert(rootNode, entities);
+        } finally {
+            // 返还对象到对象池
+            for (UriEntity entity : entities) {
+                try {
+                    entityPool.returnObject(entity);
+                } catch (Exception e) {
+                    log.error("Error returning entity to pool", e);
+                }
+            }
+        }
+    }
+
+    /**
+     * 填充实体信息
+     */
+    private void fillEntity(UriEntity entity, String rootNode, String version,
+                            String uri, Map<String, Object> detail) {
+        entity.setUri(uri);
+        entity.setRootNode(rootNode);
+        entity.setVersionType(getVersionType(version));
+        entity.setUriVersion(version);
+        entity.setDetails(detail);
+    }
+
+    private String getVersionType(String version) {
+        return version.toLowerCase().contains("branch") ? "BRANCH" : "TRUNK";
+    }
+}
+```
+
+## DeleteExecutor.java
+
+```java
+package com.study.collect.business.testcase.core.executor;
+
+import com.study.collect.business.testcase.model.param.DeleteParam;
+import com.study.collect.business.testcase.repository.UriRepository;
+import com.study.collect.business.testcase.utils.StreamProcessor;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.springframework.stereotype.Component;
+
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.function.Consumer;
+import java.util.stream.Collectors;
+
+/**
+ * URI删除执行器
+ */
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class DeleteExecutor {
+
+    private final UriRepository repository;
+
+    @Qualifier("mongoExecutor")
+    private final ThreadPoolTaskExecutor mongoExecutor;
+
+    @Qualifier("virtualThreadExecutor")
+    private final ExecutorService virtualThreadExecutor;
+
+    /**
+     * 执行删除任务
+     */
+    public CompletableFuture<StreamProcessor.ProcessMetrics> execute(
+            DeleteParam param,
+            Consumer<StreamProcessor.ProcessMetrics> progressCallback
+    ) {
+        // 1. 预处理URI列表，按rootNode分组
+        Map<String, List<String>> groupedUris = groupUrisByRootNode(param);
+
+        // 2. 创建处理器配置
+        StreamProcessor.ProcessorConfig<Map.Entry<String, List<String>>, Long> config =
+                StreamProcessor.ProcessorConfig.<Map.Entry<String, List<String>>, Long>builder()
+                        .processorName("URI-Delete-" + param.getRootNode())
+                        .batchSize(getBatchSize(param))
+                        .maxConcurrent(com.study.collect.business.testcase.common.constants.CollectionConstants.Process.MAX_CONCURRENT_TASKS)
+                        .timeoutSeconds(com.study.collect.business.testcase.common.constants.CollectionConstants.Process.TASK_TIMEOUT)
+                        .maxRetries(com.study.collect.business.testcase.common.constants.CollectionConstants.Http.MAX_RETRY)
+                        .retryDelayMs(com.study.collect.business.testcase.common.constants.CollectionConstants.Http.RETRY_INTERVAL)
+                        .processExecutor(virtualThreadExecutor)
+                        .saveExecutor(mongoExecutor)
+                        // 数据获取函数
+                        .dataFetcher(offset -> fetchBatch(new ArrayList<>(groupedUris.entrySet()), offset))
+                        // 数据转换函数
+                        .dataConverter(entry -> processDelete(entry, param.getHardDelete()))
+                        // 数据保存函数 - 这里用于更新删除计数
+                        .dataSaver(this::updateDeleteCount)
+                        // 进度回调
+                        .progressCallback(progressCallback)
+                        .build();
+
+        // 3. 创建处理器实例
+        StreamProcessor<Map.Entry<String, List<String>>, Long> processor = new StreamProcessor<>(config);
+
+        // 4. 开始处理
+        return processor.process(0, groupedUris.size());
+    }
+
+    /**
+     * 执行清理任务
+     */
+    public CompletableFuture<StreamProcessor.ProcessMetrics> executeCleanup(
+            String rootNode,
+            Set<String> validUriHashes,
+            boolean hardDelete,
+            Consumer<StreamProcessor.ProcessMetrics> progressCallback
+    ) {
+        // 创建处理器配置
+        StreamProcessor.ProcessorConfig<Set<String>, Long> config =
+                StreamProcessor.ProcessorConfig.<Set<String>, Long>builder()
+                        .processorName("URI-Cleanup-" + rootNode)
+                        .batchSize(com.study.collect.business.testcase.common.constants.CollectionConstants.Process.DEFAULT_BATCH_SIZE)
+                        .maxConcurrent(1) // 清理任务限制并发为1
+                        .timeoutSeconds(com.study.collect.business.testcase.common.constants.CollectionConstants.Process.TASK_TIMEOUT)
+                        .maxRetries(com.study.collect.business.testcase.common.constants.CollectionConstants.Http.MAX_RETRY)
+                        .retryDelayMs(com.study.collect.business.testcase.common.constants.CollectionConstants.Http.RETRY_INTERVAL)
+                        .processExecutor(virtualThreadExecutor)
+                        .saveExecutor(mongoExecutor)
+                        // 数据获取函数
+                        .dataFetcher(offset -> Collections.singleton(validUriHashes))
+                        // 数据转换函数
+                        .dataConverter(hashes -> processCleanup(rootNode, hashes, hardDelete))
+                        // 数据保存函数
+                        .dataSaver(this::updateDeleteCount)
+                        // 进度回调
+                        .progressCallback(progressCallback)
+                        .build();
+
+        // 创建处理器实例并开始处理
+        StreamProcessor<Set<String>, Long> processor = new StreamProcessor<>(config);
+        return processor.process(0, 1);
+    }
+
+    /**
+     * 按rootNode分组URI
+     */
+    private Map<String, List<String>> groupUrisByRootNode(DeleteParam param) {
+        if (param.getRootNode() != null) {
+            // 如果指定了rootNode，使用指定的
+            return Collections.singletonMap(param.getRootNode(), param.getUris());
+        } else {
+            // 否则从URI中提取rootNode
+            return param.getUris().stream()
+                    .collect(Collectors.groupingBy(com.study.collect.business.testcase.common.utils.TableNameHelper::extractRootNode));
+        }
+    }
+
+    /**
+     * 获取批处理大小
+     */
+    private int getBatchSize(DeleteParam param) {
+        if (param.getBatchSize() != null) {
+            return Math.min(Math.max(param.getBatchSize(),
+                            com.study.collect.business.testcase.common.constants.CollectionConstants.Process.MIN_BATCH_SIZE),
+                    com.study.collect.business.testcase.common.constants.CollectionConstants.Process.MAX_BATCH_SIZE);
+        }
+        return com.study.collect.business.testcase.common.constants.CollectionConstants.Process.DEFAULT_BATCH_SIZE;
+    }
+
+    /**
+     * 获取一批待处理数据
+     */
+    private List<Map.Entry<String, List<String>>> fetchBatch(
+            List<Map.Entry<String, List<String>>> entries,
+            int offset
+    ) {
+        int end = Math.min(offset + 1, entries.size());
+        return offset < entries.size() ? entries.subList(offset, end) : Collections.emptyList();
+    }
+
+    /**
+     * 处理删除操作
+     */
+    private Long processDelete(Map.Entry<String, List<String>> entry, boolean hardDelete) {
+        String rootNode = entry.getKey();
+        List<String> uris = entry.getValue();
+
+        try {
+            if (hardDelete) {
+                return repository.batchHardDelete(rootNode, uris);
+            } else {
+                return repository.batchSoftDelete(rootNode, uris);
+            }
+        } catch (Exception e) {
+            log.error("Error deleting URIs for rootNode: {}", rootNode, e);
+            throw new RuntimeException("Failed to delete URIs", e);
+        }
+    }
+
+    /**
+     * 处理清理操作
+     */
+    private Long processCleanup(String rootNode, Set<String> validHashes, boolean hardDelete) {
+        try {
+            if (hardDelete) {
+                return repository.deleteNotInUriHashes(rootNode, validHashes);
+            } else {
+                return repository.softDeleteNotInUriHashes(rootNode, validHashes);
+            }
+        } catch (Exception e) {
+            log.error("Error cleaning up URIs for rootNode: {}", rootNode, e);
+            throw new RuntimeException("Failed to cleanup URIs", e);
+        }
+    }
+
+    /**
+     * 更新删除计数（批处理后的回调）
+     */
+    private void updateDeleteCount(List<Long> counts) {
+        // 可以在这里实现删除计数的统计逻辑
+        long total = counts.stream().mapToLong(Long::longValue).sum();
+        log.debug("Batch delete completed, total deleted: {}", total);
+    }
+}
+```
+
+## QueueManager.java
+
+```java
+package com.study.collect.business.testcase.core.manager;
+
+import com.study.collect.business.testcase.common.constants.CollectionConstants;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.springframework.stereotype.Component;
+
+import javax.annotation.PreDestroy;
+import java.time.LocalDateTime;
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.function.Consumer;
+
+/**
+ * 队列管理器
+ * 支持任务优先级排序、状态追踪、进度更新等功能
+ */
+@Slf4j
+@Component
+public class QueueManager {
+
+    private final ThreadPoolTaskExecutor taskExecutor;
+    private final PriorityBlockingQueue<QueueItem<?>> taskQueue;
+    private final ConcurrentHashMap<String, QueueItem<?>> taskMap;
+    private final ScheduledExecutorService scheduledExecutor;
+    private volatile boolean running = true;
+
+    /**
+     * 队列项
+     */
+    private static class QueueItem<T> {
+        final String taskId;
+        final T task;
+        volatile int priority;
+        final CompletableFuture<Void> future;
+        final Consumer<T> processor;
+        final LocalDateTime createTime;
+        volatile QueueItemStatus status;
+        volatile String statusMessage;
+        volatile double progress;
+        volatile LocalDateTime startTime;
+        volatile LocalDateTime endTime;
+        volatile int retryCount;
+        final Map<String, Object> attributes;
+
+        QueueItem(String taskId, T task, int priority, Consumer<T> processor) {
+            this.taskId = taskId;
+            this.task = task;
+            this.priority = priority;
+            this.processor = processor;
+            this.future = new CompletableFuture<>();
+            this.createTime = LocalDateTime.now();
+            this.status = QueueItemStatus.QUEUED;
+            this.progress = 0.0;
+            this.retryCount = 0;
+            this.attributes = new ConcurrentHashMap<>();
+        }
+
+        boolean shouldRetry() {
+            return retryCount < CollectionConstants.Http.MAX_RETRY;
+        }
+    }
+
+    /**
+     * 队列项状态
+     */
+    public enum QueueItemStatus {
+        QUEUED,         // 已入队
+        PROCESSING,     // 处理中
+        COMPLETED,      // 已完成
+        CANCELLED,      // 已取消
+        ERROR,          // 错误
+        RETRY_WAIT     // 等待重试
+    }
+
+    public QueueManager(@Qualifier("taskExecutor") ThreadPoolTaskExecutor taskExecutor) {
+        this.taskExecutor = taskExecutor;
+        this.taskQueue = new PriorityBlockingQueue<>(
+                CollectionConstants.Process.TASK_QUEUE_CAPACITY,
+                Comparator
+                        .<QueueItem<?>>comparingInt(item -> item.priority)
+                        .reversed()
+                        .thenComparing(item -> item.createTime)
+        );
+        this.taskMap = new ConcurrentHashMap<>();
+        this.scheduledExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread thread = new Thread(r);
+            thread.setName("queue-monitor");
+            thread.setDaemon(true);
+            return thread;
+        });
+
+        startQueueProcessor();
+        startQueueMonitor();
+    }
+
+    /**
+     * 添加任务到队列
+     */
+    public <T> CompletableFuture<Void> enqueue(
+            String taskId,
+            T task,
+            int priority,
+            Consumer<T> processor
+    ) {
+        QueueItem<T> item = new QueueItem<>(taskId, task, priority, processor);
+        if (taskMap.putIfAbsent(taskId, item) != null) {
+            throw new IllegalStateException("Task " + taskId + " already exists");
+        }
+        taskQueue.offer(item);
+        log.info("Task {} added to queue with priority {}", taskId, priority);
+        return item.future;
+    }
+
+    /**
+     * 更新任务优先级
+     */
+    public boolean updatePriority(String taskId, int newPriority) {
+        QueueItem<?> item = taskMap.get(taskId);
+        if (item != null && item.status == QueueItemStatus.QUEUED) {
+            item.priority = newPriority;
+            refreshQueue();
+            log.info("Updated priority for task {} to {}", taskId, newPriority);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * 取消任务
+     */
+    public boolean cancel(String taskId) {
+        QueueItem<?> item = taskMap.get(taskId);
+        if (item != null && (item.status == QueueItemStatus.QUEUED ||
+                item.status == QueueItemStatus.RETRY_WAIT)) {
+            if (taskQueue.remove(item)) {
+                item.status = QueueItemStatus.CANCELLED;
+                item.endTime = LocalDateTime.now();
+                item.future.cancel(true);
+                taskMap.remove(taskId);
+                log.info("Task {} cancelled", taskId);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 获取任务状态
+     */
+    public Map<String, Object> getTaskStatus(String taskId) {
+        QueueItem<?> item = taskMap.get(taskId);
+        if (item != null) {
+            Map<String, Object> status = new ConcurrentHashMap<>();
+            status.put("taskId", item.taskId);
+            status.put("status", item.status);
+            status.put("statusMessage", item.statusMessage);
+            status.put("progress", item.progress);
+            status.put("createTime", item.createTime);
+            status.put("startTime", item.startTime);
+            status.put("endTime", item.endTime);
+            status.put("priority", item.priority);
+            status.put("retryCount", item.retryCount);
+            status.put("attributes", new HashMap<>(item.attributes));
+            return status;
+        }
+        return null;
+    }
+
+    /**
+     * 获取所有活动任务状态
+     */
+    public List<Map<String, Object>> getAllTaskStatus() {
+        List<Map<String, Object>> statuses = new ArrayList<>();
+        taskMap.values().forEach(item -> {
+            if (item.status == QueueItemStatus.QUEUED ||
+                    item.status == QueueItemStatus.PROCESSING ||
+                    item.status == QueueItemStatus.RETRY_WAIT) {
+                statuses.add(getTaskStatus(item.taskId));
+            }
+        });
+        return statuses;
+    }
+
+    /**
+     * 设置任务属性
+     */
+    public void setTaskAttribute(String taskId, String key, Object value) {
+        QueueItem<?> item = taskMap.get(taskId);
+        if (item != null) {
+            item.attributes.put(key, value);
+        }
+    }
+
+    private void startQueueProcessor() {
+        int processorCount = Runtime.getRuntime().availableProcessors();
+        for (int i = 0; i < processorCount; i++) {
+            taskExecutor.execute(new QueueProcessor());
+        }
+    }
+
+    private class QueueProcessor implements Runnable {
+        @Override
+        public void run() {
+            while (running) {
+                try {
+                    QueueItem<?> item = taskQueue.poll(1, TimeUnit.SECONDS);
+                    if (item != null) {
+                        processItem(item);
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                } catch (Exception e) {
+                    log.error("Error in queue processor", e);
+                }
+            }
+        }
+    }
+
+    private void processItem(QueueItem<?> item) {
+        try {
+            item.status = QueueItemStatus.PROCESSING;
+            item.startTime = LocalDateTime.now();
+            item.processor.accept(item.task);
+            item.status = QueueItemStatus.COMPLETED;
+            item.progress = 100.0;
+            item.endTime = LocalDateTime.now();
+            item.future.complete(null);
+        } catch (Exception e) {
+            handleProcessingError(item, e);
+        } finally {
+            if (item.status != QueueItemStatus.RETRY_WAIT) {
+                taskMap.remove(item.taskId);
+            }
+        }
+    }
+
+    private void handleProcessingError(QueueItem<?> item, Exception e) {
+        log.error("Error processing task: {}", item.taskId, e);
+        if (item.shouldRetry()) {
+            scheduleRetry(item);
+        } else {
+            item.status = QueueItemStatus.ERROR;
+            item.statusMessage = e.getMessage();
+            item.endTime = LocalDateTime.now();
+            item.future.completeExceptionally(e);
+        }
+    }
+
+    private void scheduleRetry(QueueItem<?> item) {
+        item.status = QueueItemStatus.RETRY_WAIT;
+        item.retryCount++;
+        long delay = CollectionConstants.Http.RETRY_INTERVAL * (1L << (item.retryCount - 1));
+        scheduledExecutor.schedule(() -> {
+            if (item.status == QueueItemStatus.RETRY_WAIT) {
+                item.status = QueueItemStatus.QUEUED;
+                taskQueue.offer(item);
+            }
+        }, delay, TimeUnit.MILLISECONDS);
+    }
+
+    private void startQueueMonitor() {
+        scheduledExecutor.scheduleAtFixedRate(() -> {
+            try {
+                monitorQueueHealth();
+                cleanupCompletedTasks();
+            } catch (Exception e) {
+                log.error("Error in queue monitor", e);
+            }
+        }, 1, 1, TimeUnit.MINUTES);
+    }
+
+    private void monitorQueueHealth() {
+        int queueSize = taskQueue.size();
+        int activeTaskCount = (int) taskMap.values().stream()
+                .filter(item -> item.status == QueueItemStatus.PROCESSING)
+                .count();
+
+        log.info("Queue status - Size: {}, Active tasks: {}", queueSize, activeTaskCount);
+
+        LocalDateTime threshold = LocalDateTime.now().minusHours(1);
+        taskMap.values().stream()
+                .filter(item -> item.status == QueueItemStatus.QUEUED &&
+                        item.createTime.isBefore(threshold))
+                .forEach(item ->
+                        log.warn("Task {} has been queued for more than 1 hour", item.taskId)
+                );
+    }
+
+    private void cleanupCompletedTasks() {
+        LocalDateTime threshold = LocalDateTime.now().minusHours(24);
+        taskMap.entrySet().removeIf(entry -> {
+            QueueItem<?> item = entry.getValue();
+            return (item.status == QueueItemStatus.COMPLETED ||
+                    item.status == QueueItemStatus.ERROR ||
+                    item.status == QueueItemStatus.CANCELLED) &&
+                    item.endTime != null &&
+                    item.endTime.isBefore(threshold);
+        });
+    }
+
+    private void refreshQueue() {
+        List<QueueItem<?>> items = new ArrayList<>();
+        taskQueue.drainTo(items);
+        taskQueue.addAll(items);
+    }
+
+    /**
+     * 获取队列统计信息
+     */
+    public Map<String, Object> getQueueStats() {
+        Map<String, Object> stats = new ConcurrentHashMap<>();
+        stats.put("queueSize", taskQueue.size());
+        stats.put("activeTaskCount", getActiveTaskCount());
+        stats.put("totalTaskCount", taskMap.size());
+
+        Map<QueueItemStatus, Long> statusCounts = new ConcurrentHashMap<>();
+        taskMap.values().forEach(item ->
+                statusCounts.merge(item.status, 1L, Long::sum)
+        );
+        stats.put("statusCounts", statusCounts);
+
+        return stats;
+    }
+
+    /**
+     * 获取队列大小
+     */
+    public int getQueueSize() {
+        return taskQueue.size();
+    }
+
+    /**
+     * 获取活动任务数
+     */
+    public int getActiveTaskCount() {
+        return (int) taskMap.values().stream()
+                .filter(item -> item.status == QueueItemStatus.PROCESSING)
+                .count();
+    }
+
+    /**
+     * 更新任务进度
+     */
+    public void updateTaskProgress(String taskId, double progress, String message) {
+        QueueItem<?> item = taskMap.get(taskId);
+        if (item != null) {
+            item.progress = progress;
+            item.statusMessage = message;
+        }
+    }
+
+    /**
+     * 暂停队列处理
+     */
+    public void pause() {
+        running = false;
+    }
+
+    /**
+     * 恢复队列处理
+     */
+    public void resume() {
+        running = true;
+        startQueueProcessor();
+    }
+
+    @PreDestroy
+    public void shutdown() {
+        running = false;
+        scheduledExecutor.shutdown();
+        try {
+            if (!scheduledExecutor.awaitTermination(60, TimeUnit.SECONDS)) {
+                scheduledExecutor.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            scheduledExecutor.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
+
+        taskMap.values().forEach(item -> {
+            if (item.status == QueueItemStatus.QUEUED ||
+                    item.status == QueueItemStatus.PROCESSING ||
+                    item.status == QueueItemStatus.RETRY_WAIT) {
+                item.status = QueueItemStatus.CANCELLED;
+                item.endTime = LocalDateTime.now();
+                item.future.cancel(true);
+            }
+        });
+
+        taskQueue.clear();
+        taskMap.clear();
+    }
+}
+```
+
+## TaskManager.java
+
+```java
+package com.study.collect.business.testcase.core.manager;
+
+import com.study.collect.business.testcase.common.constants.CollectionConstants;
+import com.study.collect.business.testcase.model.response.TaskResponse;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+
+import javax.annotation.PreDestroy;
+import java.time.LocalDateTime;
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.stream.Collectors;
+
+/**
+ * 任务管理器
+ */
+@Slf4j
+@Component
+public class TaskManager {
+
+    private final ConcurrentHashMap<String, TaskResponse> taskMap;
+    private final ConcurrentHashMap<String, ScheduledFuture<?>> timeoutTasks;
+    private final ScheduledExecutorService scheduledExecutor;
+    private volatile boolean running = true;
+
+    public TaskManager(ScheduledExecutorService scheduledExecutor) {
+        this.taskMap = new ConcurrentHashMap<>();
+        this.timeoutTasks = new ConcurrentHashMap<>();
+        this.scheduledExecutor = scheduledExecutor;
+
+        // 启动定期清理
+        startPeriodicCleanup();
+    }
+
+    /**
+     * 创建新任务
+     */
+    public TaskResponse createTask(String type, Map<String, Object> params, Integer priority) {
+        String taskId = generateTaskId();
+        TaskResponse task = TaskResponse.builder()
+                .taskId(taskId)
+                .type(type)
+                .status("CREATED")
+                .progress(0.0)
+                .priority(priority != null ? priority : 0)
+                .createTime(LocalDateTime.now())
+                .params(params)
+                .build();
+
+        taskMap.put(taskId, task);
+        scheduleTimeout(taskId);
+
+        return task;
+    }
+
+    /**
+     * 更新任务状态
+     */
+    public void updateTaskStatus(String taskId, String status, String message) {
+        TaskResponse task = taskMap.get(taskId);
+        if (task != null) {
+            task.setStatus(status);
+            task.setMessage(message);
+
+            if (isTerminalStatus(status)) {
+                task.setEndTime(LocalDateTime.now());
+                cancelTimeout(taskId);
+            }
+
+            if ("PROCESSING".equals(status) && task.getStartTime() == null) {
+                task.setStartTime(LocalDateTime.now());
+            }
+        }
+    }
+
+    /**
+     * 更新任务进度
+     */
+    public void updateTaskProgress(String taskId, long processed, long total) {
+        TaskResponse task = taskMap.get(taskId);
+        if (task != null) {
+            task.updateProgress(processed, total);
+        }
+    }
+
+    /**
+     * 获取任务状态
+     */
+    public TaskResponse getTaskStatus(String taskId) {
+        return taskMap.get(taskId);
+    }
+
+    /**
+     * 获取所有活动任务
+     */
+    public List<TaskResponse> getActiveTasks() {
+        return taskMap.values().stream()
+                .filter(task -> !isTerminalStatus(task.getStatus()))
+                .sorted(Comparator.comparing(TaskResponse::getPriority).reversed())
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 取消任务
+     */
+    public boolean cancelTask(String taskId) {
+        TaskResponse task = taskMap.get(taskId);
+        if (task != null && "CREATED".equals(task.getStatus())) {
+            task.setStatus("CANCELLED");
+            task.setEndTime(LocalDateTime.now());
+            cancelTimeout(taskId);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * 更新任务优先级
+     */
+    public boolean updateTaskPriority(String taskId, int newPriority) {
+        TaskResponse task = taskMap.get(taskId);
+        if (task != null && !isTerminalStatus(task.getStatus())) {
+            task.setPriority(newPriority);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * 添加任务详情
+     */
+    public void addTaskDetails(String taskId, Map<String, Object> details) {
+        TaskResponse task = taskMap.get(taskId);
+        if (task != null) {
+            if (task.getDetails() == null) {
+                task.setDetails(new ConcurrentHashMap<>());
+            }
+            task.getDetails().putAll(details);
+        }
+    }
+
+    private String generateTaskId() {
+        return UUID.randomUUID().toString();
+    }
+
+    private boolean isTerminalStatus(String status) {
+        return "COMPLETED".equals(status) || "ERROR".equals(status)
+                || "CANCELLED".equals(status) || "TIMEOUT".equals(status);
+    }
+
+    private void scheduleTimeout(String taskId) {
+        ScheduledFuture<?> timeoutTask = scheduledExecutor.schedule(() -> {
+            TaskResponse task = taskMap.get(taskId);
+            if (task != null && !isTerminalStatus(task.getStatus())) {
+                task.setStatus("TIMEOUT");
+                task.setEndTime(LocalDateTime.now());
+                task.setMessage("Task timeout after " +
+                        CollectionConstants.Process.TASK_TIMEOUT + " seconds");
+            }
+        }, CollectionConstants.Process.TASK_TIMEOUT, TimeUnit.SECONDS);
+
+        timeoutTasks.put(taskId, timeoutTask);
+    }
+
+    private void cancelTimeout(String taskId) {
+        ScheduledFuture<?> timeoutTask = timeoutTasks.remove(taskId);
+        if (timeoutTask != null) {
+            timeoutTask.cancel(false);
+        }
+    }
+
+    private void startPeriodicCleanup() {
+        scheduledExecutor.scheduleAtFixedRate(
+                this::cleanupTasks,
+                1, 1, TimeUnit.HOURS
+        );
+    }
+
+    private void cleanupTasks() {
+        if (!running) {
+            return;
+        }
+
+        try {
+            LocalDateTime cutoff = LocalDateTime.now().minusDays(7);
+            taskMap.entrySet().removeIf(entry -> {
+                TaskResponse task = entry.getValue();
+                return task.getEndTime() != null && task.getEndTime().isBefore(cutoff);
+            });
+
+            log.debug("Completed task cleanup, remaining tasks: {}", taskMap.size());
+        } catch (Exception e) {
+            log.error("Error during task cleanup", e);
+        }
+    }
+
+    @PreDestroy
+    public void shutdown() {
+        running = false;
+        // 取消所有超时任务
+        timeoutTasks.values().forEach(task -> task.cancel(true));
+        timeoutTasks.clear();
+
+        // 标记所有未完成任务为已取消
+        taskMap.values().stream()
+                .filter(task -> !isTerminalStatus(task.getStatus()))
+                .forEach(task -> {
+                    task.setStatus("CANCELLED");
+                    task.setEndTime(LocalDateTime.now());
+                    task.setMessage("Task cancelled due to system shutdown");
+                });
+    }
+
+    /**
+     * 获取任务总数
+     */
+    public long getTotalTaskCount() {
+        return taskMap.size();
+    }
+
+    /**
+     * 获取活动任务数
+     */
+    public long getActiveTaskCount() {
+        return taskMap.values().stream()
+                .filter(task -> !isTerminalStatus(task.getStatus()))
+                .count();
+    }
+
+    /**
+     * 获取任务统计信息
+     */
+    public Map<String, Long> getTaskStatistics() {
+        Map<String, Long> stats = new HashMap<>();
+        taskMap.values().stream()
+                .collect(Collectors.groupingBy(
+                        TaskResponse::getStatus,
+                        Collectors.counting()
+                ))
+                .forEach((status, count) -> stats.put("status." + status.toLowerCase(), count));
+
+        stats.put("total", getTotalTaskCount());
+        stats.put("active", getActiveTaskCount());
+
+        return stats;
+    }
+}
+```
+
+## CollectProcessor.java
+
+```java
+package com.study.collect.business.testcase.core.processor;
+
+public class CollectProcessor {
+}
+
+```
+
+## DataProcessor.java
+
+```java
+package com.study.collect.business.testcase.core.processor;
+
+import com.study.collect.business.testcase.utils.StreamProcessor.ProcessMetrics;
+import java.util.concurrent.CompletableFuture;
+
+/**
+ * 数据处理器接口
+ * @param <T> 处理参数类型
+ * @param <R> 结果类型
+ */
+public interface DataProcessor<T, R> {
+
+    /**
+     * 异步处理数据
+     * @param param 处理参数
+     * @return 异步处理结果
+     */
+    CompletableFuture<R> process(T param);
+
+    /**
+     * 取消处理
+     * @param taskId 任务ID
+     * @return 是否成功取消
+     */
+    boolean cancel(String taskId);
+
+    /**
+     * 更新优先级
+     * @param taskId 任务ID
+     * @param priority 新优先级
+     * @return 是否成功更新
+     */
+    boolean updatePriority(String taskId, int priority);
+
+    /**
+     * 获取处理进度
+     * @param taskId 任务ID
+     * @return 处理进度指标
+     */
+    ProcessMetrics getProgress(String taskId);
+
+    /**
+     * 暂停处理
+     * @param taskId 任务ID
+     */
+    void pause(String taskId);
+
+    /**
+     * 恢复处理
+     * @param taskId 任务ID
+     */
+    void resume(String taskId);
+}
+```
+
+## DeleteProcessor.java
+
+```java
+package com.study.collect.business.testcase.core.processor;
+
+public class DeleteProcessor {
+}
+
 ```
 
 ## BaseEntity.java
@@ -1186,336 +2358,6 @@ public abstract class VersionEntity extends BaseEntity {
     public void preUpdate() {
         super.preUpdate();
         upgradeVersion();
-    }
-}
-```
-
-## CollectTaskManager.java
-
-```java
-package com.study.collect.business.testcase.manager;
-
-import com.study.collect.business.testcase.constant.CollectionConstants;
-import com.study.collect.business.testcase.model.response.TaskResponse;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-
-import javax.annotation.PreDestroy;
-import java.time.LocalDateTime;
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
-
-@Slf4j
-@Component
-public class CollectTaskManager {
-    private final ConcurrentHashMap<String, TaskResponse> taskMap = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, ScheduledFuture<?>> timeoutTasks = new ConcurrentHashMap<>();
-    private final ScheduledExecutorService scheduledExecutor;
-
-    public CollectTaskManager(ScheduledExecutorService scheduledExecutor) {
-        this.scheduledExecutor = scheduledExecutor;
-        // 启动定期清理任务
-        this.scheduledExecutor.scheduleAtFixedRate(
-                this::cleanupTasks,
-                1,
-                1,
-                TimeUnit.HOURS
-        );
-    }
-
-    /**
-     * 创建新任务
-     */
-    public TaskResponse createTask(String type, Map<String, Object> params, Integer priority) {
-        String taskId = generateTaskId();
-        TaskResponse task = TaskResponse.builder()
-                .taskId(taskId)
-                .type(type)
-                .status("CREATED")
-                .progress(0.0)
-                .priority(priority != null ? priority : 0)
-                .createTime(LocalDateTime.now())
-                .params(params)
-                .build();
-
-        taskMap.put(taskId, task);
-        scheduleTimeout(taskId);
-
-        return task;
-    }
-
-    /**
-     * 更新任务状态
-     */
-    public void updateTaskStatus(String taskId, String status, String message) {
-        TaskResponse task = taskMap.get(taskId);
-        if (task != null) {
-            task.setStatus(status);
-            task.setMessage(message);
-            if ("COMPLETED".equals(status) || "ERROR".equals(status)) {
-                task.setEndTime(LocalDateTime.now());
-                cancelTimeout(taskId);
-            }
-        }
-    }
-
-    /**
-     * 更新任务进度
-     */
-    public void updateTaskProgress(String taskId, long processed, long total) {
-        TaskResponse task = taskMap.get(taskId);
-        if (task != null) {
-            task.updateProgress(processed, total);
-        }
-    }
-
-    /**
-     * 获取任务状态
-     */
-    public TaskResponse getTaskStatus(String taskId) {
-        return taskMap.get(taskId);
-    }
-
-    /**
-     * 调整任务优先级
-     */
-    public boolean updateTaskPriority(String taskId, int newPriority) {
-        TaskResponse task = taskMap.get(taskId);
-        if (task != null && "CREATED".equals(task.getStatus())) {
-            task.setPriority(newPriority);
-            return true;
-        }
-        return false;
-    }
-
-    /**
-     * 获取所有活动任务
-     */
-    public List<TaskResponse> getActiveTasks() {
-        return taskMap.values().stream()
-                .filter(task -> !"COMPLETED".equals(task.getStatus())
-                        && !"ERROR".equals(task.getStatus()))
-                .sorted(Comparator.comparing(TaskResponse::getPriority).reversed())
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * 取消任务
-     */
-    public boolean cancelTask(String taskId) {
-        TaskResponse task = taskMap.get(taskId);
-        if (task != null && "CREATED".equals(task.getStatus())) {
-            task.setStatus("CANCELLED");
-            task.setEndTime(LocalDateTime.now());
-            cancelTimeout(taskId);
-            return true;
-        }
-        return false;
-    }
-
-    private String generateTaskId() {
-        return UUID.randomUUID().toString();
-    }
-
-    private void scheduleTimeout(String taskId) {
-        ScheduledFuture<?> timeoutTask = scheduledExecutor.schedule(() -> {
-            TaskResponse task = taskMap.get(taskId);
-            if (task != null && !"COMPLETED".equals(task.getStatus())
-                    && !"ERROR".equals(task.getStatus())) {
-                task.setStatus("TIMEOUT");
-                task.setEndTime(LocalDateTime.now());
-                task.setMessage("Task timeout after " + CollectionConstants.TASK_TIMEOUT + " seconds");
-            }
-        }, CollectionConstants.TASK_TIMEOUT, TimeUnit.SECONDS);
-
-        timeoutTasks.put(taskId, timeoutTask);
-    }
-
-    private void cancelTimeout(String taskId) {
-        ScheduledFuture<?> timeoutTask = timeoutTasks.remove(taskId);
-        if (timeoutTask != null) {
-            timeoutTask.cancel(false);
-        }
-    }
-
-    private void cleanupTasks() {
-        LocalDateTime cutoff = LocalDateTime.now().minusDays(7);
-        taskMap.entrySet().removeIf(entry -> {
-            TaskResponse task = entry.getValue();
-            return task.getEndTime() != null && task.getEndTime().isBefore(cutoff);
-        });
-    }
-
-    @PreDestroy
-    public void shutdown() {
-        timeoutTasks.values().forEach(task -> task.cancel(true));
-        timeoutTasks.clear();
-        taskMap.clear();
-    }
-}
-```
-
-## QueueManager.java
-
-```java
-package com.study.collect.business.testcase.manager;
-
-import com.study.collect.business.testcase.constant.CollectionConstants;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
-import org.springframework.stereotype.Component;
-
-import javax.annotation.PreDestroy;
-import java.util.Comparator;
-import java.util.concurrent.*;
-import java.util.function.Consumer;
-
-@Slf4j
-@Component
-public class QueueManager<T> {
-    private final PriorityBlockingQueue<QueueItem<T>> queue;
-    private final ConcurrentHashMap<String, QueueItem<T>> itemMap;
-    private final ThreadPoolTaskExecutor executor;
-    private volatile boolean running = true;
-
-
-    public QueueManager(ThreadPoolTaskExecutor taskExecutor) {
-        this.queue = new PriorityBlockingQueue<>(
-                CollectionConstants.TASK_QUEUE_CAPACITY,
-                Comparator.comparing(QueueItem<T>::getPriority).reversed()
-        );
-        this.itemMap = new ConcurrentHashMap<>();
-        this.executor = taskExecutor;
-
-        // 启动队列处理线程
-        startQueueProcessor();
-    }
-
-    private static class QueueItem<T> {
-        final String id;
-        final T item;
-        volatile int priority;
-        final CompletableFuture<Void> future;
-        final Consumer<T> processor;
-
-        QueueItem(String id, T item, int priority, Consumer<T> processor) {
-            this.id = id;
-            this.item = item;
-            this.priority = priority;
-            this.processor = processor;
-            this.future = new CompletableFuture<>();
-        }
-
-        int getPriority() {
-            return priority;
-        }
-    }
-
-    /**
-     * 添加任务到队列
-     */
-    public CompletableFuture<Void> enqueue(String id, T item, int priority, Consumer<T> processor) {
-        QueueItem<T> queueItem = new QueueItem<>(id, item, priority, processor);
-        if (itemMap.putIfAbsent(id, queueItem) != null) {
-            throw new IllegalStateException("Item with id " + id + " already exists in queue");
-        }
-        queue.offer(queueItem);
-        return queueItem.future;
-    }
-
-    /**
-     * 更新任务优先级
-     */
-    public boolean updatePriority(String id, int newPriority) {
-        QueueItem<T> item = itemMap.get(id);
-        if (item != null) {
-            // 创建新的队列项并重新入队
-            QueueItem<T> newItem = new QueueItem<>(id, item.item, newPriority, item.processor);
-            if (queue.remove(item)) {
-                queue.offer(newItem);
-                itemMap.put(id, newItem);
-                // 传递future的结果
-                item.future.whenComplete((v, e) -> {
-                    if (e != null) {
-                        newItem.future.completeExceptionally(e);
-                    } else {
-                        newItem.future.complete(null);
-                    }
-                });
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * 取消任务
-     */
-    public boolean cancel(String id) {
-        QueueItem<T> item = itemMap.remove(id);
-        if (item != null) {
-            queue.remove(item);
-            item.future.cancel(true);
-            return true;
-        }
-        return false;
-    }
-
-    /**
-     * 获取队列大小
-     */
-    public int getQueueSize() {
-        return queue.size();
-    }
-
-    private void startQueueProcessor() {
-        executor.execute(() -> {
-            while (running) {
-                try {
-                    QueueItem<T> item = queue.poll(1, TimeUnit.SECONDS);
-                    if (item != null) {
-                        processItem(item);
-                    }
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    break;
-                } catch (Exception e) {
-                    log.error("Error processing queue item", e);
-                }
-            }
-        });
-    }
-
-    private void processItem(QueueItem<T> item) {
-        try {
-            item.processor.accept(item.item);
-            item.future.complete(null);
-        } catch (Exception e) {
-            item.future.completeExceptionally(e);
-        } finally {
-            itemMap.remove(item.id);
-        }
-    }
-
-    @PreDestroy
-    public void shutdown() {
-        running = false;
-        // 取消所有未完成的任务
-        itemMap.values().forEach(item -> item.future.cancel(true));
-        queue.clear();
-        itemMap.clear();
-    }
-
-    /**
-     * 获取任务状态
-     */
-    public boolean isQueued(String id) {
-        return itemMap.containsKey(id);
     }
 }
 ```
@@ -2339,9 +3181,10 @@ package com.study.collect.business.testcase.repository;
 import com.mongodb.bulk.BulkWriteResult;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.*;
-import com.study.collect.business.testcase.constant.CollectionConstants;
+import com.study.collect.business.testcase.common.constants.CollectionConstants;
+import com.study.collect.business.testcase.common.utils.TableNameHelper;
 import com.study.collect.business.testcase.entity.UriEntity;
-import com.study.collect.business.testcase.utils.HashUtil;
+import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.bson.Document;
 import org.springframework.data.domain.Page;
@@ -2353,26 +3196,24 @@ import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Repository;
 import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+/**
+ * URI仓储实现
+ */
 @Slf4j
 @Repository
 public class UriRepository {
+
     private final MongoTemplate mongoTemplate;
 
     public UriRepository(MongoTemplate mongoTemplate) {
         this.mongoTemplate = mongoTemplate;
-    }
-
-    /**
-     * 生成集合名称
-     */
-    private String getCollectionName(String rootNode) {
-        return String.format("%s_%s", CollectionConstants.URI_COLLECTION_PREFIX, rootNode);
     }
 
     /**
@@ -2383,7 +3224,7 @@ public class UriRepository {
             return null;
         }
 
-        String collectionName = getCollectionName(rootNode);
+        String collectionName = TableNameHelper.getTableName(rootNode);
         MongoCollection<Document> collection = mongoTemplate.getCollection(collectionName);
 
         List<WriteModel<Document>> operations = new ArrayList<>();
@@ -2416,8 +3257,9 @@ public class UriRepository {
             return 0L;
         }
 
+        String collectionName = TableNameHelper.getTableName(rootNode);
         List<String> uriHashes = uris.stream()
-                .map(HashUtil::hash)
+                .map(TableNameHelper::generateUriHash)
                 .collect(Collectors.toList());
 
         Query query = new Query(Criteria.where("uri_hash").in(uriHashes));
@@ -2426,13 +3268,9 @@ public class UriRepository {
                 .set("update_time", LocalDateTime.now());
 
         try {
-            return mongoTemplate.updateMulti(
-                    query,
-                    update,
-                    getCollectionName(rootNode)
-            ).getModifiedCount();
+            return mongoTemplate.updateMulti(query, update, collectionName).getModifiedCount();
         } catch (Exception e) {
-            log.error("Failed to batch soft delete in collection {}", rootNode, e);
+            log.error("Failed to batch soft delete in collection {}", collectionName, e);
             throw new RuntimeException("Batch soft delete failed", e);
         }
     }
@@ -2445,53 +3283,81 @@ public class UriRepository {
             return 0L;
         }
 
+        String collectionName = TableNameHelper.getTableName(rootNode);
         List<String> uriHashes = uris.stream()
-                .map(HashUtil::hash)
+                .map(TableNameHelper::generateUriHash)
                 .collect(Collectors.toList());
 
         Query query = new Query(Criteria.where("uri_hash").in(uriHashes));
 
         try {
-            return mongoTemplate.remove(
-                    query,
-                    UriEntity.class,
-                    getCollectionName(rootNode)
-            ).getDeletedCount();
+            return mongoTemplate.remove(query, UriEntity.class, collectionName).getDeletedCount();
         } catch (Exception e) {
-            log.error("Failed to batch hard delete in collection {}", rootNode, e);
+            log.error("Failed to batch hard delete in collection {}", collectionName, e);
             throw new RuntimeException("Batch hard delete failed", e);
+        }
+    }
+
+    /**
+     * 清理不在列表中的URI（软删除）
+     */
+    public long softDeleteNotInUriHashes(String rootNode, Set<String> validHashes) {
+        String collectionName = TableNameHelper.getTableName(rootNode);
+        Query query = new Query(Criteria.where("uri_hash").nin(validHashes)
+                .and("is_deleted").is(false));
+        Update update = new Update()
+                .set("is_deleted", true)
+                .set("update_time", LocalDateTime.now());
+
+        try {
+            return mongoTemplate.updateMulti(query, update, collectionName).getModifiedCount();
+        } catch (Exception e) {
+            log.error("Failed to soft delete URIs not in hash set for collection {}", collectionName, e);
+            throw new RuntimeException("Soft delete cleanup failed", e);
+        }
+    }
+
+    /**
+     * 清理不在列表中的URI（硬删除）
+     */
+    public long deleteNotInUriHashes(String rootNode, Set<String> validHashes) {
+        String collectionName = TableNameHelper.getTableName(rootNode);
+        Query query = new Query(Criteria.where("uri_hash").nin(validHashes));
+
+        try {
+            return mongoTemplate.remove(query, UriEntity.class, collectionName).getDeletedCount();
+        } catch (Exception e) {
+            log.error("Failed to delete URIs not in hash set for collection {}", collectionName, e);
+            throw new RuntimeException("Delete cleanup failed", e);
         }
     }
 
     /**
      * 分页查询
      */
-    public Page<UriEntity> findByCondition(
-            String rootNode,
-            String version,
-            String versionType,
-            Boolean includeDeleted,
-            Pageable pageable
-    ) {
+    public Page<UriEntity> findByCondition(QueryParams params) {
         Criteria criteria = new Criteria();
 
-        if (version != null) {
-            criteria.and("uri_version").is(version);
+        if (StringUtils.hasText(params.getVersion())) {
+            criteria.and("uri_version").is(params.getVersion());
         }
-        if (versionType != null) {
-            criteria.and("version_type").is(versionType);
+        if (StringUtils.hasText(params.getVersionType())) {
+            criteria.and("version_type").is(params.getVersionType());
         }
-        if (!includeDeleted) {
+        if (!params.getIncludeDeleted()) {
             criteria.and("is_deleted").is(false);
         }
+        if (params.getOnlyDeleted()) {
+            criteria.and("is_deleted").is(true);
+        }
 
-        Query query = new Query(criteria).with(pageable);
-        String collectionName = getCollectionName(rootNode);
+        Query query = new Query(criteria).with(params.getPageable());
+        String collectionName = TableNameHelper.getTableName(params.getRootNode());
 
         try {
             long total = mongoTemplate.count(query, UriEntity.class, collectionName);
             List<UriEntity> content = mongoTemplate.find(query, UriEntity.class, collectionName);
-            return new PageImpl<>(content, pageable, total);
+            return new PageImpl<>(content, params.getPageable(), total);
         } catch (Exception e) {
             log.error("Failed to query collection {}", collectionName, e);
             throw new RuntimeException("Query failed", e);
@@ -2501,71 +3367,55 @@ public class UriRepository {
     /**
      * 批量查询
      */
-    public List<UriEntity> batchQuery(
-            List<String> uris,
-            Function<String, String> rootNodeResolver,
-            Boolean includeDeleted
-    ) {
+    public List<UriEntity> batchQuery(List<String> uris, Function<String, String> rootNodeResolver,
+                                      Boolean includeDeleted) {
         if (CollectionUtils.isEmpty(uris)) {
             return new ArrayList<>();
         }
 
-        // 按rootNode分组
         Map<String, List<String>> groupedUris = uris.stream()
                 .collect(Collectors.groupingBy(rootNodeResolver));
 
         List<UriEntity> results = new ArrayList<>();
-
         for (Map.Entry<String, List<String>> entry : groupedUris.entrySet()) {
-            String rootNode = entry.getKey();
-            List<String> uriGroup = entry.getValue();
-
-            List<String> uriHashes = uriGroup.stream()
-                    .map(HashUtil::hash)
-                    .collect(Collectors.toList());
-
-            Criteria criteria = Criteria.where("uri_hash").in(uriHashes);
-            if (!includeDeleted) {
-                criteria.and("is_deleted").is(false);
-            }
-
-            Query query = new Query(criteria);
-            String collectionName = getCollectionName(rootNode);
-
-            try {
-                List<UriEntity> groupResults = mongoTemplate.find(
-                        query,
-                        UriEntity.class,
-                        collectionName
-                );
-                results.addAll(groupResults);
-            } catch (Exception e) {
-                log.error("Failed to query collection {}", collectionName, e);
-                // 继续处理其他分组
-            }
+            results.addAll(queryByGroup(entry.getKey(), entry.getValue(), includeDeleted));
         }
 
         return results;
     }
 
-    /**
-     * 删除不存在的URI
-     */
-    public void deleteNotInUris(String rootNode, Set<String> uriHashes) {
-        Query query = new Query(
-                Criteria.where("uri_hash").nin(uriHashes)
-        );
+    private List<UriEntity> queryByGroup(String rootNode, List<String> uris, Boolean includeDeleted) {
+        String collectionName = TableNameHelper.getTableName(rootNode);
+        List<String> uriHashes = uris.stream()
+                .map(TableNameHelper::generateUriHash)
+                .collect(Collectors.toList());
 
-        try {
-            mongoTemplate.remove(
-                    query,
-                    UriEntity.class,
-                    getCollectionName(rootNode)
-            );
-        } catch (Exception e) {
-            log.error("Failed to delete non-existing URIs in collection {}", rootNode, e);
-            throw new RuntimeException("Delete non-existing URIs failed", e);
+        Criteria criteria = Criteria.where("uri_hash").in(uriHashes);
+        if (!includeDeleted) {
+            criteria.and("is_deleted").is(false);
         }
+
+        Query query = new Query(criteria);
+        try {
+            return mongoTemplate.find(query, UriEntity.class, collectionName);
+        } catch (Exception e) {
+            log.error("Failed to query collection {} for group", collectionName, e);
+            return Collections.emptyList();
+        }
+    }
+
+    /**
+     * 查询参数对象
+     */
+    @Data
+    @Builder
+    public static class QueryParams {
+        private String rootNode;
+        private String version;
+        private String versionType;
+        private Boolean includeDeleted;
+        private Boolean onlyDeleted;
+        private Pageable pageable;
     }
 
     private Document convertEntityToDocument(UriEntity entity) {
@@ -2919,95 +3769,242 @@ public class UriHttpService {
 ```java
 package com.study.collect.business.testcase.service.impl;
 
-import com.study.collect.business.testcase.model.PageResult;
+import com.study.collect.business.testcase.common.constants.CollectionConstants;
+import com.study.collect.business.testcase.utils.StreamProcessor;
 import com.study.collect.business.testcase.repository.UriRepository;
+import lombok.Builder;
+import lombok.Data;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.scheduling.annotation.Async;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
-@Service
+/**
+ * URI清理服务
+ * 提供URI数据的清理和批量删除功能
+ */
 @Slf4j
+@Service
+@RequiredArgsConstructor
 public class UriCleanupService {
-    private final UriRepository repository;
-    private static final int PAGE_SIZE = 10000;
-    private static final int DELETE_BATCH_SIZE = 10000;
 
-    @Autowired
-    public UriCleanupService(UriRepository repository) {
-        this.repository = repository;
+    private final UriRepository repository;
+
+    @Qualifier("mongoExecutor")
+    private final ThreadPoolTaskExecutor mongoExecutor;
+
+    @Qualifier("virtualThreadExecutor")
+    private final ExecutorService virtualThreadExecutor;
+
+    /**
+     * 清理参数
+     */
+    @Data
+    @Builder
+    public static class CleanupParams {
+        private String rootNode;
+        private List<String> uris;
+        private boolean hardDelete;
+        @Builder.Default
+        private int batchSize = CollectionConstants.Process.DEFAULT_BATCH_SIZE;
+        @Builder.Default
+        private long timeout = CollectionConstants.Process.TASK_TIMEOUT;
     }
 
     /**
-     * 清理不在总列表中的URI数据
-     * @param allUriHashes 总的uriHash列表
-     * @param rootNode 根节点
+     * 删除参数
      */
-    public void cleanupUriData(List<String> allUriHashes, String rootNode) {
+    @Data
+    @Builder
+    public static class DeleteParams {
+        private String rootNode;
+        private List<String> uris;
+        private boolean hardDelete;
+        @Builder.Default
+        private int batchSize = CollectionConstants.Process.DEFAULT_BATCH_SIZE;
+        @Builder.Default
+        private long timeout = CollectionConstants.Process.TASK_TIMEOUT;
+    }
+
+    /**
+     * 清理操作结果
+     */
+    @Data
+    @Builder
+    public static class CleanupResult {
+        private long processedCount;
+        private long deletedCount;
+        private long errorCount;
+        private List<String> failedUris;
+        private Map<String, Object> details;
+    }
+
+    /**
+     * 执行清理操作
+     * 清理不在指定URI列表中的数据
+     */
+    public CompletableFuture<StreamProcessor.ProcessMetrics> cleanup(
+            CleanupParams params,
+            Consumer<StreamProcessor.ProcessMetrics> progressCallback
+    ) {
+        validateParams(params);
+
+        // 创建处理器配置
+        StreamProcessor.ProcessorConfig<List<String>, Long> config =
+                StreamProcessor.ProcessorConfig.<List<String>, Long>builder()
+                        .processorName("URI-Cleanup-" + params.getRootNode())
+                        .batchSize(params.getBatchSize())
+                        .maxConcurrent(1)  // 清理任务限制并发为1
+                        .timeoutSeconds(params.getTimeout())
+                        .maxRetries(CollectionConstants.Http.MAX_RETRY)
+                        .retryDelayMs(CollectionConstants.Http.RETRY_INTERVAL)
+                        .processExecutor(virtualThreadExecutor)
+                        .saveExecutor(mongoExecutor)
+                        // 数据获取函数
+                        .dataFetcher(offset -> fetchBatch(params.getUris(), offset, params.getBatchSize()))
+                        // 数据转换函数
+                        .dataConverter(batch -> processCleanup(params.getRootNode(), new HashSet<>(batch),
+                                params.isHardDelete()))
+                        // 数据保存函数
+                        .dataSaver(this::updateMetrics)
+                        // 进度回调
+                        .progressCallback(progressCallback)
+                        .build();
+
+        // 创建处理器实例并开始处理
+        StreamProcessor<List<String>, Long> processor = new StreamProcessor<>(config);
+        return processor.process(0, params.getUris().size());
+    }
+
+    /**
+     * 批量删除
+     * 删除指定的URI列表
+     */
+    public CompletableFuture<StreamProcessor.ProcessMetrics> batchDelete(
+            DeleteParams params,
+            Consumer<StreamProcessor.ProcessMetrics> progressCallback
+    ) {
+        validateParams(params);
+
+        // 创建处理器配置
+        StreamProcessor.ProcessorConfig<List<String>, Long> config =
+                StreamProcessor.ProcessorConfig.<List<String>, Long>builder()
+                        .processorName("URI-Delete-" + params.getRootNode())
+                        .batchSize(params.getBatchSize())
+                        .maxConcurrent(CollectionConstants.Process.MAX_CONCURRENT_TASKS)
+                        .timeoutSeconds(params.getTimeout())
+                        .maxRetries(CollectionConstants.Http.MAX_RETRY)
+                        .retryDelayMs(CollectionConstants.Http.RETRY_INTERVAL)
+                        .processExecutor(virtualThreadExecutor)
+                        .saveExecutor(mongoExecutor)
+                        // 数据获取函数
+                        .dataFetcher(offset -> fetchBatch(params.getUris(), offset, params.getBatchSize()))
+                        // 数据转换函数
+                        .dataConverter(batch -> processDelete(params.getRootNode(), batch,
+                                params.isHardDelete()))
+                        // 数据保存函数
+                        .dataSaver(this::updateMetrics)
+                        // 进度回调
+                        .progressCallback(progressCallback)
+                        .build();
+
+        // 创建处理器实例并开始处理
+        StreamProcessor<List<String>, Long> processor = new StreamProcessor<>(config);
+        return processor.process(0, params.getUris().size());
+    }
+
+    /**
+     * 获取一批数据
+     */
+    private List<String> fetchBatch(List<String> allUris, int offset, int batchSize) {
+        int endIndex = Math.min(offset + batchSize, allUris.size());
+        return offset < allUris.size() ?
+                allUris.subList(offset, endIndex) :
+                Collections.emptyList();
+    }
+
+    /**
+     * 处理清理操作
+     */
+    private Long processCleanup(String rootNode, Set<String> validUris, boolean hardDelete) {
         try {
-            log.info("Starting URI cleanup process, total hashes: {}", allUriHashes.size());
-            Set<String> allHashSet = new HashSet<>(allUriHashes);
-            Set<String> toDeleteHashes = new HashSet<>();
-
-            // 分页查询数据库中的uriHash
-            int page = 1;
-            PageResult<String> pageResult;
-            do {
-                pageResult = repository.findUriHashesPage(rootNode, null, null, page, PAGE_SIZE);
-
-                // 找出不在总列表中的hash
-                for (String dbHash : pageResult.getItems()) {
-                    if (!allHashSet.contains(dbHash)) {
-                        toDeleteHashes.add(dbHash);
-                    }
-                }
-
-                log.info("Processed page {}/{}, found {} hashes to delete",
-                        page, pageResult.getTotalPages(), toDeleteHashes.size());
-                page++;
-            } while (page <= pageResult.getTotalPages());
-
-            // 如果有需要删除的数据，进行批量删除
-            if (!toDeleteHashes.isEmpty()) {
-                log.info("Starting deletion of {} hashes", toDeleteHashes.size());
-                List<String> toDeleteList = new ArrayList<>(toDeleteHashes);
-
-                // 分批删除
-                for (int i = 0; i < toDeleteList.size(); i += DELETE_BATCH_SIZE) {
-                    int end = Math.min(i + DELETE_BATCH_SIZE, toDeleteList.size());
-                    List<String> batch = toDeleteList.subList(i, end);
-
-                    try {
-                        repository.deleteByUriHashes(batch);
-                        log.info("Deleted batch {}-{} of {}", i, end, toDeleteList.size());
-                    } catch (Exception e) {
-                        log.error("Error deleting batch {}-{}", i, end, e);
-                    }
-                }
-
-                log.info("Cleanup completed, deleted {} hashes", toDeleteList.size());
-            } else {
-                log.info("No hashes need to be deleted");
-            }
-
+            return hardDelete ?
+                    repository.deleteNotInUriHashes(rootNode, validUris) :
+                    repository.softDeleteNotInUriHashes(rootNode, validUris);
         } catch (Exception e) {
-            log.error("Error during cleanup process", e);
-            throw new RuntimeException("Cleanup process failed", e);
+            log.error("Error during cleanup for rootNode: {}", rootNode, e);
+            throw new RuntimeException("Cleanup failed", e);
         }
     }
 
     /**
-     * 异步执行清理过程
+     * 处理删除操作
      */
-    @Async
-    public CompletableFuture<Void> cleanupUriDataAsync(List<String> allUriHashes, String rootNode) {
-        return CompletableFuture.runAsync(() -> cleanupUriData(allUriHashes, rootNode));
+    private Long processDelete(String rootNode, List<String> uris, boolean hardDelete) {
+        try {
+            return hardDelete ?
+                    repository.batchHardDelete(rootNode, uris) :
+                    repository.batchSoftDelete(rootNode, uris);
+        } catch (Exception e) {
+            log.error("Error during delete for rootNode: {}", rootNode, e);
+            throw new RuntimeException("Delete failed", e);
+        }
+    }
+
+    /**
+     * 更新处理指标
+     */
+    private void updateMetrics(List<Long> counts) {
+        // 可以实现具体的指标更新逻辑
+        long total = counts.stream().mapToLong(Long::longValue).sum();
+        log.debug("Processed batch with total count: {}", total);
+    }
+
+    /**
+     * 验证清理参数
+     */
+    private void validateParams(CleanupParams params) {
+        Objects.requireNonNull(params.getRootNode(), "RootNode must not be null");
+        Objects.requireNonNull(params.getUris(), "URIs list must not be null");
+
+        if (params.getBatchSize() < CollectionConstants.Process.MIN_BATCH_SIZE ||
+                params.getBatchSize() > CollectionConstants.Process.MAX_BATCH_SIZE) {
+            throw new IllegalArgumentException("Invalid batch size: " + params.getBatchSize());
+        }
+    }
+
+    /**
+     * 验证删除参数
+     */
+    private void validateParams(DeleteParams params) {
+        Objects.requireNonNull(params.getRootNode(), "RootNode must not be null");
+        Objects.requireNonNull(params.getUris(), "URIs list must not be null");
+
+        if (params.getBatchSize() < CollectionConstants.Process.MIN_BATCH_SIZE ||
+                params.getBatchSize() > CollectionConstants.Process.MAX_BATCH_SIZE) {
+            throw new IllegalArgumentException("Invalid batch size: " + params.getBatchSize());
+        }
+    }
+
+    /**
+     * 统计清理结果
+     */
+    private CleanupResult buildResult(List<Long> results, List<String> failedUris) {
+        long totalProcessed = results.stream().mapToLong(Long::longValue).sum();
+        return CleanupResult.builder()
+                .processedCount(totalProcessed)
+                .deletedCount(totalProcessed)
+                .errorCount(failedUris.size())
+                .failedUris(failedUris)
+                .details(new HashMap<>())
+                .build();
     }
 }
 ```
@@ -3017,72 +4014,78 @@ public class UriCleanupService {
 ```java
 package com.study.collect.business.testcase.service.impl;
 
-import com.study.collect.business.testcase.constant.CollectionConstants;
+
+import com.study.collect.business.testcase.core.executor.CollectExecutor;
+import com.study.collect.business.testcase.core.executor.DeleteExecutor;
+import com.study.collect.business.testcase.core.manager.QueueManager;
+import com.study.collect.business.testcase.core.manager.TaskManager;
 import com.study.collect.business.testcase.entity.UriEntity;
-import com.study.collect.business.testcase.manager.CollectTaskManager;
-import com.study.collect.business.testcase.manager.QueueManager;
 import com.study.collect.business.testcase.model.param.CollectParam;
 import com.study.collect.business.testcase.model.param.DeleteParam;
 import com.study.collect.business.testcase.model.param.QueryParam;
 import com.study.collect.business.testcase.model.response.AsyncResponse;
-import com.study.collect.business.testcase.model.response.PageResponse;
 import com.study.collect.business.testcase.model.response.TaskResponse;
 import com.study.collect.business.testcase.repository.UriRepository;
 import com.study.collect.business.testcase.service.UriCollectService;
 import com.study.collect.business.testcase.service.http.UriHttpService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.pool2.ObjectPool;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * URI采集服务实现
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class UriCollectServiceImpl implements UriCollectService {
+
     private final UriHttpService httpService;
     private final UriRepository repository;
-    private final ObjectPool<UriEntity> entityPool;
-    private final CollectTaskManager taskManager;
-    private final QueueManager<CollectParam> collectQueue;
-    private final QueueManager<DeleteParam> deleteQueue;
+    private final CollectExecutor collectExecutor;
+    private final DeleteExecutor deleteExecutor;
+    private final TaskManager taskManager;
+    private final QueueManager queueManager;
+    private final UriCleanupService cleanupService;
 
     @Override
     public AsyncResponse<String> collectData(CollectParam param) {
         // 1. 创建任务
-        TaskResponse task = taskManager.createTask(
-                "COLLECT",
-                Map.of("rootNode", param.getRootNode(),
-                        "serverUri", param.getServerUri(),
-                        "version", param.getVersion()),
-                param.getPriority()
-        );
+        Map<String, Object> taskParams = new HashMap<>();
+        taskParams.put("rootNode", param.getRootNode());
+        taskParams.put("serverUri", param.getServerUri());
+        taskParams.put("version", param.getVersion());
+        taskParams.put("incremental", param.getIncremental());
+
+        TaskResponse task = taskManager.createTask("COLLECT", taskParams, param.getPriority());
+        String taskId = task.getTaskId();
+        param.setTaskId(taskId);
 
         // 2. 将任务加入队列
-        collectQueue.enqueue(
-                task.getTaskId(),
+        queueManager.enqueue(
+                taskId,
                 param,
                 param.getPriority(),
                 this::processCollectTask
         ).exceptionally(throwable -> {
-            taskManager.updateTaskStatus(
-                    task.getTaskId(),
-                    "ERROR",
-                    throwable.getMessage()
-            );
+            taskManager.updateTaskStatus(taskId, "ERROR", throwable.getMessage());
             return null;
         });
 
         // 3. 返回异步响应
         return AsyncResponse.<String>builder()
-                .taskId(task.getTaskId())
+                .taskId(taskId)
                 .status("QUEUED")
-                .message("Task queued successfully")
+                .message("Data collection task queued successfully")
                 .build();
     }
 
@@ -3091,150 +4094,87 @@ public class UriCollectServiceImpl implements UriCollectService {
         try {
             taskManager.updateTaskStatus(taskId, "PROCESSING", "Starting data collection");
 
-            // 1. 获取所有版本
-            List<String> allVersions = httpService.getAllVersions(param
-            );
-
-            taskManager.updateTaskStatus(
-                    taskId,
-                    "PROCESSING",
-                    String.format("Found %d versions", allVersions.size())
-            );
-
-            // 2. 如果是增量同步，先清理数据
-            if (param.getIncremental()) {
-                cleanupIncrementalData(param, allVersions);
-            }
-
-            // 3. 处理每个版本
-            long totalProcessed = 0;
-            long estimatedTotal = calculateEstimatedTotal(param, allVersions);
-
-            taskManager.updateTaskProgress(taskId, totalProcessed, estimatedTotal);
-
-            for (String version : allVersions) {
-                totalProcessed += processVersion(
-                        param,
-                        version,
-                        taskId
+            // 1. 执行采集
+            collectExecutor.execute(param, metrics -> {
+                taskManager.updateTaskProgress(
+                        taskId,
+                        metrics.getProcessedItems(),
+                        metrics.getTotalItems()
                 );
-                taskManager.updateTaskProgress(taskId, totalProcessed, estimatedTotal);
-            }
+            }).thenAccept(metrics -> {
+                // 2. 如果是增量同步，执行清理
+                if (param.getIncremental()) {
+                    cleanupIncrementalData(param, taskId);
+                }
 
-            taskManager.updateTaskStatus(
-                    taskId,
-                    "COMPLETED",
-                    String.format("Processed %d URIs", totalProcessed)
-            );
+                taskManager.updateTaskStatus(
+                        taskId,
+                        "COMPLETED",
+                        String.format("Processed %d URIs", metrics.getProcessedItems())
+                );
+            }).exceptionally(throwable -> {
+                handleTaskError(taskId, "Collection failed", throwable);
+                return null;
+            });
 
         } catch (Exception e) {
-            log.error("Error processing collect task: {}", taskId, e);
-            taskManager.updateTaskStatus(
-                    taskId,
-                    "ERROR",
-                    "Error: " + e.getMessage()
-            );
+            handleTaskError(taskId, "Task processing failed", e);
             throw new RuntimeException("Task processing failed", e);
         }
     }
 
-    private long processVersion(
-      CollectParam param,
-            String version,
-            String taskId
-    ) throws Exception {
-        String rootNode = param.getRootNode();
-        // 1. 获取该版本下的所有URI
-        List<String> allUris = httpService.getAllUrisForVersion(param, version);
-        long totalProcessed = 0;
+    private void cleanupIncrementalData(CollectParam param, String taskId) {
+        try {
+            // 创建清理参数
+            UriCleanupService.CleanupParams cleanupParams = UriCleanupService.CleanupParams.builder()
+                    .rootNode(param.getRootNode())
+                    .uris(param.getUris())
+                    .hardDelete(param.getHardDelete())
+                    .batchSize(param.getBatchSize())
+                    .build();
 
-        // 2. 分批处理
-        List<List<String>> batches = partition(
-                allUris,
-                CollectionConstants.DEFAULT_BATCH_SIZE
-        );
-
-        for (List<String> batch : batches) {
-            // 获取URI详情
-            List<Map<String, Object>> details = httpService.batchGetUriDetails(
-                    param,
-                    batch,
-                    CollectionConstants.DEFAULT_BATCH_SIZE
-            );
-
-            // 创建实体并保存
-            List<UriEntity> entities = new ArrayList<>();
-            for (Map<String, Object> detail : details) {
-                UriEntity entity = null;
-                try {
-                    entity = entityPool.borrowObject();
-                    fillEntity(entity, rootNode, version, detail);
-                    entities.add(entity);
-                } catch (Exception e) {
-                    log.error("Error creating entity", e);
-                    if (entity != null) {
-                        entityPool.returnObject(entity);
-                    }
-                }
-            }
-
-            try {
-                if (!entities.isEmpty()) {
-                    repository.batchUpsert(rootNode, entities);
-                    totalProcessed += entities.size();
-                }
-            } finally {
-                // 返还对象到对象池
-                for (UriEntity entity : entities) {
-                    try {
-                        entityPool.returnObject(entity);
-                    } catch (Exception e) {
-                        log.error("Error returning entity to pool", e);
-                    }
-                }
-            }
-
-            // 更新任务进度
-            taskManager.updateTaskStatus(
-                    taskId,
-                    "PROCESSING",
-                    String.format("Processing version %s: %d/%d",
-                            version, totalProcessed, allUris.size())
-            );
+            // 执行清理
+            cleanupService.cleanup(cleanupParams, metrics -> {
+                taskManager.updateTaskStatus(
+                        taskId,
+                        "CLEANING",
+                        String.format("Cleaning up data: %.2f%%", metrics.getProgressPercentage())
+                );
+            }).exceptionally(throwable -> {
+                log.error("Cleanup failed for task: {}", taskId, throwable);
+                return null;
+            });
+        } catch (Exception e) {
+            log.error("Error during cleanup for task: {}", taskId, e);
         }
-
-        return totalProcessed;
     }
 
     @Override
     public AsyncResponse<Long> deleteData(DeleteParam param) {
         // 1. 创建任务
-        TaskResponse task = taskManager.createTask(
-                "DELETE",
-                Map.of("rootNode", param.getRootNode(),
-                        "urisCount", param.getUris().size(),
-                        "hardDelete", param.getHardDelete()),
-                param.getPriority()
-        );
+        Map<String, Object> taskParams = new HashMap<>();
+        taskParams.put("rootNode", param.getRootNode());
+        taskParams.put("urisCount", param.getUris().size());
+        taskParams.put("hardDelete", param.getHardDelete());
+
+        TaskResponse task = taskManager.createTask("DELETE", taskParams, param.getPriority());
+        String taskId = task.getTaskId();
+        param.setTaskId(taskId);
 
         // 2. 将任务加入队列
-        deleteQueue.enqueue(
-                task.getTaskId(),
+        queueManager.enqueue(
+                taskId,
                 param,
                 param.getPriority(),
                 this::processDeleteTask
         ).exceptionally(throwable -> {
-            taskManager.updateTaskStatus(
-                    task.getTaskId(),
-                    "ERROR",
-                    throwable.getMessage()
-            );
+            taskManager.updateTaskStatus(taskId, "ERROR", throwable.getMessage());
             return null;
         });
 
         // 3. 返回异步响应
         return AsyncResponse.<Long>builder()
-                .taskId(task.getTaskId())
+                .taskId(taskId)
                 .status("QUEUED")
                 .message("Delete task queued successfully")
                 .build();
@@ -3245,56 +4185,41 @@ public class UriCollectServiceImpl implements UriCollectService {
         try {
             taskManager.updateTaskStatus(taskId, "PROCESSING", "Starting data deletion");
 
-            List<List<String>> batches = partition(
-                    param.getUris(),
-                    param.getBatchSize() != null ?
-                            param.getBatchSize() :
-                            CollectionConstants.DEFAULT_BATCH_SIZE
-            );
-
-            long totalDeleted = 0;
-            for (List<String> batch : batches) {
-                long batchCount;
-                if (param.getHardDelete()) {
-                    batchCount = repository.batchHardDelete(param.getRootNode(), batch);
-                } else {
-                    batchCount = repository.batchSoftDelete(param.getRootNode(), batch);
-                }
-                totalDeleted += batchCount;
-
+            deleteExecutor.execute(param, metrics -> {
                 taskManager.updateTaskProgress(
                         taskId,
-                        totalDeleted,
-                        param.getUris().size()
+                        metrics.getProcessedItems(),
+                        metrics.getTotalItems()
                 );
-            }
-
-            taskManager.updateTaskStatus(
-                    taskId,
-                    "COMPLETED",
-                    String.format("Deleted %d URIs", totalDeleted)
-            );
+            }).thenAccept(metrics -> {
+                taskManager.updateTaskStatus(
+                        taskId,
+                        "COMPLETED",
+                        String.format("Deleted %d URIs", metrics.getProcessedItems())
+                );
+            }).exceptionally(throwable -> {
+                handleTaskError(taskId, "Deletion failed", throwable);
+                return null;
+            });
 
         } catch (Exception e) {
-            log.error("Error processing delete task: {}", taskId, e);
-            taskManager.updateTaskStatus(
-                    taskId,
-                    "ERROR",
-                    "Error: " + e.getMessage()
-            );
-            throw new RuntimeException("Delete task processing failed", e);
+            handleTaskError(taskId, "Task processing failed", e);
+            throw new RuntimeException("Task processing failed", e);
         }
     }
 
     @Override
     public Page<UriEntity> queryUri(QueryParam param) {
-        return repository.findByCondition(
-                param.getRootNode(),
-                param.getVersion(),
-                param.getVersionType(),
-                param.getIncludeDeleted(),
-                PageRequest.of(param.getPage() - 1, param.getSize())
-        );
+        UriRepository.QueryParams queryParams = UriRepository.QueryParams.builder()
+                .rootNode(param.getRootNode())
+                .version(param.getVersion())
+                .versionType(param.getVersionType())
+                .includeDeleted(param.getIncludeDeleted())
+                .onlyDeleted(param.getOnlyDeleted())
+                .pageable(PageRequest.of(param.getPage() - 1, param.getSize()))
+                .build();
+
+        return repository.findByCondition(queryParams);
     }
 
     @Override
@@ -3303,7 +4228,6 @@ public class UriCollectServiceImpl implements UriCollectService {
             return Collections.emptyList();
         }
 
-        // 使用第一个URI的rootNode作为默认值
         return repository.batchQuery(
                 uris,
                 this::extractRootNode,
@@ -3335,7 +4259,7 @@ public class UriCollectServiceImpl implements UriCollectService {
     @Override
     public boolean cancelTask(String taskId) {
         // 尝试取消队列中的任务
-        if (collectQueue.cancel(taskId) || deleteQueue.cancel(taskId)) {
+        if (queueManager.cancel(taskId)) {
             taskManager.cancelTask(taskId);
             return true;
         }
@@ -3345,8 +4269,7 @@ public class UriCollectServiceImpl implements UriCollectService {
     @Override
     public boolean updateTaskPriority(String taskId, int priority) {
         // 更新任务优先级
-        if (collectQueue.updatePriority(taskId, priority) ||
-                deleteQueue.updatePriority(taskId, priority)) {
+        if (queueManager.updatePriority(taskId, priority)) {
             return taskManager.updateTaskPriority(taskId, priority);
         }
         return false;
@@ -3365,74 +4288,15 @@ public class UriCollectServiceImpl implements UriCollectService {
                 .collect(Collectors.toList());
     }
 
-    private void cleanupIncrementalData(
-            CollectParam param,
-            List<String> versions
-    ) throws Exception {
-        String rootNode = param.getRootNode();
-        Set<String> allUriHashes = new HashSet<>();
-
-        // 获取所有版本的URI
-        for (String version : versions) {
-            List<String> versionUris = httpService.getAllUrisForVersion(param, version);
-            allUriHashes.addAll(versionUris.stream()
-                    .map(this::generateUriHash)
-                    .collect(Collectors.toSet()));
-        }
-
-        // 删除不存在的URI //TODO 改成分页批量删除 ,可选软删除或者硬删除，根据param.getHardDelete()来判断
-        repository.deleteNotInUris(rootNode, allUriHashes);
-    }
-
-    private String generateUriHash(String uri) {
-        return Objects.hash(uri) + "";
-    }
-
     private String extractRootNode(String uri) {
-        // 从URI中提取rootNode的逻辑
         String[] parts = uri.split("/");
         return parts.length > 0 ? parts[0] : "";
     }
 
-    private <T> List<List<T>> partition(List<T> list, int size) {
-        if (CollectionUtils.isEmpty(list)) {
-            return Collections.emptyList();
-        }
-
-        List<List<T>> partitions = new ArrayList<>();
-        for (int i = 0; i < list.size(); i += size) {
-            partitions.add(list.subList(i, Math.min(i + size, list.size())));
-        }
-        return partitions;
-    }
-
-    private long calculateEstimatedTotal(CollectParam param, List<String> versions) {
-        long total = 0;
-        for (String version : versions) {
-            try {
-                PageResponse<String> response = httpService.getUriListAsync(
-                        param,
-                        version,
-                        new com.study.collect.business.testcase.model.param.PageParam(1, 1)
-                ).get();
-                total += response.getTotal();
-            } catch (Exception e) {
-                log.warn("Error calculating total for version: {}", version, e);
-            }
-        }
-        return total;
-    }
-
-    private void fillEntity(UriEntity entity, String rootNode, String version, Map<String, Object> detail) {
-        entity.setUri((String) detail.get("uri"));
-        entity.setRootNode(rootNode);
-        entity.setVersionType(getVersionType(version));
-        entity.setUriVersion(version);
-        entity.setDetails(detail);
-    }
-
-    private String getVersionType(String version) {
-        return version.toLowerCase().contains("branch") ? "BRANCH" : "TRUNK";
+    private void handleTaskError(String taskId, String message, Throwable throwable) {
+        log.error(message + " - Task: {}", taskId, throwable);
+        taskManager.updateTaskStatus(taskId, "ERROR",
+                message + ": " + throwable.getMessage());
     }
 }
 ```
@@ -4035,73 +4899,56 @@ public class RateLimiter {
 }
 ```
 
-## StreamProcessManager.java
+## StreamProcessor.java
 
 ```java
 package com.study.collect.business.testcase.utils;
 
-import com.study.collect.business.testcase.constant.CollectionConstants;
 import lombok.Builder;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.util.CollectionUtils;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
- * 通用流式处理管理器
- *
- * @param <T> 源数据类型
- * @param <R> 结果数据类型
+ * 通用流式处理器
+ * @param <T> 输入数据类型
+ * @param <R> 输出数据类型
  */
 @Slf4j
-public class StreamProcessManager<T, R> {
-    private final ProcessConfig<T, R> config;
-    private final ExecutorService processExecutor;
-    private final ExecutorService saveExecutor;
-    private final BlockingQueue<CompletableFuture<?>> processQueue;
-    private final AtomicInteger activeProcesses;
-    private final List<ProcessMetrics> metricsHistory;
-    private volatile boolean running = true;
+public class StreamProcessor<T, R> {
 
-    /**
-     * 处理配置
-     */
     @Data
     @Builder
-    public static class ProcessConfig<T, R> {
-        // 基础配置
-        private String processName;
+    public static class ProcessorConfig<T, R> {
+        private String processorName;
         private int batchSize;
-        private int processThreads;
-        private int saveThreads;
-        private boolean useVirtualThreads;
-
-        // 数据处理函数
-        private Function<Integer, List<T>> dataFetcher;      // 数据获取函数
-        private Function<T, R> dataConverter;                // 数据转换函数
-        private Consumer<List<R>> dataSaver;                 // 数据保存函数
-        private Consumer<ProcessMetrics> progressCallback;    // 进度回调函数
-
-        // 监控配置
+        private int maxConcurrent;
         private long timeoutSeconds;
         private int maxRetries;
         private long retryDelayMs;
+        private ExecutorService processExecutor;
+        private ExecutorService saveExecutor;
+
+        // 处理函数
+        private Function<Integer, List<T>> dataFetcher;
+        private Function<T, R> dataConverter;
+        private Consumer<List<R>> dataSaver;
+        private Consumer<ProcessMetrics> progressCallback;
     }
 
-    /**
-     * 处理指标
-     */
     @Data
     @Builder
     public static class ProcessMetrics {
-        private String processName;
+        private String processorName;
         private long totalItems;
         private long processedItems;
         private long failedItems;
@@ -4111,27 +4958,35 @@ public class StreamProcessManager<T, R> {
         private Map<String, Object> customMetrics;
     }
 
-    public StreamProcessManager(ProcessConfig<T, R> config) {
+    private final ProcessorConfig<T, R> config;
+    private final BlockingQueue<CompletableFuture<?>> processQueue;
+    private final AtomicInteger activeProcesses;
+    private final AtomicBoolean running;
+    private final List<ProcessMetrics> metricsHistory;
+
+    public StreamProcessor(ProcessorConfig<T, R> config) {
+        validateConfig(config);
         this.config = config;
-        this.processExecutor = createExecutor(config.getProcessThreads(), config.isUseVirtualThreads());
-        this.saveExecutor = createExecutor(config.getSaveThreads(), config.isUseVirtualThreads());
         this.processQueue = new ArrayBlockingQueue<>(1000);
         this.activeProcesses = new AtomicInteger(0);
+        this.running = new AtomicBoolean(true);
         this.metricsHistory = new CopyOnWriteArrayList<>();
-
-        validateConfig(config);
     }
 
     /**
      * 开始处理数据
      */
-    public CompletableFuture<ProcessMetrics> processData(int offset, int limit) {
+    public CompletableFuture<ProcessMetrics> process(int offset, int limit) {
         ProcessMetrics metrics = initializeMetrics();
         CompletableFuture<ProcessMetrics> resultFuture = new CompletableFuture<>();
 
         try {
-            activeProcesses.incrementAndGet();
-            processDataBatches(offset, limit, metrics, resultFuture);
+            if (activeProcesses.incrementAndGet() <= config.getMaxConcurrent()) {
+                processDataBatches(offset, limit, metrics, resultFuture);
+            } else {
+                activeProcesses.decrementAndGet();
+                throw new RejectedExecutionException("Max concurrent processes reached");
+            }
         } catch (Exception e) {
             activeProcesses.decrementAndGet();
             resultFuture.completeExceptionally(e);
@@ -4140,72 +4995,82 @@ public class StreamProcessManager<T, R> {
         return resultFuture;
     }
 
-    private void processDataBatches(
-            int offset,
-            int limit,
-            ProcessMetrics metrics,
-            CompletableFuture<ProcessMetrics> resultFuture
-    ) {
+    private void processDataBatches(int offset, int limit, ProcessMetrics metrics,
+                                    CompletableFuture<ProcessMetrics> resultFuture) {
         CompletableFuture.runAsync(() -> {
             try {
                 int processed = 0;
-                while (running && processed < limit) {
-                    // 获取一批数据
-                    List<T> batch = config.getDataFetcher().apply(offset + processed);
-                    if (batch.isEmpty()) {
+                while (running.get() && processed < limit) {
+                    List<T> batch = fetchData(offset + processed);
+                    if (CollectionUtils.isEmpty(batch)) {
                         break;
                     }
 
-                    // 处理这批数据
                     processBatch(batch, metrics);
                     processed += batch.size();
-
-                    // 更新进度
                     updateProgress(metrics, processed, limit);
                 }
 
-                // 完成处理
                 completeProcessing(metrics, resultFuture);
-
             } catch (Exception e) {
                 handleProcessingError(e, metrics, resultFuture);
             }
-        }, processExecutor);
+        }, config.getProcessExecutor());
     }
 
-    private void processBatch(List<T> batch, ProcessMetrics metrics) {
+    private List<T> fetchData(int offset) {
         int retryCount = 0;
         while (retryCount <= config.getMaxRetries()) {
             try {
-                // 转换数据
-                List<R> convertedBatch = batch.stream()
-                        .map(config.getDataConverter()::apply)
-                        .collect(java.util.stream.Collectors.toList());
-
-                // 异步保存数据
-                CompletableFuture<Void> saveFuture = CompletableFuture.runAsync(() -> {
-                    config.getDataSaver().accept(convertedBatch);
-                }, saveExecutor);
-
-                // 添加到处理队列
-                processQueue.put(saveFuture);
-
-                // 检查和清理完成的任务
-                cleanupCompletedTasks();
-                break;
-
+                return config.getDataFetcher().apply(offset);
             } catch (Exception e) {
                 if (++retryCount > config.getMaxRetries()) {
-                    log.error("Failed to process batch after {} retries", config.getMaxRetries(), e);
+                    log.error("Failed to fetch data after {} retries", config.getMaxRetries(), e);
+                    throw new RuntimeException("Data fetch failed", e);
+                }
+                sleep(calculateRetryDelay(retryCount));
+            }
+        }
+        return new ArrayList<>();
+    }
+
+    private void processBatch(List<T> batch, ProcessMetrics metrics) {
+        List<R> convertedBatch = new ArrayList<>();
+        for (T item : batch) {
+            try {
+                R converted = config.getDataConverter().apply(item);
+                if (converted != null) {
+                    convertedBatch.add(converted);
+                }
+            } catch (Exception e) {
+                log.error("Error converting item", e);
+                metrics.setFailedItems(metrics.getFailedItems() + 1);
+            }
+        }
+
+        if (!convertedBatch.isEmpty()) {
+            saveBatch(convertedBatch, metrics);
+        }
+    }
+
+    private void saveBatch(List<R> batch, ProcessMetrics metrics) {
+        int retryCount = 0;
+        while (retryCount <= config.getMaxRetries()) {
+            try {
+                CompletableFuture<Void> saveFuture = CompletableFuture.runAsync(() ->
+                                config.getDataSaver().accept(batch)
+                        , config.getSaveExecutor());
+
+                processQueue.put(saveFuture);
+                cleanupCompletedTasks();
+                return;
+            } catch (Exception e) {
+                if (++retryCount > config.getMaxRetries()) {
+                    log.error("Failed to save batch after {} retries", config.getMaxRetries(), e);
                     metrics.setFailedItems(metrics.getFailedItems() + batch.size());
-                    throw new RuntimeException("Batch processing failed", e);
+                    throw new RuntimeException("Batch save failed", e);
                 }
-                try {
-                    Thread.sleep(config.getRetryDelayMs() * (long) Math.pow(2, retryCount - 1));
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                    throw new RuntimeException("Processing interrupted", ie);
-                }
+                sleep(calculateRetryDelay(retryCount));
             }
         }
     }
@@ -4227,7 +5092,7 @@ public class StreamProcessManager<T, R> {
 
     private ProcessMetrics initializeMetrics() {
         return ProcessMetrics.builder()
-                .processName(config.getProcessName())
+                .processorName(config.getProcessorName())
                 .startTime(System.currentTimeMillis())
                 .totalItems(0)
                 .processedItems(0)
@@ -4246,21 +5111,15 @@ public class StreamProcessManager<T, R> {
         }
     }
 
-    private void completeProcessing(
-            ProcessMetrics metrics,
-            CompletableFuture<ProcessMetrics> resultFuture
-    ) {
+    private void completeProcessing(ProcessMetrics metrics, CompletableFuture<ProcessMetrics> resultFuture) {
         metrics.setEndTime(System.currentTimeMillis());
         metricsHistory.add(metrics);
         activeProcesses.decrementAndGet();
         resultFuture.complete(metrics);
     }
 
-    private void handleProcessingError(
-            Exception e,
-            ProcessMetrics metrics,
-            CompletableFuture<ProcessMetrics> resultFuture
-    ) {
+    private void handleProcessingError(Exception e, ProcessMetrics metrics,
+                                       CompletableFuture<ProcessMetrics> resultFuture) {
         log.error("Error processing data", e);
         metrics.setEndTime(System.currentTimeMillis());
         metricsHistory.add(metrics);
@@ -4268,33 +5127,20 @@ public class StreamProcessManager<T, R> {
         resultFuture.completeExceptionally(e);
     }
 
-    private ExecutorService createExecutor(int threads, boolean useVirtualThreads) {
-        if (useVirtualThreads) {
-            return Executors.newVirtualThreadPerTaskExecutor();
-        } else {
-            return new ThreadPoolExecutor(
-                    threads,
-                    threads,
-                    60L,
-                    TimeUnit.SECONDS,
-                    new LinkedBlockingQueue<>(1000),
-                    new ThreadFactory() {
-                        private final AtomicInteger count = new AtomicInteger(0);
+    private long calculateRetryDelay(int retryCount) {
+        return config.getRetryDelayMs() * (long) Math.pow(2, retryCount - 1);
+    }
 
-                        @Override
-                        public Thread newThread(Runnable r) {
-                            Thread thread = new Thread(r);
-                            thread.setName("stream-processor-" + count.incrementAndGet());
-                            thread.setDaemon(true);
-                            return thread;
-                        }
-                    },
-                    new ThreadPoolExecutor.CallerRunsPolicy()
-            );
+    private void sleep(long millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Processing interrupted", e);
         }
     }
 
-    private void validateConfig(ProcessConfig<T, R> config) {
+    private void validateConfig(ProcessorConfig<T, R> config) {
         if (config.getDataFetcher() == null) {
             throw new IllegalArgumentException("DataFetcher cannot be null");
         }
@@ -4304,26 +5150,46 @@ public class StreamProcessManager<T, R> {
         if (config.getDataSaver() == null) {
             throw new IllegalArgumentException("DataSaver cannot be null");
         }
+        if (config.getProcessExecutor() == null) {
+            throw new IllegalArgumentException("ProcessExecutor cannot be null");
+        }
+        if (config.getSaveExecutor() == null) {
+            throw new IllegalArgumentException("SaveExecutor cannot be null");
+        }
+    }
+
+    /**
+     * 暂停处理
+     */
+    public void pause() {
+        running.set(false);
+    }
+
+    /**
+     * 恢复处理
+     */
+    public void resume() {
+        running.set(true);
     }
 
     /**
      * 停止处理
      */
     public void shutdown() {
-        running = false;
-        processExecutor.shutdown();
-        saveExecutor.shutdown();
+        running.set(false);
+        config.getProcessExecutor().shutdown();
+        config.getSaveExecutor().shutdown();
         try {
-            if (!processExecutor.awaitTermination(30, TimeUnit.SECONDS)) {
-                processExecutor.shutdownNow();
+            if (!config.getProcessExecutor().awaitTermination(30, TimeUnit.SECONDS)) {
+                config.getProcessExecutor().shutdownNow();
             }
-            if (!saveExecutor.awaitTermination(30, TimeUnit.SECONDS)) {
-                saveExecutor.shutdownNow();
+            if (!config.getSaveExecutor().awaitTermination(30, TimeUnit.SECONDS)) {
+                config.getSaveExecutor().shutdownNow();
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            processExecutor.shutdownNow();
-            saveExecutor.shutdownNow();
+            config.getProcessExecutor().shutdownNow();
+            config.getSaveExecutor().shutdownNow();
         }
     }
 
@@ -4346,6 +5212,106 @@ public class StreamProcessManager<T, R> {
      */
     public int getQueueSize() {
         return processQueue.size();
+    }
+
+    /**
+     * 是否正在运行
+     */
+    public boolean isRunning() {
+        return running.get();
+    }
+
+    /**
+     * 清除历史指标
+     */
+    public void clearMetricsHistory() {
+        metricsHistory.clear();
+    }
+}
+```
+
+## TableNameHelper.java
+
+```java
+package com.study.collect.business.testcase.utils;
+
+import com.study.collect.business.testcase.common.constants.CollectionConstants;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.util.Assert;
+
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Pattern;
+
+/**
+ * 表名处理工具类
+ */
+@Slf4j
+public class TableNameHelper {
+
+    private static final Map<String, String> TABLE_NAME_CACHE = new ConcurrentHashMap<>();
+    private static final Pattern TABLE_NAME_PATTERN = Pattern.compile("^[a-zA-Z0-9_]+$");
+    private static final int MAX_TABLE_NAME_LENGTH = 64;
+
+    /**
+     * 生成完整表名
+     * @param rootNode 根节点
+     * @return 完整表名
+     */
+    public static String getTableName(String rootNode) {
+        Assert.hasText(rootNode, "RootNode must not be empty");
+
+        return TABLE_NAME_CACHE.computeIfAbsent(rootNode, key -> {
+            String tableName = CollectionConstants.Collection.URI_COLLECTION_PREFIX + "_" + key;
+            validateTableName(tableName);
+            return tableName;
+        });
+    }
+
+    /**
+     * 获取rootNode
+     * @param uri URI
+     * @return rootNode
+     */
+    public static String extractRootNode(String uri) {
+        Assert.hasText(uri, "URI must not be empty");
+
+        int firstSlash = uri.indexOf('/');
+        if (firstSlash == -1) {
+            return uri;
+        }
+        return uri.substring(0, firstSlash);
+    }
+
+    /**
+     * 验证表名是否合法
+     */
+    private static void validateTableName(String tableName) {
+        if (!TABLE_NAME_PATTERN.matcher(tableName).matches()) {
+            throw new IllegalArgumentException("Invalid table name: " + tableName);
+        }
+        if (tableName.length() > MAX_TABLE_NAME_LENGTH) {
+            throw new IllegalArgumentException("Table name too long: " + tableName);
+        }
+    }
+
+    /**
+     * 检查URI是否属于指定表
+     * @param uri URI
+     * @param tableName 表名
+     * @return 是否属于
+     */
+    public static boolean isUriMatchTable(String uri, String tableName) {
+        String rootNode = extractRootNode(uri);
+        String expectedTableName = getTableName(rootNode);
+        return expectedTableName.equals(tableName);
+    }
+
+    /**
+     * 清除表名缓存
+     */
+    public static void clearCache() {
+        TABLE_NAME_CACHE.clear();
     }
 }
 ```

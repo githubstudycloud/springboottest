@@ -2,6 +2,7 @@ package com.study.collect.business.testcase.common.utils;
 
 import com.study.collect.business.testcase.common.constants.CollectionConstants;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.springframework.util.Assert;
 
 import java.util.Map;
@@ -62,14 +63,48 @@ public class TableNameHelper {
 
     /**
      * 检查URI是否属于指定表
-     * @param uri URI
-     * @param tableName 表名
-     * @return 是否属于
      */
     public static boolean isUriMatchTable(String uri, String tableName) {
         String rootNode = extractRootNode(uri);
         String expectedTableName = getTableName(rootNode);
         return expectedTableName.equals(tableName);
+    }
+
+    /**
+     * 生成URI哈希值
+     */
+    public static String generateUriHash(String uri) {
+        Assert.hasText(uri, "URI must not be empty");
+        return DigestUtils.sha256Hex(uri);
+    }
+
+    /**
+     * 生成带版本的表名
+     */
+    public static String getVersionedTableName(String rootNode, String version) {
+        Assert.hasText(rootNode, "RootNode must not be empty");
+        Assert.hasText(version, "Version must not be empty");
+
+        return TABLE_NAME_CACHE.computeIfAbsent(
+                rootNode + "_" + version,
+                key -> {
+                    String tableName = CollectionConstants.Collection.URI_COLLECTION_PREFIX
+                            + "_" + rootNode
+                            + "_" + version;
+                    validateTableName(tableName);
+                    return tableName;
+                }
+        );
+    }
+
+    /**
+     * 生成完整的文档ID
+     */
+    public static String generateDocumentId(String uri, String version) {
+        Assert.hasText(uri, "URI must not be empty");
+        return version == null ?
+                DigestUtils.sha256Hex(uri) :
+                DigestUtils.sha256Hex(uri + "_" + version);
     }
 
     /**

@@ -10,6 +10,9 @@ import org.springframework.data.mongodb.core.mapping.Field;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
+/**
+ * 基础实体类
+ */
 @Data
 @NoArgsConstructor
 public abstract class BaseEntity implements Serializable {
@@ -40,6 +43,9 @@ public abstract class BaseEntity implements Serializable {
     @Field("is_deleted")
     protected Boolean deleted = false;
 
+    /**
+     * 构造函数
+     */
     protected BaseEntity(String id) {
         this.id = id;
         this.createTime = LocalDateTime.now();
@@ -48,6 +54,9 @@ public abstract class BaseEntity implements Serializable {
         this.deleted = false;
     }
 
+    /**
+     * 创建前处理
+     */
     @PrePersist
     public void prePersist() {
         if (this.createTime == null) {
@@ -64,8 +73,24 @@ public abstract class BaseEntity implements Serializable {
         }
     }
 
+    /**
+     * 更新前处理
+     */
     @PreUpdate
     public void preUpdate() {
         this.updateTime = LocalDateTime.now();
+    }
+
+    /**
+     * 重置实体状态
+     */
+    public void reset() {
+        this.id = null;
+        this.createTime = null;
+        this.updateTime = null;
+        this.createBy = null;
+        this.updateBy = null;
+        this.version = 0L;
+        this.deleted = false;
     }
 }

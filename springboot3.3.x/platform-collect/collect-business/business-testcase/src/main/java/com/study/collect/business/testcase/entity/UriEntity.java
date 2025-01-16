@@ -1,6 +1,6 @@
 package com.study.collect.business.testcase.entity;
 
-import com.study.collect.business.testcase.utils.HashUtil;
+import com.study.collect.business.testcase.common.utils.HashUtil;
 import jakarta.persistence.PrePersist;
 import lombok.Data;
 import lombok.EqualsAndHashCode;

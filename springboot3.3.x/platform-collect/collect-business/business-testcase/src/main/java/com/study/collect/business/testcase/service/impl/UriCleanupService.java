@@ -1,7 +1,7 @@
 package com.study.collect.business.testcase.service.impl;
 
 import com.study.collect.business.testcase.common.constants.CollectionConstants;
-import com.study.collect.business.testcase.utils.StreamProcessor;
+import com.study.collect.business.testcase.common.utils.StreamProcessor;
 import com.study.collect.business.testcase.repository.UriRepository;
 import lombok.Builder;
 import lombok.Data;
@@ -15,7 +15,6 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 
 /**
  * URI清理服务

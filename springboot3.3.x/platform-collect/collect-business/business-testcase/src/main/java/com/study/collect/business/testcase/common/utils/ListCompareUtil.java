@@ -1,7 +1,6 @@
-package com.study.collect.business.testcase.utils;
+package com.study.collect.business.testcase.common.utils;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.mongodb.core.MongoOperations;
 import org.springframework.util.CollectionUtils;
 
 import java.util.*;

@@ -1,4 +1,4 @@
-package com.study.collect.business.testcase.utils;
+package com.study.collect.business.testcase.common.utils;
 
 import com.study.collect.business.testcase.constant.CollectionConstants;
 import lombok.extern.slf4j.Slf4j;

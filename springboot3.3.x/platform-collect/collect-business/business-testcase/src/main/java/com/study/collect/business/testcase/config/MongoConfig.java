@@ -4,7 +4,8 @@ import com.mongodb.ConnectionString;
 import com.mongodb.MongoClientSettings;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
-import com.study.collect.business.testcase.constant.CollectionConstants;
+import com.study.collect.business.testcase.common.constants.TestCaseCollectorProperties;
+import com.study.collect.business.testcase.common.constants.CollectionConstants;
 import lombok.Data;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -26,17 +27,23 @@ import java.util.concurrent.TimeUnit;
 @Data
 public class MongoConfig extends AbstractMongoClientConfiguration {
 
+    private final com.study.collect.business.testcase.common.constants.TestCaseCollectorProperties properties;
+
     @Value("${spring.data.mongodb.uri}")
     private String uri;
 
     @Value("${spring.data.mongodb.database}")
     private String database;
 
-    @Value("${spring.data.mongodb.min-pool-size:" + CollectionConstants.MONGO_MIN_POOL_SIZE + "}")
+    @Value("${spring.data.mongodb.min-pool-size:" + CollectionConstants.Database.MONGO_MIN_POOL_SIZE + "}")
     private Integer minPoolSize;
 
-    @Value("${spring.data.mongodb.max-pool-size:" + CollectionConstants.MONGO_MAX_POOL_SIZE + "}")
+    @Value("${spring.data.mongodb.max-pool-size:" + CollectionConstants.Database.MONGO_MAX_POOL_SIZE + "}")
     private Integer maxPoolSize;
+
+    public MongoConfig(TestCaseCollectorProperties properties) {
+        this.properties = properties;
+    }
 
     @Override
     protected String getDatabaseName() {
@@ -51,14 +58,14 @@ public class MongoConfig extends AbstractMongoClientConfiguration {
         MongoClientSettings settings = MongoClientSettings.builder()
                 .applyConnectionString(connectionString)
                 .applyToConnectionPoolSettings(builder ->
-                        builder.minSize(minPoolSize)
-                                .maxSize(maxPoolSize)
+                        builder.minSize(properties.getMongoMinPoolSize())
+                                .maxSize(properties.getMongoMaxPoolSize())
                                 .maxWaitTime(10, TimeUnit.SECONDS)
                                 .maxConnectionLifeTime(30, TimeUnit.MINUTES)
                                 .maxConnectionIdleTime(5, TimeUnit.MINUTES))
                 .applyToSocketSettings(builder ->
-                        builder.connectTimeout(5, TimeUnit.SECONDS)
-                                .readTimeout(10, TimeUnit.SECONDS))
+                        builder.connectTimeout(properties.getHttpConnectTimeout(), TimeUnit.MILLISECONDS)
+                                .readTimeout(properties.getHttpReadTimeout(), TimeUnit.MILLISECONDS))
                 .retryWrites(true)
                 .retryReads(true)
                 .build();

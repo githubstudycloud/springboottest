@@ -2,7 +2,7 @@ package com.study.collect.business.testcase.core.executor;
 
 import com.study.collect.business.testcase.model.param.DeleteParam;
 import com.study.collect.business.testcase.repository.UriRepository;
-import com.study.collect.business.testcase.utils.StreamProcessor;
+import com.study.collect.business.testcase.common.utils.StreamProcessor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;

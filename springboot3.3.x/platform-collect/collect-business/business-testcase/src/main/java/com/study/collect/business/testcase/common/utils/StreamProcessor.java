@@ -1,4 +1,4 @@
-package com.study.collect.business.testcase.utils;
+package com.study.collect.business.testcase.common.utils;
 
 import lombok.Builder;
 import lombok.Data;

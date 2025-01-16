@@ -7,7 +7,7 @@ import com.study.collect.business.testcase.model.param.CollectParam;
 import com.study.collect.business.testcase.model.response.PageResponse;
 import com.study.collect.business.testcase.repository.UriRepository;
 import com.study.collect.business.testcase.service.http.UriHttpService;
-import com.study.collect.business.testcase.utils.RateLimiter;
+import com.study.collect.business.testcase.common.utils.RateLimiter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.pool2.ObjectPool;
@@ -18,6 +18,7 @@ import org.springframework.stereotype.Component;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Consumer;
 
 /**
  * URI采集执行器
