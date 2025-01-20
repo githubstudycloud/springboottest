@@ -134,8 +134,8 @@ def save_markdown(content, output_file):
 # root_directory = "E:\\idea5\\java\\springboot3.3.x"
 # root_directory = "E:\\idea\\java\\springboottestWork1\\springboot3.3.x\\platform-collect"
 # root_directory = "E:\\idea\\java\\springboottestWork3\\springboot3.3.x\\platform-collect"
-# root_directory = "E:\\idea\\java\\springboottestWork4\\springboot3.3.x\\platform-collect\\collect-business\\business-testcase"
-root_directory = "E:\\idea\\java\\springboottestWork4\\springboot3.3.x\\platform-collect\\collect-core"
+root_directory = "E:\\idea\\java\\springboottestWork4\\springboot3.3.x\\platform-collect\\collect-business\\business-testcase"
+# root_directory = "E:\\idea\\java\\springboottestWork4\\springboot3.3.x\\platform-collect\\collect-core"
 # root_directory = "E:\\idea\\java\\springboottest\\springboot3.3.x"
 output_file = "project_overview.md"
 
