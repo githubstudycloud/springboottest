@@ -2,6 +2,7 @@ package com.study.collect.business.testcase.config;
 
 import com.study.collect.business.testcase.constant.CollectionConstants;
 import com.study.collect.business.testcase.entity.UriEntity;
+import com.study.collect.business.testcase.utils.HashUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.pool2.BasePooledObjectFactory;
 import org.apache.commons.pool2.PooledObject;
@@ -29,7 +30,8 @@ public class ObjectPoolConfig {
         poolConfig.setTestWhileIdle(true);
         poolConfig.setBlockWhenExhausted(true);
         poolConfig.setTimeBetweenEvictionRuns(java.time.Duration.ofMinutes(1));
-        poolConfig.setJmxEnabled(true);
+        poolConfig.setJmxEnabled(false);
+//        poolConfig.setJmxEnabled(true);
         poolConfig.setJmxNamePrefix("uri-entity-pool");
 
         return new GenericObjectPool<>(new BasePooledObjectFactory<>() {
@@ -60,7 +62,12 @@ public class ObjectPoolConfig {
 
             @Override
             public boolean validateObject(PooledObject<UriEntity> p) {
-                return p.getObject() != null;
+//                return p.getObject() != null;
+                UriEntity entity = p.getObject();
+                // 确保对象有效且关键字段正确
+                return entity != null &&
+                        (entity.getUri() == null || // 如果 uri 为空说明是新对象
+                                (entity.getUriHash() != null && entity.getUriHash().equals(HashUtil.hash(entity.getUri())))); // 如果有 uri 则验证 hash
             }
         }, poolConfig);
     }

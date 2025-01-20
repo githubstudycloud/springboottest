@@ -1,7 +1,7 @@
 # Project Structure
 
 ```
-business-testcase/
+collect-core/
     pom.xml
     src/
         main/
@@ -9,71 +9,150 @@ business-testcase/
                 com/
                     study/
                         collect/
-                            business/
-                                testcase/
-                                    aspect/
-                                        log/
-                                        mongodb/
-                                            CollectionStrategy.java
-                                            CollectionVersion.java
-                                            CollectionVersionAspect.java
+                            core/
+                                collector/
+                                    AbstractCollector.java
+                                    ICollector.java
+                                    package-info.java
+                                    annotation/
+                                        Collector.java
                                     config/
-                                        GlobalExceptionHandler.java
+                                        CollectorConfiguration.java
+                                        CollectorProperties.java
+                                    exception/
+                                        CollectException.java
+                                    factory/
+                                        CollectorFactory.java
+                                    manager/
+                                        CollectorManager.java
+                                    model/
+                                        CollectContext.java
+                                        CollectResult.java
+                                config/
+                                    CollectAutoConfiguration.java
+                                    package-info.java
+                                mq/
+                                    RabbitMQErrorHandler.java
+                                    config/
+                                        MQProperties.java
+                                        RabbitConfig.java
+                                    consumer/
+                                        TaskConsumer.java
+                                    message/
+                                        BaseMessage.java
+                                        TaskMessage.java
+                                        TaskResultMessage.java
+                                    producer/
+                                        TaskProducer.java
+                                processor/
+                                    AbstractProcessor.java
+                                    IProcessor.java
+                                    package-info.java
+                                    annotation/
+                                        Processor.java
+                                    config/
+                                        ProcessorConfiguration.java
+                                        ProcessorProperties.java
+                                    exception/
+                                        ProcessException.java
+                                    manager/
+                                        ProcessorManager.java
+                                    model/
+                                        ProcessChain.java
+                                        ProcessContext.java
+                                storage/
+                                    annotation/
+                                        Repository.java
+                                    audit/
+                                        EntityAuditor.java
+                                    cache/
+                                        package-info.java
+                                        annotation/
+                                            Cache.java
+                                            CacheEvict.java
+                                            CacheLock.java
+                                        aspect/
+                                            CacheAspect.java
+                                            LockAspect.java
+                                        config/
+                                            CacheAutoConfiguration.java
+                                            CacheProperties.java
+                                        lock/
+                                            DistributedLock.java
+                                            package-info.java
+                                            RedisLock.java
+                                        manager/
+                                            CacheManager.java
+                                            RedisCacheManager.java
+                                        model/
+                                            CacheOptions.java
+                                    config/
                                         MongoConfig.java
-                                        ObjectPoolConfig.java
-                                        TestCaseAutoConfiguration.java
-                                        TestCaseCollectorProperties.java
-                                        TestCaseConfig.java
-                                        ThreadPoolConfig.java
-                                    constant/
-                                        CollectionConstants.java
-                                        VersionType.java
-                                    controller/
-                                        UriCollectController.java
                                     entity/
                                         BaseEntity.java
-                                        UriEntity.java
                                         VersionEntity.java
-                                    manager/
-                                        CollectTaskManager.java
-                                        QueueManager.java
-                                    model/
-                                        PageResult.java
-                                        param/
-                                            CollectParam.java
-                                            DeleteParam.java
-                                            PageParam.java
-                                            QueryParam.java
-                                        request/
-                                        response/
-                                            AsyncResponse.java
-                                            BaseResponse.java
-                                            PageResponse.java
-                                            TaskResponse.java
-                                            VersionResponse.java
-                                            parse/
-                                                HttpResponseParser.java
-                                                UriDetailResponseParser.java
-                                                UriListResponseParser.java
-                                                VersionResponseParser.java
-                                    repository/
-                                        UriRepository.java
-                                    service/
-                                        UriCollectService.java
-                                        http/
-                                            UriHttpService.java
+                                    event/
+                                        DefaultEntityEventHandler.java
+                                        EntityEvent.java
+                                        EntityEventListener.java
                                         impl/
-                                            UriCleanupService.java
-                                            UriCollectServiceImpl.java
+                                            EntityEvents.java
+                                    repository/
+                                        BaseMongoRepository.java
+                                        IRepository.java
+                                        VersionRepository.java
+                                        factory/
+                                            CustomMongoRepositoryFactory.java
+                                            CustomMongoRepositoryFactoryBean.java
+                                task/
+                                    package-info.java
+                                    config/
+                                        MyBatisConfig.java
+                                        SchedulerConfiguration.java
+                                        TaskConfiguration.java
+                                    definition/
+                                        TaskProperties.java
+                                    entity/
+                                        TaskConfig.java
+                                        TaskInstance.java
+                                        TaskLog.java
+                                    enums/
+                                        LogTypeEnum.java
+                                        TaskStatusEnum.java
+                                    exception/
+                                        TaskValidationException.java
+                                    handler/
+                                        AbstractTaskHandler.java
+                                        SampleTaskHandler.java
+                                        TaskHandler.java
+                                        TaskHandlerManager.java
+                                    mapper/
+                                        TaskConfigMapper.java
+                                        TaskInstanceMapper.java
+                                        TaskLogMapper.java
+                                    model/
+                                        package-info.java
+                                        ShardingConfig.java
+                                        TaskContext.java
+                                        TaskDefinition.java
+                                        TaskResult.java
+                                        TaskStatus.java
+                                    scheduler/
+                                        AbstractTaskScheduler.java
+                                        DefaultTaskScheduler.java
+                                        package-info.java
+                                        TaskDispatcher.java
+                                        TaskScheduler.java
+                                    service/
+                                        TaskConfigService.java
+                                        TaskExecuteService.java
                                     utils/
-                                        HashUtil.java
-                                        HttpUtil.java
-                                        ListCompareUtil.java
-                                        RateLimiter.java
-                                        StreamProcessManager.java
+                                        InstanceIdGenerator.java
             resources/
-                META-INF/
-                    spring.factories
+                mapper/
+                    TaskConfigMapper.xml
+                    TaskInstanceMapper.xml
+                    TaskLogMapper.xml
 ```
 
 # File Contents
@@ -81,73 +160,95 @@ business-testcase/
 ## pom.xml
 
 ```xml
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xmlns="http://maven.apache.org/POM/4.0.0"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
+
     <parent>
         <groupId>com.study</groupId>
-        <artifactId>collect-business</artifactId>
+        <artifactId>platform-collect</artifactId>
         <version>1.0.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>business-testcase</artifactId>
-    <packaging>jar</packaging>
+    <artifactId>collect-core</artifactId>
 
-    <name>business-testcase</name>
-    <url>http://maven.apache.org</url>
-    <properties>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    </properties>
     <dependencies>
         <dependency>
-            <groupId>io.springfox</groupId>
-            <artifactId>springfox-swagger2</artifactId>
-            <version>2.9.2</version>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
-        <dependency>
-            <groupId>io.springfox</groupId>
-            <artifactId>springfox-swagger-ui</artifactId>
-            <version>2.9.2</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.commons</groupId>
-            <artifactId>commons-lang3</artifactId>
-            <version>3.12.0</version>
-        </dependency>
-        <dependency>
-            <groupId>javax.annotation</groupId>
-            <artifactId>javax.annotation-api</artifactId>
-            <version>1.3.2</version>
-        </dependency>
-        <dependency>
-            <groupId>javax.validation</groupId>
-            <artifactId>validation-api</artifactId>
-            <version>2.0.1.Final</version>
-        </dependency>
-        <!-- Spring Boot Web -->
+        <!-- Spring Boot -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
+            <artifactId>spring-boot-starter</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-aop</artifactId>
         </dependency>
 
-        <!-- Database -->
+        <!-- Redis -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.redisson</groupId>
+            <artifactId>redisson</artifactId>
+        </dependency>
+
+        <!-- MongoDB -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-mongodb</artifactId>
         </dependency>
+
+        <!-- RabbitMQ -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-amqp</artifactId>
+        </dependency>
+
+        <!-- MariaDB JDBC Driver -->
+        <dependency>
+            <groupId>org.mariadb.jdbc</groupId>
+            <artifactId>mariadb-java-client</artifactId>
+        </dependency>
+
+        <!-- Metrics -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+
+        <!-- Common -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+        </dependency>
+
+        <!-- MyBatis -->
         <dependency>
             <groupId>org.mybatis.spring.boot</groupId>
             <artifactId>mybatis-spring-boot-starter</artifactId>
-        </dependency>
 
-        <!-- Cache -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-cache</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-redis</artifactId>
+            <groupId>org.mybatis</groupId>
+            <artifactId>mybatis</artifactId>
+            <version>3.5.9</version>
+            <scope>compile</scope>
         </dependency>
 
         <!-- Test -->
@@ -157,301 +258,2238 @@ business-testcase/
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.projectlombok</groupId>
-            <artifactId>lombok</artifactId>
-            <scope>provided</scope>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
         </dependency>
-
         <dependency>
-            <groupId>commons-codec</groupId>
-            <artifactId>commons-codec</artifactId>
-            <version>1.15</version>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-pool2</artifactId>
         </dependency>
     </dependencies>
 </project>
-
 ```
 
-## CollectionStrategy.java
+## AbstractCollector.java
 
 ```java
-package com.study.collect.business.testcase.aspect.mongodb;
+package com.study.collect.core.collector;
 
-import org.springframework.beans.BeansException;
-import org.springframework.context.ApplicationContext;
-import org.springframework.context.ApplicationContextAware;
-import org.springframework.stereotype.Component;
+import com.study.collect.core.collector.exception.CollectException;
+import com.study.collect.core.collector.model.CollectContext;
+import com.study.collect.core.collector.model.CollectResult;
+import lombok.extern.slf4j.Slf4j;
 
-@Component
-public class CollectionStrategy implements ApplicationContextAware {
-    private static ApplicationContext applicationContext;
-    private static final ThreadLocal<String> versionHolder = new ThreadLocal<>();
+import java.util.List;
+
+@Slf4j
+public abstract class AbstractCollector<T, R> implements ICollector<T, R> {
 
     @Override
-    public void setApplicationContext(ApplicationContext context) throws BeansException {
-        applicationContext = context;
+    public CollectResult<R> collect(CollectContext<T> context) {
+        String taskId = context.getTaskId();
+        log.info("开始执行采集任务: taskId={}, type={}", taskId, getType());
+
+        try {
+            // 前置处理
+            preProcess(context);
+
+            // 执行采集
+//            CollectResult<R> data = doCollect(context);
+            R sourceData = doCollect(context);
+            CollectResult<R> data = CollectResult.success(sourceData);
+            // 后置处理
+            postProcess(data);
+
+            log.info("采集任务执行完成: taskId={}", taskId);
+            return CollectResult.success(data.getData());
+
+        } catch (Exception e) {
+            log.error("采集任务执行失败: taskId={}", taskId, e);
+            return CollectResult.failure(e.getMessage());
+        }
     }
 
-    public String getCollectionName(String baseCollection) {
-        String version = versionHolder.get();
-        return version != null ? baseCollection + "_" + version : baseCollection;
+    /**
+     * 前置处理
+     */
+    protected void preProcess(CollectContext<T> context) {
+        // 数据校验
+        validateContext(context);
+        // 准备采集参数
+        prepareCollectParams(context);
     }
 
-    public static void setVersion(String version) {
-        versionHolder.set(version);
+    /**
+     * 执行采集
+     */
+//    protected abstract CollectResult<R> doCollect(CollectContext<T> context);
+    protected abstract R doCollect(CollectContext<T> context);
+
+    /**
+     * 后置处理
+     */
+    protected void postProcess(CollectResult<R> data) {
+        // 数据清洗
+        cleanCollectData(data);
+        // 结果验证
+        validateCollectResult(data);
     }
 
-    public static void clearVersion() {
-        versionHolder.remove();
+    /**
+     * 上下文校验
+     */
+    protected void validateContext(CollectContext<T> context) {
+        if (context == null) {
+            throw new CollectException("采集上下文不能为空");
+        }
+        if (context.getTaskId() == null) {
+            throw new CollectException("任务ID不能为空");
+        }
+        if (context.getParams() == null) {
+            throw new CollectException("采集参数不能为空");
+        }
+    }
+
+    /**
+     * 准备采集参数
+     */
+    protected void prepareCollectParams(CollectContext<T> context) {
+        // 子类可覆盖实现具体的参数准备逻辑
+    }
+
+    /**
+     * 清洗采集数据
+     */
+    protected void cleanCollectData(CollectResult<R> data) {
+        // 子类可覆盖实现具体的数据清洗逻辑
+    }
+
+    /**
+     * 验证采集结果
+     */
+    protected void validateCollectResult(CollectResult<R> data) {
+        // 子类可覆盖实现具体的结果验证逻辑
     }
 }
 ```
 
-## CollectionVersion.java
+## ICollector.java
 
 ```java
-package com.study.collect.business.testcase.aspect.mongodb;
+package com.study.collect.core.collector;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
+import com.study.collect.core.collector.model.CollectContext;
+import com.study.collect.core.collector.model.CollectResult;
+
+// 采集器接口
+public interface ICollector<T, R> {
+    /**
+     * 执行采集
+     */
+    CollectResult<R> collect(CollectContext<T> context);
+
+    /**
+     * 获取采集器类型
+     */
+    String getType();
+
+
+}
+
+```
+
+## package-info.java
+
+```java
+/**
+ * 采集器
+ */
+package com.study.collect.core.collector;
+```
+
+## Collector.java
+
+```java
+package com.study.collect.core.collector.annotation;
+
+import java.lang.annotation.*;
+
+// 采集器注解
+@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+public @interface Collector {
+    /**
+     * 采集器类型
+     */
+    String type();
+
+    /**
+     * 采集器描述
+     */
+    String description() default "";
+
+    /**
+     * 是否启用
+     */
+    boolean enabled() default true;
+
+    /**
+     * 采集器优先级,值越小优先级越高
+     */
+    int order() default Integer.MAX_VALUE;
+}
+
+```
+
+## CollectorConfiguration.java
+
+```java
+package com.study.collect.core.collector.config;
+
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+@ComponentScan("com.study.collect.core.collector")
+public class CollectorConfiguration {
+    // 采集器模块配置
+}
+```
+
+## CollectorProperties.java
+
+```java
+package com.study.collect.core.collector.config;
+
+import lombok.Data;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+
+@Data
+@ConfigurationProperties(prefix = "collect.collector")
+public class CollectorProperties {
+    /**
+     * 是否启用采集器
+     */
+    private boolean enabled = true;
+
+    /**
+     * 采集超时时间(秒)
+     */
+    private int timeout = 300;
+
+    /**
+     * 重试次数
+     */
+    private int retryTimes = 3;
+
+    /**
+     * 重试间隔(秒)
+     */
+    private int retryInterval = 60;
+}
+```
+
+## CollectException.java
+
+```java
+package com.study.collect.core.collector.exception;
+
+public class CollectException extends RuntimeException {
+
+    public CollectException(String message) {
+        super(message);
+    }
+
+    public CollectException(String message, Throwable cause) {
+        super(message, cause);
+    }
+}
+```
+
+## CollectorFactory.java
+
+```java
+package com.study.collect.core.collector.factory;
+
+import com.study.collect.core.collector.ICollector;
+import com.study.collect.core.collector.manager.CollectorManager;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
+
+import java.util.Set;
+
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class CollectorFactory {
+
+    private final CollectorManager collectorManager;
+
+    /**
+     * 创建或获取采集器实例
+     * 首先尝试从CollectorManager获取已注册的采集器
+     * 如果找不到对应的采集器，抛出异常
+     */
+    public <T, R> ICollector<T, R> createCollector(String type) {
+        // 验证参数
+        if (!StringUtils.hasText(type)) {
+            throw new IllegalArgumentException("采集器类型不能为空");
+        }
+
+        try {
+            // 从CollectorManager获取已注册的采集器
+            return collectorManager.getCollector(type);
+        } catch (IllegalStateException e) {
+            log.error("创建采集器失败: {}", e.getMessage());
+            throw new IllegalArgumentException("无效的采集器类型: " + type);
+        }
+    }
+
+    /**
+     * 检查是否支持指定类型的采集器
+     */
+    public boolean supportsCollectorType(String type) {
+        return collectorManager.hasCollector(type);
+    }
+
+    /**
+     * 获取所有支持的采集器类型
+     */
+    public Set<String> getSupportedCollectorTypes() {
+        return collectorManager.getCollectorTypes();
+    }
+}
+```
+
+## CollectorManager.java
+
+```java
+package com.study.collect.core.collector.manager;
+
+import com.study.collect.core.collector.ICollector;
+import com.study.collect.core.collector.annotation.Collector;
+import jakarta.annotation.PostConstruct;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
+import org.springframework.stereotype.Component;
+
+import java.util.Collections;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+
+@Slf4j
+@Component
+public class CollectorManager {
+
+    private final Map<String, ICollector<?, ?>> collectors = new ConcurrentHashMap<>();
+
+    @PostConstruct
+    public void init() {
+        registerCollectors();
+    }
+
+    @Autowired
+    private ApplicationContext applicationContext;
+
+    /**
+     * 扫描并注册所有带有@Collector注解的采集器
+     */
+    private void registerCollectors() {
+        Map<String, Object> beans = applicationContext.getBeansWithAnnotation(Collector.class);
+        beans.values().forEach(bean -> {
+            Collector annotation = bean.getClass().getAnnotation(Collector.class);
+            if (null != annotation && annotation.enabled()) {
+                ICollector<?, ?> collector = (ICollector<?, ?>) bean;
+                registerCollector(collector.getType(), collector);
+            }
+        });
+    }
+
+    /**
+     * 注册单个采集器
+     */
+    public void registerCollector(String type, ICollector<?, ?> collector) {
+        if (collectors.containsKey(type)) {
+            throw new IllegalStateException("采集器类型已存在: " + type);
+        }
+        collectors.put(type, collector);
+        log.info("注册采集器: type={}, class={}", type, collector.getClass().getName());
+    }
+
+    /**
+     * 检查采集器是否已注册
+     */
+    public boolean hasCollector(String type) {
+        return collectors.containsKey(type);
+    }
+
+    /**
+     * 获取已注册的采集器
+     * 如果采集器未注册，抛出异常
+     */
+    @SuppressWarnings("unchecked")
+    public <T, R> ICollector<T, R> getCollector(String type) {
+        ICollector<?, ?> collector = collectors.get(type);
+        if (collector == null) {
+            throw new IllegalStateException("采集器未注册: " + type);
+        }
+        return (ICollector<T, R>) collector;
+    }
+
+    /**
+     * 获取所有已注册的采集器类型
+     */
+    public Set<String> getCollectorTypes() {
+        return Collections.unmodifiableSet(collectors.keySet());
+    }
+}
+```
+
+## CollectContext.java
+
+```java
+package com.study.collect.core.collector.model;
+
+import lombok.Data;
+
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+@Data
+public class CollectContext<T> {
+    /**
+     * 上下文属性
+     */
+    private final Map<String, Object> attributes = new ConcurrentHashMap<>();
+    /**
+     * 任务ID
+     */
+    private String taskId;
+    /**
+     * 采集参数
+     */
+    private T params;
+    /**
+     * 分片信息
+     */
+    private Integer shardingId;
+    private Integer shardingTotal;
+
+    public void setAttribute(String key, Object value) {
+        attributes.put(key, value);
+    }
+
+    @SuppressWarnings("unchecked")
+    public <V> V getAttribute(String key) {
+        return (V) attributes.get(key);
+    }
+}
+
+```
+
+## CollectResult.java
+
+```java
+package com.study.collect.core.collector.model;
+
+import lombok.Data;
+
+import java.time.LocalDateTime;
+
+@Data
+public class CollectResult<T> {
+    /**
+     * 是否成功
+     */
+    private boolean success;
+
+    /**
+     * 错误信息
+     */
+    private String errorMessage;
+
+    /**
+     * 采集数据
+     */
+    private T data;
+
+    /**
+     * 完成时间
+     */
+    private LocalDateTime finishTime;
+
+    public static <T> CollectResult<T> success(T data) {
+        CollectResult<T> result = new CollectResult<>();
+        result.setSuccess(true);
+        result.setData(data);
+        result.setFinishTime(LocalDateTime.now());
+        return result;
+    }
+
+    public static <T> CollectResult<T> failure(String errorMessage) {
+        CollectResult<T> result = new CollectResult<>();
+        result.setSuccess(false);
+        result.setErrorMessage(errorMessage);
+        result.setFinishTime(LocalDateTime.now());
+        return result;
+    }
+}
+```
+
+## CollectAutoConfiguration.java
+
+```java
+package com.study.collect.core.config;
+
+import com.study.collect.core.collector.config.CollectorConfiguration;
+import com.study.collect.core.mq.config.MQProperties;
+import com.study.collect.core.mq.config.RabbitConfig;
+import com.study.collect.core.processor.config.ProcessorConfiguration;
+import com.study.collect.core.storage.cache.config.CacheAutoConfiguration;
+import com.study.collect.core.storage.config.MongoConfig;
+import com.study.collect.core.task.config.MyBatisConfig;
+import com.study.collect.core.task.config.TaskConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
+
+@Configuration
+@EnableConfigurationProperties({
+        MQProperties.class
+})
+@Import({
+        // 数据存储配置
+        MongoConfig.class,          // MongoDB
+        MyBatisConfig.class,        // MyBatis
+        CacheAutoConfiguration.class,// Redis
+
+        // 消息队列配置
+        RabbitConfig.class,         // RabbitMQ
+
+        // 业务配置
+        TaskConfiguration.class,     // 任务配置
+        CollectorConfiguration.class,// 采集器配置
+        ProcessorConfiguration.class // 处理器配置
+})
+public class CollectAutoConfiguration {
+}
+```
+
+## package-info.java
+
+```java
+/**
+ * 核心配置包
+ */
+package com.study.collect.core.config;
+```
+
+## RabbitMQErrorHandler.java
+
+```java
+package com.study.collect.core.mq;
+
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.support.ListenerExecutionFailedException;
+import org.springframework.amqp.support.converter.MessageConversionException;
+import org.springframework.stereotype.Component;
+import org.springframework.util.ErrorHandler;
+
+@Component
+@Slf4j
+public class RabbitMQErrorHandler implements ErrorHandler {
+
+    @Override
+    public void handleError(Throwable t) {
+        log.error("RabbitMQ message processing error", t);
+
+        if (t instanceof MessageConversionException) {
+            // 消息转换错误处理
+            log.error("Message conversion failed", t);
+        } else if (t instanceof ListenerExecutionFailedException) {
+            // 监听器执行错误处理
+            log.error("Listener execution failed", t);
+        }
+    }
+}
+```
+
+## MQProperties.java
+
+```java
+package com.study.collect.core.mq.config;
+
+import lombok.Data;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
- * 集合版本注解
+ * 消息队列配置属性类
+ * 对应配置文件中 collect.mq 前缀的配置项
  */
-@Target(ElementType.METHOD)
-@Retention(RetentionPolicy.RUNTIME)
-public @interface CollectionVersion {
-    /**
-     * 参数名称，如果指定则按参数名查找
-     */
-    String paramName() default "";
+@Data
+@ConfigurationProperties(prefix = "collect.mq")
+public class MQProperties {
 
     /**
-     * 参数位置，如果未指定参数名则按位置查找
+     * RabbitMQ相关配置
      */
-    int paramIndex() default 0;
+    private RabbitMQ rabbit = new RabbitMQ();
+
+    @Data
+    public static class RabbitMQ {
+        /**
+         * 服务器地址
+         */
+        private String host;
+
+        /**
+         * 服务器端口
+         */
+        private Integer port;
+
+        /**
+         * 用户名
+         */
+        private String username;
+
+        /**
+         * 密码
+         */
+        private String password;
+
+        /**
+         * 虚拟主机
+         */
+        private String virtualHost = "/";
+
+        /**
+         * 任务队列配置
+         */
+        private Queue task = new Queue();
+
+        /**
+         * 结果队列配置
+         */
+        private Queue result = new Queue();
+
+        /**
+         * 队列配置类
+         */
+        @Data
+        public static class Queue {
+            /**
+             * 交换机名称
+             */
+            private String exchange;
+
+            /**
+             * 队列名称
+             */
+            private String queue;
+
+            /**
+             * 路由键
+             */
+            private String routingKey;
+
+            /**
+             * 是否持久化
+             */
+            private boolean durable = true;
+
+            /**
+             * 是否自动删除
+             */
+            private boolean autoDelete = false;
+        }
+    }
 }
+```
 
+## RabbitConfig.java
+
+```java
+package com.study.collect.core.mq.config;
+
+import org.springframework.amqp.core.*;
+import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory;
+import org.springframework.amqp.rabbit.connection.ConnectionFactory;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+@ConditionalOnProperty(prefix = "collect.mq.rabbit", name = "enabled", havingValue = "true", matchIfMissing = true)
+@EnableConfigurationProperties(MQProperties.class)
+public class RabbitConfig {
+
+    @Bean
+    public DirectExchange taskExchange(MQProperties properties) {
+        return new DirectExchange(properties.getRabbit().getTask().getExchange());
+    }
+
+    @Bean
+    public Queue taskQueue(MQProperties properties) {
+        return QueueBuilder.durable(properties.getRabbit().getTask().getQueue())
+                .withArgument("x-dead-letter-exchange",
+                        properties.getRabbit().getTask().getExchange() + ".dlx")
+                .withArgument("x-dead-letter-routing-key",
+                        properties.getRabbit().getTask().getRoutingKey() + ".dlx")
+                .build();
+    }
+
+    @Bean
+    public Binding taskBinding(Queue taskQueue, DirectExchange taskExchange,
+                               MQProperties properties) {
+        return BindingBuilder.bind(taskQueue)
+                .to(taskExchange)
+                .with(properties.getRabbit().getTask().getRoutingKey());
+    }
+
+    @Bean
+    public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory) {
+        RabbitTemplate template = new RabbitTemplate(connectionFactory);
+        // 配置消息转换器
+        Jackson2JsonMessageConverter messageConverter = new Jackson2JsonMessageConverter();
+        template.setMessageConverter(messageConverter);
+        return template;
+    }
+
+    @Bean
+    public SimpleRabbitListenerContainerFactory rabbitListenerContainerFactory(
+            ConnectionFactory connectionFactory) {
+        SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
+        factory.setConnectionFactory(connectionFactory);
+
+        // 为消费者配置相同的消息转换器
+        Jackson2JsonMessageConverter messageConverter = new Jackson2JsonMessageConverter();
+        factory.setMessageConverter(messageConverter);
+
+        return factory;
+    }
+}
+```
+
+## TaskConsumer.java
+
+```java
+package com.study.collect.core.mq.consumer;
+
+import com.study.collect.core.mq.message.TaskMessage;
+import com.study.collect.core.mq.message.TaskResultMessage;
+import com.study.collect.core.mq.producer.TaskProducer;
+import com.study.collect.core.task.handler.TaskHandler;
+import com.study.collect.core.task.handler.TaskHandlerManager;
+import com.study.collect.core.task.model.TaskContext;
+import com.study.collect.core.task.model.TaskResult;
+import com.study.collect.core.task.service.TaskExecuteService;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.messaging.handler.annotation.Payload;
+import org.springframework.stereotype.Component;
+
+import java.time.LocalDateTime;
+
+@Slf4j
+@Component
+public class TaskConsumer {
+
+    private final TaskExecuteService taskExecuteService;
+    private final TaskProducer taskProducer;
+    private final TaskHandlerManager handlerManager;
+
+    @Autowired
+    public TaskConsumer(TaskExecuteService taskExecuteService,
+                        TaskProducer taskProducer,
+                        TaskHandlerManager handlerManager) {
+        this.taskExecuteService = taskExecuteService;
+        this.taskProducer = taskProducer;
+        this.handlerManager = handlerManager;
+    }
+
+    @RabbitListener(
+            queues = "${collect.mq.rabbit.task.queue}",
+            containerFactory = "rabbitListenerContainerFactory"
+    )
+    public void onTaskMessage(@Payload TaskMessage message) {
+        String instanceId = message.getInstanceId();
+        try {
+            log.info("Received task message: instanceId={}, taskCode={}, shard={}/{}",
+                    message.getInstanceId(),
+                    message.getTaskId(),
+                    message.getShardIndex() + 1,
+                    message.getShardTotal()
+            );
+
+//    @RabbitListener(queues = "${collect.mq.rabbit.task.queue}")
+//    public void onTaskMessage(TaskMessage message) {
+
+//        log.info("Received task message: instanceId={}, taskCode={}, shard={}/{}",
+//                instanceId,
+//                message.getTaskId(),
+//                message.getShardIndex() + 1,
+//                message.getShardTotal()
+//        );
+//
+//        try {
+            // 执行任务
+            Object result = executeTask(message);
+
+            // 发送成功结果
+            sendSuccessResult(message, result);
+
+            // 更新任务状态
+            taskExecuteService.completeTaskInstance(instanceId, true, null);
+
+            log.info("Task executed successfully: {}", instanceId);
+
+        } catch (Exception e) {
+            log.error("Task execution failed: " + instanceId, e);
+
+            // 发送失败结果
+            sendFailureResult(message, e.getMessage());
+
+            // 更新任务状态
+            taskExecuteService.completeTaskInstance(instanceId, false, e.getMessage());
+        }
+    }
+
+//    private Object executeTask(TaskMessage message) {
+//        // 实际任务执行逻辑
+//        // 这里需要根据具体业务实现，可能需要调用具体的TaskHandler
+//        return null;
+//    }
+    private Object executeTask(TaskMessage message) {
+        // 创建任务上下文
+        TaskContext context = createTaskContext(message);
+
+        // 获取任务处理器
+        TaskHandler handler = handlerManager.getHandler(message.getTaskId());
+
+        // 执行任务
+        TaskResult result = handler.execute(context);
+
+        if (result.getSuccess()) {
+            // 发送成功结果
+            sendSuccessResult(message, result.getData());
+        } else {
+            // 发送失败结果
+            sendFailureResult(message, result.getErrorMessage());
+            throw new RuntimeException(result.getErrorMessage());
+        }
+
+
+        return result.getData();
+    }
+
+    private TaskContext createTaskContext(TaskMessage message) {
+        TaskContext context = new TaskContext();
+        context.setTaskId(message.getTaskId());
+        context.setInstanceId(message.getInstanceId());
+        context.setShardIndex(message.getShardIndex());
+        context.setShardTotal(message.getShardTotal());
+        context.setShardParam(message.getShardParam());
+        return context;
+    }
+
+    private void sendSuccessResult(TaskMessage message, Object result) {
+        TaskResultMessage resultMessage = createResultMessage(message);
+        resultMessage.setSuccess(true);
+        resultMessage.setResult(result);
+        taskProducer.sendResult(resultMessage);
+    }
+
+    private void sendFailureResult(TaskMessage message, String errorMsg) {
+        TaskResultMessage resultMessage = createResultMessage(message);
+        resultMessage.setSuccess(false);
+        resultMessage.setErrorMsg(errorMsg);
+        taskProducer.sendResult(resultMessage);
+    }
+
+    private TaskResultMessage createResultMessage(TaskMessage message) {
+        TaskResultMessage resultMessage = new TaskResultMessage();
+        resultMessage.setTaskId(message.getTaskId());
+        resultMessage.setInstanceId(message.getInstanceId());
+        resultMessage.setExecuteHost(message.getHostName());
+        resultMessage.setFinishTime(LocalDateTime.now());
+        return resultMessage;
+    }
+}
+```
+
+## BaseMessage.java
+
+```java
+package com.study.collect.core.mq.message;
+
+import lombok.Data;
+import java.io.Serializable;
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+/**
+ * 消息基类
+ * 定义所有消息共有的属性和行为
+ */
+@Data
+public abstract class BaseMessage implements Serializable {
+
+    /**
+     * 消息ID，用于消息追踪
+     */
+    private String messageId;
+
+    /**
+     * 消息类型，用于区分不同消息
+     */
+    private String type;
+
+    /**
+     * 消息创建时间
+     */
+    private LocalDateTime createTime;
+
+    /**
+     * 消息优先级
+     */
+    private Integer priority;
+
+    /**
+     * 消息重试次数
+     */
+    private Integer retryCount;
+
+    /**
+     * 额外属性，用于扩展
+     */
+    private String properties;
+
+    public BaseMessage() {
+        this.messageId = UUID.randomUUID().toString();
+        this.createTime = LocalDateTime.now();
+        this.retryCount = 0;
+    }
+
+    /**
+     * 设置消息类型
+     * 子类需要在构造函数中调用此方法设置具体的消息类型
+     */
+    protected void setType(String type) {
+        this.type = type;
+    }
+
+    /**
+     * 增加重试次数
+     */
+    public void incrementRetryCount() {
+        if (this.retryCount == null) {
+            this.retryCount = 0;
+        }
+        this.retryCount++;
+    }
+}
+```
+
+## TaskMessage.java
+
+```java
+package com.study.collect.core.mq.message;
+
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+
+@Data
+@EqualsAndHashCode(callSuper = true)
+@JsonTypeInfo(use = JsonTypeInfo.Id.CLASS)
+public class TaskMessage extends BaseMessage {
+    private String taskId;           // 任务编码
+    private String instanceId;       // 实例ID
+    private Integer shardIndex;      // 分片索引
+    private Integer shardTotal;      // 分片总数
+    private String shardParam;       // 分片参数
+    private String hostName;         // 执行机器
+
+    public TaskMessage() {
+        super();
+        setType("TASK");
+    }
+}
+```
+
+## TaskResultMessage.java
+
+```java
+package com.study.collect.core.mq.message;
+
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+
+import java.time.LocalDateTime;
+
+@Data
+@EqualsAndHashCode(callSuper = true)
+public class TaskResultMessage extends BaseMessage {
+    private String taskId;           // 任务编码
+    private String instanceId;       // 实例ID
+    private String executeHost;      // 执行机器
+    private Boolean success;         // 是否成功
+    private String errorMsg;         // 错误信息
+    private Object result;           // 执行结果
+    private LocalDateTime finishTime; // 完成时间
+
+    public TaskResultMessage() {
+        super();
+        setType("RESULT");
+    }
+}
+```
+
+## TaskProducer.java
+
+```java
+package com.study.collect.core.mq.producer;
+
+import com.study.collect.core.mq.config.MQProperties;
+import com.study.collect.core.mq.message.TaskMessage;
+import com.study.collect.core.mq.message.TaskResultMessage;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.core.Message;
+import org.springframework.amqp.core.MessageProperties;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
+@Slf4j
+@Component
+public class TaskProducer {
+
+    private final RabbitTemplate rabbitTemplate;
+    private final MQProperties mqProperties;
+
+    @Autowired
+    public TaskProducer(RabbitTemplate rabbitTemplate, MQProperties mqProperties) {
+        this.rabbitTemplate = rabbitTemplate;
+        this.mqProperties = mqProperties;
+    }
+
+//    public void sendTask(TaskMessage message) {
+//        try {
+//            MQProperties.RabbitMQ.Queue taskQueue = mqProperties.getRabbit().getTask();
+//            rabbitTemplate.convertAndSend(
+//                    taskQueue.getExchange(),
+//                    taskQueue.getRoutingKey(),
+//                    message
+//            );
+//            log.info("Task message sent: instanceId={}, taskCode={}, shard={}/{}",
+//                    message.getInstanceId(),
+//                    message.getTaskId(),
+//                    message.getShardIndex() + 1,
+//                    message.getShardTotal()
+//            );
+//        } catch (Exception e) {
+//            log.error("Failed to send task message: " + message.getInstanceId(), e);
+//            throw new RuntimeException("Message sending failed", e);
+//        }
+//    }
+
+    public void sendTask(TaskMessage message) {
+        try {
+            MQProperties.RabbitMQ.Queue taskQueue = mqProperties.getRabbit().getTask();
+
+            // 设置消息属性
+            MessageProperties props = new MessageProperties();
+            props.setContentType(MessageProperties.CONTENT_TYPE_JSON);
+            props.getHeaders().put("__TypeId__", TaskMessage.class.getName());
+
+            Message amqpMessage = rabbitTemplate.getMessageConverter()
+                    .toMessage(message, props);
+
+            rabbitTemplate.send(
+                    taskQueue.getExchange(),
+                    taskQueue.getRoutingKey(),
+                    amqpMessage
+            );
+
+            log.info("Task message sent: instanceId={}, taskCode={}, shard={}/{}",
+                    message.getInstanceId(),
+                    message.getTaskId(),
+                    message.getShardIndex() + 1,
+                    message.getShardTotal()
+            );
+        } catch (Exception e) {
+            log.error("Failed to send task message: " + message.getInstanceId(), e);
+            throw new RuntimeException("Message sending failed", e);
+        }
+    }
+
+
+    public void sendResult(TaskResultMessage message) {
+        try {
+            MQProperties.RabbitMQ.Queue resultQueue = mqProperties.getRabbit().getResult();
+            rabbitTemplate.convertAndSend(
+                    resultQueue.getExchange(),
+                    resultQueue.getRoutingKey(),
+                    message
+            );
+            log.info("Result message sent: instanceId={}, taskCode={}, success={}",
+                    message.getInstanceId(),
+                    message.getTaskId(),
+                    message.getSuccess()
+            );
+        } catch (Exception e) {
+            log.error("Failed to send result message: " + message.getInstanceId(), e);
+            throw new RuntimeException("Message sending failed", e);
+        }
+    }
+}
+```
+
+## AbstractProcessor.java
+
+```java
+package com.study.collect.core.processor;
+
+// 抽象处理器
+
+import com.study.collect.core.processor.exception.ProcessException;
+import com.study.collect.core.processor.model.ProcessContext;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.util.StopWatch;
+
+@Slf4j
+public abstract class AbstractProcessor<T> implements IProcessor<T> {
+
+    @Override
+    public T process(T data, ProcessContext context) {
+        String taskId = context.getTaskId();
+        log.info("开始数据处理: taskId={}, type={}", taskId, getType());
+
+        StopWatch stopWatch = new StopWatch();
+        stopWatch.start();
+
+        try {
+            // 前置处理
+            preProcess(data, context);
+
+            // 执行处理
+            T result = doProcess(data, context);
+
+            // 后置处理
+            result = postProcess(result, context);
+
+            stopWatch.stop();
+            log.info("数据处理完成: taskId={}, cost={}ms", taskId, stopWatch.getTotalTimeMillis());
+
+            return result;
+
+        } catch (Exception e) {
+            log.error("数据处理异常: taskId={}", taskId, e);
+            throw new ProcessException("数据处理失败: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 前置处理
+     */
+    protected void preProcess(T data, ProcessContext context) {
+        // 数据校验
+        validateData(data);
+        // 上下文校验
+        validateContext(context);
+    }
+
+    /**
+     * 执行处理
+     */
+    protected abstract T doProcess(T data, ProcessContext context);
+
+    /**
+     * 后置处理
+     */
+    protected T postProcess(T result, ProcessContext context) {
+        return result;
+    }
+
+    /**
+     * 数据校验
+     */
+    protected void validateData(T data) {
+        if (data == null) {
+            throw new ProcessException("处理数据不能为空");
+        }
+    }
+
+    /**
+     * 上下文校验
+     */
+    protected void validateContext(ProcessContext context) {
+        if (context == null) {
+            throw new ProcessException("处理上下文不能为空");
+        }
+        if (context.getTaskId() == null) {
+            throw new ProcessException("任务ID不能为空");
+        }
+    }
+}
+```
+
+## IProcessor.java
+
+```java
+package com.study.collect.core.processor;
+
+// 处理器接口
+
+
+import com.study.collect.core.processor.model.ProcessContext;
+
+public interface IProcessor<T> {
+    /**
+     * 执行数据处理
+     *
+     * @param data    待处理数据
+     * @param context 处理上下文
+     * @return 处理后的数据
+     */
+    T process(T data, ProcessContext context);
+
+    /**
+     * 获取处理器类型
+     */
+    String getType();
+
+    /**
+     * 获取处理器执行顺序
+     */
+    int getOrder();
+}
 
 ```
 
-## CollectionVersionAspect.java
+## package-info.java
 
 ```java
-package com.study.collect.business.testcase.aspect.mongodb;
+/**
+ * 处理器模块
+ */
+package com.study.collect.core.processor;
+```
 
+## Processor.java
+
+```java
+package com.study.collect.core.processor.annotation;
+
+import java.lang.annotation.*;
+
+@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+public @interface Processor {
+    /**
+     * 处理器类型
+     */
+    String type();
+
+    /**
+     * 处理器描述
+     */
+    String description() default "";
+
+    /**
+     * 是否启用
+     */
+    boolean enabled() default true;
+
+    /**
+     * 处理器执行顺序
+     */
+    int order() default Integer.MAX_VALUE;
+}
+
+```
+
+## ProcessorConfiguration.java
+
+```java
+package com.study.collect.core.processor.config;
+
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+@ComponentScan("com.study.collect.core.processor")
+public class ProcessorConfiguration {
+    // 处理器模块配置
+}
+```
+
+## ProcessorProperties.java
+
+```java
+package com.study.collect.core.processor.config;
+
+import lombok.Data;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+
+@Data
+@ConfigurationProperties(prefix = "collect.processor")
+public class ProcessorProperties {
+    /**
+     * 是否启用处理器
+     */
+    private boolean enabled = true;
+
+    /**
+     * 处理超时时间(秒)
+     */
+    private int timeout = 60;
+
+    /**
+     * 是否异步处理
+     */
+    private boolean async = false;
+
+    /**
+     * 异步处理线程池大小
+     */
+    private int poolSize = 5;
+}
+
+```
+
+## ProcessException.java
+
+```java
+package com.study.collect.core.processor.exception;
+
+public class ProcessException extends RuntimeException {
+
+    public ProcessException(String message) {
+        super(message);
+    }
+
+    public ProcessException(String message, Throwable cause) {
+        super(message, cause);
+    }
+}
+```
+
+## ProcessorManager.java
+
+```java
+package com.study.collect.core.processor.manager;
+
+import com.study.collect.core.processor.IProcessor;
+import com.study.collect.core.processor.annotation.Processor;
+import com.study.collect.core.processor.chain.ProcessChain;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
+@Slf4j
+@Component
+public class ProcessorManager {
+
+    private final Map<String, IProcessor<?>> processors = new ConcurrentHashMap<>();
+    private final Map<String, ProcessChain<?>> chains = new ConcurrentHashMap<>();
+
+    @Autowired
+    public void registerProcessors(Map<String, Object> beans) {
+        beans.values().stream()
+                .filter(bean -> bean.getClass().isAnnotationPresent(Processor.class))
+                .forEach(bean -> {
+                    Processor annotation = bean.getClass().getAnnotation(Processor.class);
+                    if (annotation.enabled()) {
+                        IProcessor<?> processor = (IProcessor<?>) bean;
+                        processors.put(processor.getType(), processor);
+                        log.info("注册处理器: type={}, order={}, class={}",
+                                processor.getType(), processor.getOrder(),
+                                processor.getClass().getName());
+                    }
+                });
+    }
+
+    @SuppressWarnings("unchecked")
+    public <T> ProcessChain<T> createChain() {
+        String chainId = UUID.randomUUID().toString();
+        ProcessChain<T> chain = new ProcessChain<>(chainId);
+
+        processors.values().stream()
+                .map(p -> (IProcessor<T>) p)
+                .forEach(chain::addProcessor);
+
+        chains.put(chainId, chain);
+        return chain;
+    }
+
+    @SuppressWarnings("unchecked")
+    public <T> IProcessor<T> getProcessor(String type) {
+        IProcessor<?> processor = processors.get(type);
+        if (processor == null) {
+            throw new IllegalArgumentException("未找到处理器: " + type);
+        }
+        return (IProcessor<T>) processor;
+    }
+}
+```
+
+## ProcessChain.java
+
+```java
+package com.study.collect.core.processor.chain;
+
+import com.study.collect.core.processor.IProcessor;
+import com.study.collect.core.processor.model.ProcessContext;
+import lombok.extern.slf4j.Slf4j;
+
+import java.util.ArrayList;
+import java.util.List;
+
+@Slf4j
+public class ProcessChain<T> {
+
+    private final List<IProcessor<T>> processors;
+    private final String chainId;
+
+    public ProcessChain(String chainId) {
+        this.chainId = chainId;
+        this.processors = new ArrayList<>();
+    }
+
+    public void addProcessor(IProcessor<T> processor) {
+        processors.add(processor);
+        processors.sort((p1, p2) -> p1.getOrder() - p2.getOrder());
+    }
+
+    public T process(T data) {
+        ProcessContext context = new ProcessContext();
+        context.setChainId(chainId);
+
+        for (IProcessor<T> processor : processors) {
+            try {
+                data = processor.process(data, context);
+                log.debug("处理器执行成功: processor={}, chainId={}",
+                        processor.getType(), chainId);
+            } catch (Exception e) {
+                log.error("处理器执行失败: processor={}, chainId={}",
+                        processor.getType(), chainId, e);
+                throw e;
+            }
+        }
+
+        return data;
+    }
+}
+```
+
+## ProcessContext.java
+
+```java
+package com.study.collect.core.processor.model;
+
+import lombok.Data;
+
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+@Data
+public class ProcessContext {
+    /**
+     * 上下文属性
+     */
+    private final Map<String, Object> attributes = new ConcurrentHashMap<>();
+    /**
+     * 任务ID
+     */
+    private String taskId;
+    /**
+     * 处理器链ID
+     */
+    private String chainId;
+
+    public void setAttribute(String key, Object value) {
+        attributes.put(key, value);
+    }
+
+    @SuppressWarnings("unchecked")
+    public <T> T getAttribute(String key) {
+        return (T) attributes.get(key);
+    }
+}
+```
+
+## Repository.java
+
+```java
+package com.study.collect.core.storage.annotation;
+
+import java.lang.annotation.*;
+
+// Repository
+@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+public @interface Repository {
+    /**
+     * 仓储类型
+     */
+    String type();
+
+    /**
+     * 存储描述
+     */
+    String description() default "";
+}
+```
+
+## EntityAuditor.java
+
+```java
+package com.study.collect.core.storage.audit;
+
+import com.study.collect.core.storage.entity.BaseEntity;
+import org.springframework.data.domain.AuditorAware;
+import org.springframework.stereotype.Component;
+
+import java.util.Optional;
+
+@Component
+public class EntityAuditor implements AuditorAware<String> {
+    @Override
+    public Optional<String> getCurrentAuditor() {
+        // 获取当前操作用户，可以从SecurityContext或ThreadLocal中获取
+        return Optional.of("system");
+    }
+}
+
+```
+
+## package-info.java
+
+```java
+/**
+ * 缓存
+ */
+package com.study.collect.core.storage.cache;
+```
+
+## Cache.java
+
+```java
+package com.study.collect.core.storage.cache.annotation;
+
+import java.lang.annotation.*;
+import java.util.concurrent.TimeUnit;
+
+@Target({ElementType.METHOD})
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+public @interface Cache {
+    String key() default "";       // 缓存key
+    String prefix() default "";    // 前缀
+    long expire() default 3600L;   // 过期时间
+    TimeUnit timeUnit() default TimeUnit.SECONDS;  // 时间单位
+}
+```
+
+## CacheEvict.java
+
+```java
+package com.study.collect.core.storage.cache.annotation;
+
+import java.lang.annotation.*;
+
+@Target({ElementType.METHOD})
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+public @interface CacheEvict {
+    String key() default "";       // 缓存key
+    String prefix() default "";    // 前缀
+    boolean allEntries() default false;  // 是否清除所有
+    boolean beforeInvocation() default false; // 是否在方法执行前清除
+}
+```
+
+## CacheLock.java
+
+```java
+package com.study.collect.core.storage.cache.annotation;
+
+import java.lang.annotation.*;
+import java.util.concurrent.TimeUnit;
+
+@Target({ElementType.METHOD})
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+public @interface CacheLock {
+    String key();                 // 锁key
+    String prefix() default "";   // 前缀
+    long waitTime() default 3L;   // 等待时间
+    long leaseTime() default 10L; // 租约时间
+    TimeUnit timeUnit() default TimeUnit.SECONDS;  // 时间单位
+}
+```
+
+## CacheAspect.java
+
+```java
+package com.study.collect.core.storage.cache.aspect;
+
+import com.study.collect.core.storage.cache.annotation.Cache;
+import com.study.collect.core.storage.cache.annotation.CacheEvict;
+import com.study.collect.core.storage.cache.manager.CacheManager;
+import com.study.collect.core.storage.cache.model.CacheOptions;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
+import org.springframework.expression.EvaluationContext;
+import org.springframework.expression.spel.standard.SpelExpressionParser;
+import org.springframework.expression.spel.support.StandardEvaluationContext;
 import org.springframework.stereotype.Component;
-import org.springframework.util.ReflectionUtils;
 import org.springframework.util.StringUtils;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-
-/**
- * 集合版本切面
- */
+@Slf4j
 @Aspect
 @Component
-@Slf4j
-public class CollectionVersionAspect {
+@RequiredArgsConstructor
+public class CacheAspect {
 
-    @Around("@annotation(com.study.collect.business.testcase.aspect.mongodb.CollectionVersion)")
-    public Object aroundCollectionVersion(ProceedingJoinPoint joinPoint) throws Throwable {
-        CollectionVersion annotation = ((MethodSignature) joinPoint.getSignature())
-                .getMethod().getAnnotation(CollectionVersion.class);
+    private final CacheManager cacheManager;
+    private final SpelExpressionParser parser = new SpelExpressionParser();
 
+    /**
+     * 缓存切面逻辑
+     */
+    @Around("@annotation(cache)")
+    public Object doCache(ProceedingJoinPoint point, Cache cache) throws Throwable {
+        // 解析key
+        String key = parseKey(cache.prefix(), cache.key(), point);
+
+        // 获取返回类型
+        MethodSignature signature = (MethodSignature) point.getSignature();
+        Class<?> returnType = signature.getReturnType();
+
+        // 构造缓存参数
+        CacheOptions options = CacheOptions.builder()
+                .expiration(cache.expire())
+                .timeUnit(cache.timeUnit())
+                .build();
+
+        // 调用底层缓存逻辑
         try {
-            String version = resolveVersion(joinPoint, annotation);
-            if (version == null) {
-                throw new IllegalArgumentException("Failed to resolve collection version");
-            }
-
-            CollectionStrategy.setVersion(version);
-            return joinPoint.proceed();
-        } finally {
-            CollectionStrategy.clearVersion();
+            return getFromCache(point, key, returnType, options);
+        } catch (Exception e) {
+            log.error("Cache operation failed for key: {}", key, e);
+            // 缓存异常时，直接执行原方法
+            return point.proceed();
         }
     }
 
     /**
-     * 解析版本信息
+     * 缓存清理切面逻辑
      */
-    private String resolveVersion(ProceedingJoinPoint joinPoint, CollectionVersion annotation) {
-        MethodSignature signature = (MethodSignature) joinPoint.getSignature();
-        Object[] args = joinPoint.getArgs();
-
-        // 如果没有参数，抛出异常
-        if (args == null || args.length == 0) {
-            throw new IllegalArgumentException("No parameters found in method: " + signature.getMethod().getName());
+    @Around("@annotation(cacheEvict)")
+    public Object doEvict(ProceedingJoinPoint point, CacheEvict cacheEvict) throws Throwable {
+        // 如果 beforeInvocation = true，则先清理再执行，否则先执行再清理
+        boolean beforeInvocation = cacheEvict.beforeInvocation();
+        if (beforeInvocation) {
+            evictCache(cacheEvict, point);
         }
-
-        // 1. 尝试按参数名查找
-        if (StringUtils.hasText(annotation.paramName())) {
-            String[] parameterNames = signature.getParameterNames();
-            for (int i = 0; i < parameterNames.length; i++) {
-                if (annotation.paramName().equals(parameterNames[i])) {
-                    return resolveVersionFromObject(args[i]);
-                }
-            }
-            log.warn("Parameter name '{}' not found in method: {}",
-                    annotation.paramName(), signature.getMethod().getName());
+        Object result = point.proceed();
+        if (!beforeInvocation) {
+            evictCache(cacheEvict, point);
         }
-
-        // 2. 按参数位置查找
-        int paramIndex = annotation.paramIndex();
-        if (paramIndex >= 0 && paramIndex < args.length) {
-            return resolveVersionFromObject(args[paramIndex]);
-        }
-
-        // 3. 尝试从第一个参数查找版本信息
-        return resolveVersionFromObject(args[0]);
+        return result;
     }
 
     /**
-     * 从对象中解析版本信息
+     * 执行具体的缓存清理逻辑
      */
-    private String resolveVersionFromObject(Object arg) {
-        if (arg == null) {
-            return null;
-        }
-
-        // 直接是String类型
-        if (arg instanceof String) {
-            return (String) arg;
-        }
-
-        // 如果是请求对象，尝试获取version字段
+    private void evictCache(CacheEvict cacheEvict, ProceedingJoinPoint point) {
         try {
-            // 通过反射查找version字段
-            Field versionField = ReflectionUtils.findField(arg.getClass(), "version");
-            if (versionField != null) {
-                ReflectionUtils.makeAccessible(versionField);
-                Object value = versionField.get(arg);
-                return value != null ? value.toString() : null;
-            }
-
-            // 尝试通过getter方法获取
-            Method getVersion = ReflectionUtils.findMethod(arg.getClass(), "getVersion");
-            if (getVersion != null) {
-                ReflectionUtils.makeAccessible(getVersion);
-                Object value = getVersion.invoke(arg);
-                return value != null ? value.toString() : null;
-            }
-
-            // 尝试查找uriVersion字段
-            Field uriVersionField = ReflectionUtils.findField(arg.getClass(), "uriVersion");
-            if (uriVersionField != null) {
-                ReflectionUtils.makeAccessible(uriVersionField);
-                Object value = uriVersionField.get(arg);
-                return value != null ? value.toString() : null;
+            if (cacheEvict.allEntries()) {
+                cacheManager.removeByPrefix(cacheEvict.prefix());
+            } else {
+                String key = parseKey(cacheEvict.prefix(), cacheEvict.key(), point);
+                cacheManager.remove(key);
             }
         } catch (Exception e) {
-            log.debug("Failed to resolve version from object: {}", arg, e);
+            log.error("Failed to evict cache", e);
         }
+    }
 
-        return null;
+    /**
+     * 解析 SpEL 表达式得到缓存 key
+     */
+    private String parseKey(String prefix, String key, ProceedingJoinPoint point) {
+        if (!StringUtils.hasText(key)) {
+            return prefix;
+        }
+        try {
+            EvaluationContext context = new StandardEvaluationContext();
+            MethodSignature signature = (MethodSignature) point.getSignature();
+            String[] paramNames = signature.getParameterNames();
+            Object[] args = point.getArgs();
+            for (int i = 0; i < paramNames.length; i++) {
+                context.setVariable(paramNames[i], args[i]);
+            }
+            // 根据 SpEL 表达式计算出的 key
+            String parsedKey = parser.parseExpression(key).getValue(context, String.class);
+            // 如果 prefix 不为空，则使用 prefix:parsedKey
+            return StringUtils.hasText(prefix) ? prefix + ":" + parsedKey : parsedKey;
+        } catch (Exception e) {
+            log.error("Failed to parse cache key: {}", key, e);
+            throw new IllegalArgumentException("Invalid cache key expression", e);
+        }
+    }
+
+    /**
+     * 使用泛型方法，避免不安全的类型转换警告
+     */
+    @SuppressWarnings("unchecked")
+    private <T> T getFromCache(ProceedingJoinPoint point, String key, Class<?> returnType, CacheOptions options) {
+        return cacheManager.get(key, (Class<T>) returnType, () -> {
+            try {
+                return (T) point.proceed();
+            } catch (Throwable e) {
+                log.error("Method execution failed at: {}", point.getSignature(), e);
+                throw new IllegalStateException("Cache method execution failed", e);
+            }
+        }, options);
     }
 }
 
 ```
 
-## GlobalExceptionHandler.java
+## LockAspect.java
 
 ```java
-package com.study.collect.business.testcase.config;
+package com.study.collect.core.storage.cache.aspect;
 
-import com.study.collect.business.testcase.model.response.AsyncResponse;
+import com.study.collect.core.storage.cache.annotation.CacheLock;
+import com.study.collect.core.storage.cache.lock.DistributedLock;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.validation.BindException;
-import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.RestControllerAdvice;
-
-import javax.validation.ConstraintViolationException;
-import java.util.stream.Collectors;
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.annotation.Around;
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.reflect.MethodSignature;
+import org.springframework.expression.EvaluationContext;
+import org.springframework.expression.spel.standard.SpelExpressionParser;
+import org.springframework.expression.spel.support.StandardEvaluationContext;
+import org.springframework.stereotype.Component;
 
 @Slf4j
-@RestControllerAdvice
-public class GlobalExceptionHandler {
+@Aspect
+@Component
+@RequiredArgsConstructor
+public class LockAspect {
 
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<AsyncResponse<Void>> handleValidationExceptions(
-            MethodArgumentNotValidException ex) {
-        String errors = ex.getBindingResult()
-                .getFieldErrors()
-                .stream()
-                .map(error -> error.getField() + ": " + error.getDefaultMessage())
-                .collect(Collectors.joining(", "));
+    private final DistributedLock lock;
+    private final SpelExpressionParser parser = new SpelExpressionParser();
 
-        return ResponseEntity
-                .badRequest()
-                .body(AsyncResponse.<Void>builder()
-                        .status("ERROR")
-                        .message("Validation failed: " + errors)
-                        .build());
+    @Around("@annotation(cacheLock)")
+    public Object doLock(ProceedingJoinPoint point, CacheLock cacheLock) throws Throwable {
+        String key = parseKey(cacheLock.prefix(), cacheLock.key(), point);
+
+        try {
+            boolean locked = lock.tryLock(key,
+                    cacheLock.waitTime(),
+                    cacheLock.leaseTime(),
+                    cacheLock.timeUnit());
+
+            if (!locked) {
+                throw new RuntimeException("Failed to acquire lock: " + key);
+            }
+
+            return point.proceed();
+        } finally {
+            lock.unlock(key);
+        }
     }
 
-    @ExceptionHandler(BindException.class)
-    public ResponseEntity<AsyncResponse<Void>> handleBindException(BindException ex) {
-        String errors = ex.getBindingResult()
-                .getFieldErrors()
-                .stream()
-                .map(error -> error.getField() + ": " + error.getDefaultMessage())
-                .collect(Collectors.joining(", "));
 
-        return ResponseEntity
-                .badRequest()
-                .body(AsyncResponse.<Void>builder()
-                        .status("ERROR")
-                        .message("Invalid parameters: " + errors)
-                        .build());
+    // key解析实现，与CacheAspect中相同
+    private String parseKey(String prefix, String key, ProceedingJoinPoint point) {
+        if (key.isEmpty()) {
+            return prefix;
+        }
+
+        EvaluationContext context = new StandardEvaluationContext();
+        MethodSignature signature = (MethodSignature) point.getSignature();
+        String[] paramNames = signature.getParameterNames();
+        Object[] args = point.getArgs();
+
+        for (int i = 0; i < paramNames.length; i++) {
+            context.setVariable(paramNames[i], args[i]);
+        }
+
+        String parsedKey = parser.parseExpression(key).getValue(context, String.class);
+        return prefix.isEmpty() ? parsedKey : prefix + ":" + parsedKey;
+    }
+}
+```
+
+## CacheAutoConfiguration.java
+
+```java
+package com.study.collect.core.storage.cache.config;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.cache.annotation.EnableCaching;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
+import org.springframework.data.redis.serializer.StringRedisSerializer;
+
+@Configuration
+@EnableCaching
+@ConditionalOnProperty(prefix = "spring.data.redis", name = "enabled", havingValue = "true", matchIfMissing = true)
+@EnableConfigurationProperties(CacheProperties.class)
+public class CacheAutoConfiguration {
+
+    @Bean
+    public RedisTemplate<String, Object> redisTemplate(
+            RedisConnectionFactory connectionFactory,
+            ObjectMapper objectMapper) {
+        RedisTemplate<String, Object> template = new RedisTemplate<>();
+        template.setConnectionFactory(connectionFactory);
+
+        // 使用Jackson2JsonRedisSerializer作为序列化器
+        Jackson2JsonRedisSerializer<Object> serializer =
+                new Jackson2JsonRedisSerializer<>(objectMapper, Object.class);
+
+        template.setKeySerializer(new StringRedisSerializer());
+        template.setHashKeySerializer(new StringRedisSerializer());
+        template.setValueSerializer(serializer);
+        template.setHashValueSerializer(serializer);
+
+        template.afterPropertiesSet();
+        return template;
+    }
+}
+
+```
+
+## CacheProperties.java
+
+```java
+package com.study.collect.core.storage.cache.config;
+
+import lombok.Data;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+
+import java.util.concurrent.TimeUnit;
+
+@Data
+@ConfigurationProperties(prefix = "collect.storage.cache")
+public class CacheProperties {
+    private boolean enabled = true;
+    private long defaultExpiration = 3600L;
+    private TimeUnit timeUnit = TimeUnit.SECONDS;
+
+    private Redis redis = new Redis();
+
+    @Data
+    public static class Redis {
+        private String host;
+        private int port;
+        private String password;
+        private int database = 0;
+
+        private Pool pool = new Pool();
+
+        @Data
+        public static class Pool {
+            private int maxActive = 8;
+            private int maxIdle = 8;
+            private int minIdle = 0;
+            private long maxWait = -1;
+        }
+    }
+}
+```
+
+## DistributedLock.java
+
+```java
+package com.study.collect.core.storage.cache.lock;
+
+import java.util.concurrent.TimeUnit;
+
+public interface DistributedLock {
+    /**
+     * 获取锁
+     * @param key 锁的key
+     * @param waitTime 等待时间
+     * @param leaseTime 租约时间
+     * @param unit 时间单位
+     * @return 是否获取成功
+     */
+    boolean tryLock(String key, long waitTime, long leaseTime, TimeUnit unit);
+
+    /**
+     * 释放锁
+     * @param key 锁的key
+     */
+    void unlock(String key);
+}
+
+```
+
+## package-info.java
+
+```java
+/**
+ * 分布式锁
+ */
+package com.study.collect.core.storage.cache.lock;
+```
+
+## RedisLock.java
+
+```java
+package com.study.collect.core.storage.cache.lock;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.stereotype.Component;
+
+import java.util.concurrent.TimeUnit;
+
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class RedisLock implements DistributedLock {
+
+    private final RedisTemplate<String, Object> redisTemplate;
+
+    @Override
+    public boolean tryLock(String key, long waitTime, long leaseTime, TimeUnit unit) {
+        try {
+            long startTime = System.currentTimeMillis();
+            long waitMillis = unit.toMillis(waitTime);
+
+            do {
+                Boolean success = redisTemplate.opsForValue()
+                        .setIfAbsent(key, Thread.currentThread().getId(), leaseTime, unit);
+
+                if (Boolean.TRUE.equals(success)) {
+                    return true;
+                }
+
+                // 等待一段时间后重试
+                Thread.sleep(100);
+            } while (System.currentTimeMillis() - startTime < waitMillis);
+
+            return false;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
     }
 
-    @ExceptionHandler(ConstraintViolationException.class)
-    public ResponseEntity<AsyncResponse<Void>> handleConstraintViolation(
-            ConstraintViolationException ex) {
-        String errors = ex.getConstraintViolations()
-                .stream()
-                .map(violation -> violation.getPropertyPath() + ": " + violation.getMessage())
-                .collect(Collectors.joining(", "));
+    @Override
+    public void unlock(String key) {
+        try {
+            Long threadId = (Long) redisTemplate.opsForValue().get(key);
+            if (threadId != null && threadId.equals(Thread.currentThread().getId())) {
+                redisTemplate.delete(key);
+            }
+        } catch (Exception e) {
+            log.error("Failed to unlock: {}", key, e);
+        }
+    }
+}
+```
 
-        return ResponseEntity
-                .badRequest()
-                .body(AsyncResponse.<Void>builder()
-                        .status("ERROR")
-                        .message("Validation failed: " + errors)
-                        .build());
+## CacheManager.java
+
+```java
+package com.study.collect.core.storage.cache.manager;
+
+import com.study.collect.core.storage.cache.model.CacheOptions;
+import java.util.Collection;
+import java.util.function.Supplier;
+
+/**
+ * 缓存管理器接口
+ * 提供统一的缓存操作能力，支持自动加载、批量操作和类型安全的数据访问
+ */
+public interface CacheManager {
+
+    /**
+     * 获取缓存，如果不存在则通过supplier加载并缓存
+     *
+     * @param key 缓存键
+     * @param type 返回值类型
+     * @param supplier 数据加载器
+     * @return 缓存的值
+     * @param <T> 值类型
+     */
+    <T> T get(String key, Class<T> type, Supplier<T> supplier);
+
+    /**
+     * 使用自定义选项获取缓存
+     *
+     * @param key 缓存键
+     * @param type 返回值类型
+     * @param supplier 数据加载器
+     * @param options 缓存选项
+     * @return 缓存的值
+     * @param <T> 值类型
+     */
+    <T> T get(String key, Class<T> type, Supplier<T> supplier, CacheOptions options);
+
+    /**
+     * 批量获取缓存，如果不存在则通过supplier加载并缓存
+     *
+     * @param keys 缓存键集合
+     * @param type 返回值类型
+     * @param supplier 数据加载器
+     * @return 缓存值集合
+     * @param <T> 值类型
+     */
+    <T> Collection<T> multiGet(Collection<String> keys, Class<T> type, Supplier<Collection<T>> supplier);
+
+    /**
+     * 使用自定义选项批量获取缓存
+     *
+     * @param keys 缓存键集合
+     * @param type 返回值类型
+     * @param supplier 数据加载器
+     * @param options 缓存选项
+     * @return 缓存值集合
+     * @param <T> 值类型
+     */
+    <T> Collection<T> multiGet(Collection<String> keys, Class<T> type, Supplier<Collection<T>> supplier, CacheOptions options);
+
+    /**
+     * 更新缓存
+     *
+     * @param key 缓存键
+     * @param value 缓存值
+     * @param <T> 值类型
+     */
+    <T> void put(String key, T value);
+
+    /**
+     * 使用自定义选项更新缓存
+     *
+     * @param key 缓存键
+     * @param value 缓存值
+     * @param options 缓存选项
+     * @param <T> 值类型
+     */
+    <T> void put(String key, T value, CacheOptions options);
+
+    /**
+     * 删除指定键的缓存
+     *
+     * @param key 缓存键
+     */
+    void remove(String key);
+
+    /**
+     * 删除指定前缀的所有缓存
+     *
+     * @param prefix 缓存键前缀
+     */
+    void removeByPrefix(String prefix);
+}
+```
+
+## RedisCacheManager.java
+
+```java
+package com.study.collect.core.storage.cache.manager;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.study.collect.core.storage.cache.config.CacheProperties;
+import com.study.collect.core.storage.cache.model.CacheOptions;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.stereotype.Component;
+
+import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
+
+/**
+ * Redis缓存管理器实现
+ * 提供基于Redis的缓存操作实现，支持数据自动加载、类型转换和批量操作
+ */
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class RedisCacheManager implements CacheManager {
+
+    private final RedisTemplate<String, Object> redisTemplate;
+    private final ObjectMapper objectMapper;
+    private final CacheProperties cacheProperties;
+
+    @Override
+    public <T> T get(String key, Class<T> type, Supplier<T> supplier) {
+        return get(key, type, supplier, null);
     }
 
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<AsyncResponse<Void>> handleIllegalArgument(
-            IllegalArgumentException ex) {
-        return ResponseEntity
-                .badRequest()
-                .body(AsyncResponse.<Void>builder()
-                        .status("ERROR")
-                        .message("Invalid argument: " + ex.getMessage())
-                        .build());
+    @Override
+    public <T> T get(String key, Class<T> type, Supplier<T> supplier, CacheOptions options) {
+        Object value = redisTemplate.opsForValue().get(key);
+        if (value != null) {
+            return convertValue(value, type);
+        }
+
+        T newValue = supplier.get();
+        if (newValue != null) {
+            put(key, newValue, options);
+        }
+        return newValue;
     }
 
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<AsyncResponse<Void>> handleAllExceptions(Exception ex) {
-        log.error("Unexpected error", ex);
-        return ResponseEntity
-                .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(AsyncResponse.<Void>builder()
-                        .status("ERROR")
-                        .message("Internal server error: " + ex.getMessage())
-                        .build());
+    @Override
+    public <T> Collection<T> multiGet(Collection<String> keys, Class<T> type, Supplier<Collection<T>> supplier) {
+        return multiGet(keys, type, supplier, null);
+    }
+
+    @Override
+    public <T> Collection<T> multiGet(Collection<String> keys, Class<T> type,
+                                      Supplier<Collection<T>> supplier, CacheOptions options) {
+        List<Object> values = Optional.ofNullable(redisTemplate.opsForValue().multiGet(keys))
+                .orElse(List.of());
+
+        if (!values.isEmpty() && !values.contains(null)) {
+            return values.stream()
+                    .map(value -> convertValue(value, type))
+                    .collect(Collectors.toList());
+        }
+
+        Collection<T> newValues = supplier.get();
+        if (newValues != null && !newValues.isEmpty()) {
+            newValues.forEach(value -> put(generateKey(value), value, options));
+        }
+        return newValues;
+    }
+
+    @Override
+    public <T> void put(String key, T value) {
+        put(key, value, null);
+    }
+
+    @Override
+    public <T> void put(String key, T value, CacheOptions options) {
+        CacheOptions actualOptions = Optional.ofNullable(options)
+                .orElse(CacheOptions.defaultOptions());
+
+        redisTemplate.opsForValue().set(
+                key,
+                value,
+                actualOptions.getExpiration(),
+                actualOptions.getTimeUnit()
+        );
+    }
+
+    @Override
+    public void remove(String key) {
+        redisTemplate.delete(key);
+    }
+
+    @Override
+    public void removeByPrefix(String prefix) {
+        Optional.ofNullable(redisTemplate.keys(prefix + "*"))
+                .filter(keys -> !keys.isEmpty())
+                .ifPresent(redisTemplate::delete);
+    }
+
+    /**
+     * 将缓存值转换为指定类型
+     */
+    @SuppressWarnings("unchecked")
+    private <T> T convertValue(Object value, Class<T> type) {
+        try {
+            if (type.isInstance(value)) {
+                return (T) value;
+            }
+            return objectMapper.convertValue(value, type);
+        } catch (Exception e) {
+            log.error("缓存值类型转换失败: value={}, targetType={}", value, type, e);
+            return null;
+        }
+    }
+
+    /**
+     * 生成缓存键
+     */
+    private <T> String generateKey(T value) {
+        return String.format("%s:%d", value.getClass().getSimpleName(), value.hashCode());
+    }
+}
+```
+
+## CacheOptions.java
+
+```java
+package com.study.collect.core.storage.cache.model;
+
+import lombok.Builder;
+import lombok.Data;
+
+import java.util.concurrent.TimeUnit;
+
+@Data
+@Builder
+public class CacheOptions {
+    // 过期时间
+    private long expiration;
+
+    // 时间单位
+    private TimeUnit timeUnit;
+
+    // 是否允许空值缓存
+    private boolean cacheNull;
+
+    // 是否使用压缩
+    private boolean useCompression;
+
+    // 自定义序列化器
+    private String serializer;
+
+    public static CacheOptions defaultOptions() {
+        return CacheOptions.builder()
+                .expiration(3600)
+                .timeUnit(TimeUnit.SECONDS)
+                .cacheNull(false)
+                .useCompression(false)
+                .build();
     }
 }
 ```
@@ -459,45 +2497,38 @@ public class GlobalExceptionHandler {
 ## MongoConfig.java
 
 ```java
-package com.study.collect.business.testcase.config;
+package com.study.collect.core.storage.config;
 
-import com.mongodb.ConnectionString;
-import com.mongodb.MongoClientSettings;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
-import com.study.collect.business.testcase.constant.CollectionConstants;
+import com.study.collect.core.storage.audit.EntityAuditor;
+import com.study.collect.core.storage.repository.BaseMongoRepository;
 import lombok.Data;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.domain.AuditorAware;
 import org.springframework.data.mongodb.config.AbstractMongoClientConfiguration;
 import org.springframework.data.mongodb.config.EnableMongoAuditing;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.repository.config.EnableMongoRepositories;
 
-import java.util.concurrent.TimeUnit;
 
 @Configuration
 @EnableMongoAuditing
 @ConditionalOnProperty(prefix = "spring.data.mongodb", name = "enabled", havingValue = "true", matchIfMissing = true)
-@EnableMongoRepositories(basePackages = "com.study.collect.business.testcase.repository")
+@EnableMongoRepositories(
+        basePackages = "com.study.collect",
+        repositoryBaseClass = BaseMongoRepository.class
+)
 @ConfigurationProperties(prefix = "spring.data.mongodb")
-@Data
 public class MongoConfig extends AbstractMongoClientConfiguration {
-
     @Value("${spring.data.mongodb.uri}")
     private String uri;
-
     @Value("${spring.data.mongodb.database}")
     private String database;
-
-    @Value("${spring.data.mongodb.min-pool-size:" + CollectionConstants.MONGO_MIN_POOL_SIZE + "}")
-    private Integer minPoolSize;
-
-    @Value("${spring.data.mongodb.max-pool-size:" + CollectionConstants.MONGO_MAX_POOL_SIZE + "}")
-    private Integer maxPoolSize;
 
     @Override
     protected String getDatabaseName() {
@@ -507,650 +2538,80 @@ public class MongoConfig extends AbstractMongoClientConfiguration {
     @Override
     @Bean
     public MongoClient mongoClient() {
-        ConnectionString connectionString = new ConnectionString(uri);
-
-        MongoClientSettings settings = MongoClientSettings.builder()
-                .applyConnectionString(connectionString)
-                .applyToConnectionPoolSettings(builder ->
-                        builder.minSize(minPoolSize)
-                                .maxSize(maxPoolSize)
-                                .maxWaitTime(10, TimeUnit.SECONDS)
-                                .maxConnectionLifeTime(30, TimeUnit.MINUTES)
-                                .maxConnectionIdleTime(5, TimeUnit.MINUTES))
-                .applyToSocketSettings(builder ->
-                        builder.connectTimeout(5, TimeUnit.SECONDS)
-                                .readTimeout(10, TimeUnit.SECONDS))
-                .retryWrites(true)
-                .retryReads(true)
-                .build();
-
-        return MongoClients.create(settings);
+        return MongoClients.create(uri);
     }
 
     @Bean
     public MongoTemplate mongoTemplate(MongoClient mongoClient) {
         return new MongoTemplate(mongoClient, getDatabaseName());
     }
-}
-```
 
-## ObjectPoolConfig.java
-
-```java
-package com.study.collect.business.testcase.config;
-
-import com.study.collect.business.testcase.constant.CollectionConstants;
-import com.study.collect.business.testcase.entity.UriEntity;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.pool2.BasePooledObjectFactory;
-import org.apache.commons.pool2.PooledObject;
-import org.apache.commons.pool2.impl.DefaultPooledObject;
-import org.apache.commons.pool2.impl.GenericObjectPool;
-import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
-
-@Configuration
-@Slf4j
-public class ObjectPoolConfig {
-
-    @Bean(destroyMethod = "close")
-    public GenericObjectPool<UriEntity> uriEntityPool() {
-        GenericObjectPoolConfig<UriEntity> poolConfig = new GenericObjectPoolConfig<>();
-        poolConfig.setMaxTotal(CollectionConstants.POOL_MAX_TOTAL);
-        poolConfig.setMaxIdle(CollectionConstants.POOL_MAX_IDLE);
-        poolConfig.setMinIdle(CollectionConstants.POOL_MIN_IDLE);
-        poolConfig.setTestOnBorrow(true);
-        poolConfig.setTestOnReturn(true);
-        poolConfig.setTestWhileIdle(true);
-        poolConfig.setBlockWhenExhausted(true);
-        poolConfig.setTimeBetweenEvictionRuns(java.time.Duration.ofMinutes(1));
-        poolConfig.setJmxEnabled(true);
-        poolConfig.setJmxNamePrefix("uri-entity-pool");
-
-        return new GenericObjectPool<>(new BasePooledObjectFactory<>() {
-            @Override
-            public UriEntity create() {
-                try {
-                    return new UriEntity();
-                } catch (Exception e) {
-                    log.error("Failed to create UriEntity in pool", e);
-                    throw new RuntimeException("Failed to create UriEntity", e);
-                }
-            }
-
-            @Override
-            public PooledObject<UriEntity> wrap(UriEntity entity) {
-                return new DefaultPooledObject<>(entity);
-            }
-
-            @Override
-            public void passivateObject(PooledObject<UriEntity> p) {
-                try {
-                    UriEntity entity = p.getObject();
-                    entity.reset();
-                } catch (Exception e) {
-                    log.error("Failed to reset UriEntity fields", e);
-                }
-            }
-
-            @Override
-            public boolean validateObject(PooledObject<UriEntity> p) {
-                return p.getObject() != null;
-            }
-        }, poolConfig);
-    }
-}
-```
-
-## TestCaseAutoConfiguration.java
-
-```java
-package com.study.collect.business.testcase.config;
-
-import org.springframework.context.annotation.ComponentScan;
-import org.springframework.context.annotation.Configuration;
-
-@Configuration
-@ComponentScan("com.study.collect.business.testcase")
-public class TestCaseAutoConfiguration {
-}
-```
-
-## TestCaseCollectorProperties.java
-
-```java
-package com.study.collect.business.testcase.config;
-
-import lombok.Data;
-import org.springframework.boot.context.properties.ConfigurationProperties;
-
-@Data
-@ConfigurationProperties(prefix = "collect.testcase")
-public class TestCaseCollectorProperties {
-    private int batchSize = 100;  // 批量处理大小
-    private int threadCount = 4;  // 处理线程数
-    private int retryTimes = 3;   // 重试次数
-    private int timeout = 3600;   // 超时时间(秒)
-}
-```
-
-## TestCaseConfig.java
-
-```java
-package com.study.collect.business.testcase.config;
-
-
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.cache.annotation.EnableCaching;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-
-@Configuration
-@EnableCaching
-public class TestCaseConfig {
-    @Bean
-    @ConditionalOnMissingBean
-    public TestCaseCollectorProperties testCaseCollectorProperties() {
-        return new TestCaseCollectorProperties();
-    }
-}
-```
-
-## ThreadPoolConfig.java
-
-```java
-package com.study.collect.business.testcase.config;
-
-import com.study.collect.business.testcase.constant.CollectionConstants;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.scheduling.annotation.EnableAsync;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
-
-import java.util.concurrent.*;
-
-@Configuration
-@EnableAsync
-@Slf4j
-public class ThreadPoolConfig {
-
-    @Bean(name = "collectExecutor")
-    public ExecutorService collectExecutor() {
-        return new ThreadPoolExecutor(
-                CollectionConstants.CORE_POOL_SIZE,
-                CollectionConstants.MAX_POOL_SIZE,
-                CollectionConstants.KEEP_ALIVE_TIME,
-                TimeUnit.SECONDS,
-                new ArrayBlockingQueue<>(CollectionConstants.QUEUE_CAPACITY),
-                new ThreadFactory() {
-                    private int count = 0;
-                    @Override
-                    public Thread newThread(Runnable r) {
-                        Thread thread = new Thread(r);
-                        thread.setName("collect-thread-" + count++);
-                        thread.setDaemon(true);
-                        return thread;
-                    }
-                },
-                new ThreadPoolExecutor.CallerRunsPolicy()
-        );
-    }
-
-    @Bean(name = "httpExecutor")
-    public ThreadPoolTaskExecutor httpExecutor() {
-        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(CollectionConstants.CORE_POOL_SIZE);
-        executor.setMaxPoolSize(CollectionConstants.MAX_POOL_SIZE);
-        executor.setQueueCapacity(CollectionConstants.QUEUE_CAPACITY);
-        executor.setKeepAliveSeconds((int)CollectionConstants.KEEP_ALIVE_TIME);
-        executor.setThreadNamePrefix("http-thread-");
-        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
-        executor.setWaitForTasksToCompleteOnShutdown(true);
-        executor.setAwaitTerminationSeconds(60);
-        return executor;
-    }
-
-    @Bean(name = "mongoExecutor")
-    public ThreadPoolTaskExecutor mongoExecutor() {
-        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(CollectionConstants.CORE_POOL_SIZE);
-        executor.setMaxPoolSize(CollectionConstants.MAX_POOL_SIZE);
-        executor.setQueueCapacity(CollectionConstants.QUEUE_CAPACITY);
-        executor.setKeepAliveSeconds((int)CollectionConstants.KEEP_ALIVE_TIME);
-        executor.setThreadNamePrefix("mongo-thread-");
-        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
-        executor.setWaitForTasksToCompleteOnShutdown(true);
-        executor.setAwaitTerminationSeconds(60);
-        return executor;
-    }
-
-    @Bean(name = "taskExecutor")
-    public ThreadPoolTaskExecutor taskExecutor() {
-        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(CollectionConstants.MAX_CONCURRENT_TASKS);
-        executor.setMaxPoolSize(CollectionConstants.MAX_CONCURRENT_TASKS);
-        executor.setQueueCapacity(CollectionConstants.TASK_QUEUE_CAPACITY);
-        executor.setThreadNamePrefix("task-thread-");
-        executor.setRejectedExecutionHandler((r, e) -> {
-            log.warn("Task queue is full, task rejected");
-            throw new RejectedExecutionException("Task queue is full");
-        });
-        executor.setWaitForTasksToCompleteOnShutdown(true);
-        executor.setAwaitTerminationSeconds(60);
-        return executor;
-    }
-
-    @Bean
-    public ScheduledExecutorService scheduledExecutor() {
-        return Executors.newScheduledThreadPool(2, r -> {
-            Thread thread = new Thread(r);
-            thread.setName("scheduled-thread");
-            thread.setDaemon(true);
-            return thread;
-        });
-    }
-}
-```
-
-## CollectionConstants.java
-
-```java
-package com.study.collect.business.testcase.constant;
-
-/**
- * 集合相关常量
- */
-public class CollectionConstants {
-    // 集合前缀
-    public static final String URI_COLLECTION_PREFIX = "uri_collect";
-
-    // 批处理相关
-    public static final int DEFAULT_BATCH_SIZE = 200;
-    public static final int MAX_BATCH_SIZE = 1000;
-    public static final int MIN_BATCH_SIZE = 50;
-
-    // HTTP请求相关
-    public static final int HTTP_MAX_REQUESTS_PER_MINUTE = 500;
-    public static final int HTTP_CONNECT_TIMEOUT = 5000;
-    public static final int HTTP_READ_TIMEOUT = 15000;
-    public static final int HTTP_MAX_RETRY = 3;
-    public static final long HTTP_RETRY_INTERVAL = 1000L;
-
-    // 线程池相关
-    public static final int CORE_POOL_SIZE = Runtime.getRuntime().availableProcessors() * 2;
-    public static final int MAX_POOL_SIZE = Runtime.getRuntime().availableProcessors() * 4;
-    public static final int QUEUE_CAPACITY = 5000;
-    public static final long KEEP_ALIVE_TIME = 60L;
-
-    // MongoDB相关
-    public static final int MONGO_BATCH_SIZE = 1000;
-    public static final int MONGO_MAX_POOL_SIZE = 100;
-    public static final int MONGO_MIN_POOL_SIZE = 20;
-
-    // 对象池相关
-    public static final int POOL_MAX_TOTAL = 20;
-    public static final int POOL_MAX_IDLE = 10;
-    public static final int POOL_MIN_IDLE = 5;
-
-    // 任务相关
-    public static final long TASK_TIMEOUT = 3600L;  // 单位：秒
-    public static final int MAX_CONCURRENT_TASKS = 10;
-    public static final int TASK_QUEUE_CAPACITY = 100;
-
-    // 版本相关
-    public static final String VERSION_PREFIX = "V";
-    public static final String VERSION_SEPARATOR = "_";
-
-    private CollectionConstants() {
-        // 私有构造函数，防止实例化
-    }
-}
-```
-
-## VersionType.java
-
-```java
-package com.study.collect.business.testcase.constant;
-
-/**
- * 版本类型枚举
- */
-public enum VersionType {
-    TRUNK("主干版本"),
-    BRANCH("分支版本");
-
-    private final String description;
-
-    VersionType(String description) {
-        this.description = description;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public static VersionType fromString(String version) {
-        return version != null && version.toLowerCase().contains("branch") ?
-                BRANCH : TRUNK;
-    }
-}
-```
-
-## UriCollectController.java
-
-```java
-package com.study.collect.business.testcase.controller;
-
-import com.study.collect.business.testcase.entity.UriEntity;
-import com.study.collect.business.testcase.model.param.CollectParam;
-import com.study.collect.business.testcase.model.param.DeleteParam;
-import com.study.collect.business.testcase.model.param.QueryParam;
-import com.study.collect.business.testcase.model.response.AsyncResponse;
-import com.study.collect.business.testcase.service.UriCollectService;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
-import org.springframework.http.ResponseEntity;
-import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.*;
-
-import javax.validation.Valid;
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.NotNull;
-import java.util.List;
-
-@Slf4j
-@Validated
-@RestController
-@RequestMapping("/api/collect")
-@RequiredArgsConstructor
-@Api(tags = "URI Collection API")
-public class UriCollectController {
-    private final UriCollectService collectService;
-
-    @PostMapping("/sync")
-    @ApiOperation("Start data collection")
-    public ResponseEntity<AsyncResponse<String>> syncData(
-            @RequestBody @Valid CollectParam param) {
-        log.info("Received collect request for rootNode: {}", param.getRootNode());
-        return ResponseEntity.ok(collectService.collectData(param));
-    }
-
-    @PostMapping("/delete")
-    @ApiOperation("Delete URI data")
-    public ResponseEntity<AsyncResponse<Long>> deleteData(
-            @RequestBody @Valid DeleteParam param) {
-        log.info("Received delete request for {} URIs", param.getUris().size());
-        return ResponseEntity.ok(collectService.deleteData(param));
-    }
-
-    @GetMapping("/query")
-    @ApiOperation("Query URI data")
-    public ResponseEntity<Page<UriEntity>> queryUri(
-            @Valid QueryParam param) {
-        return ResponseEntity.ok(collectService.queryUri(param));
-    }
-
-    @PostMapping("/batch-query")
-    @ApiOperation("Batch query URIs")
-    public ResponseEntity<List<UriEntity>> batchQueryUri(
-            @RequestBody @NotEmpty(message = "URIs cannot be empty") List<String> uris,
-            @RequestParam(required = false, defaultValue = "false") Boolean includeDeleted) {
-        return ResponseEntity.ok(collectService.batchQueryUri(uris, includeDeleted));
-    }
-
-    @GetMapping("/task/{taskId}")
-    @ApiOperation("Get task status")
-    public ResponseEntity<AsyncResponse<Void>> getTaskStatus(
-            @PathVariable @NotNull String taskId) {
-        return ResponseEntity.ok(collectService.getTaskStatus(taskId));
-    }
-
-    @DeleteMapping("/task/{taskId}")
-    @ApiOperation("Cancel task")
-    public ResponseEntity<Boolean> cancelTask(
-            @PathVariable @NotNull String taskId) {
-        return ResponseEntity.ok(collectService.cancelTask(taskId));
-    }
-
-    @PutMapping("/task/{taskId}/priority/{priority}")
-    @ApiOperation("Update task priority")
-    public ResponseEntity<Boolean> updateTaskPriority(
-            @PathVariable @NotNull String taskId,
-            @PathVariable @ApiParam(value = "New priority (higher number = higher priority)") int priority) {
-        return ResponseEntity.ok(collectService.updateTaskPriority(taskId, priority));
-    }
-
-    @GetMapping("/tasks")
-    @ApiOperation("Get active tasks")
-    public ResponseEntity<List<AsyncResponse<Void>>> getActiveTasks() {
-        return ResponseEntity.ok(collectService.getActiveTasks());
-    }
-
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<String> handleException(Exception e) {
-        log.error("Error processing request", e);
-        return ResponseEntity.internalServerError()
-                .body("Error processing request: " + e.getMessage());
-    }
+//    // 添加审计配置
+//    @Bean
+//    public AuditorAware<String> auditorProvider() {
+//        return new EntityAuditor();
+//    }
 }
 ```
 
 ## BaseEntity.java
 
 ```java
-package com.study.collect.business.testcase.entity;
+package com.study.collect.core.storage.entity;
 
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.*;
-import org.springframework.data.mongodb.core.mapping.Field;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
 @Data
-@NoArgsConstructor
+@NoArgsConstructor  // 添加无参构造器
 public abstract class BaseEntity implements Serializable {
-    private static final long serialVersionUID = 1L;
-
     @Id
     protected String id;
 
     @CreatedDate
-    @Field("create_time")
     protected LocalDateTime createTime;
 
     @LastModifiedDate
-    @Field("update_time")
     protected LocalDateTime updateTime;
 
     @CreatedBy
-    @Field("create_by")
     protected String createBy;
 
     @LastModifiedBy
-    @Field("update_by")
     protected String updateBy;
 
     @Version
     protected Long version;
 
-    @Field("is_deleted")
     protected Boolean deleted = false;
 
-    protected BaseEntity(String id) {
-        this.id = id;
-        this.createTime = LocalDateTime.now();
-        this.updateTime = this.createTime;
-        this.version = 0L;
-        this.deleted = false;
-    }
-
-    @PrePersist
-    public void prePersist() {
-        if (this.createTime == null) {
-            this.createTime = LocalDateTime.now();
-        }
-        if (this.updateTime == null) {
-            this.updateTime = this.createTime;
-        }
-        if (this.version == null) {
-            this.version = 0L;
-        }
-        if (this.deleted == null) {
-            this.deleted = false;
-        }
-    }
-
-    @PreUpdate
-    public void preUpdate() {
-        this.updateTime = LocalDateTime.now();
-    }
-}
-```
-
-## UriEntity.java
-
-```java
-package com.study.collect.business.testcase.entity;
-
-import com.study.collect.business.testcase.utils.HashUtil;
-import jakarta.persistence.PrePersist;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
-import org.springframework.data.mongodb.core.index.CompoundIndex;
-import org.springframework.data.mongodb.core.index.CompoundIndexes;
-import org.springframework.data.mongodb.core.index.Indexed;
-import org.springframework.data.mongodb.core.mapping.Document;
-import org.springframework.data.mongodb.core.mapping.Field;
-
-import java.util.Map;
-
-@Document(collection = "#{@collectionStrategy.getCollectionName('uri_collect')}")
-@Data
-@EqualsAndHashCode(callSuper = true)
-@NoArgsConstructor
-@CompoundIndexes({
-        @CompoundIndex(
-                name = "uri_unique_idx",
-                def = "{'uri': 1, 'root_node': 1, 'version_type': 1, 'uri_version': 1}",
-                unique = true,
-                background = true
-        ),
-        @CompoundIndex(
-                name = "uri_hash_idx",
-                def = "{'uri_hash': 1}",
-                unique = true,
-                background = true
-        ),
-        @CompoundIndex(
-                name = "query_idx",
-                def = "{'root_node': 1, 'version_type': 1, 'uri_version': 1, 'is_deleted': 1}",
-                background = true
-        )
-})
-public class UriEntity extends VersionEntity {
-
-    @Indexed(unique = true, background = true)
-    @Field("uri_hash")
-    private String uriHash;
-
-    @Indexed(background = true)
-    private String uri;
-
-    @Field("root_node")
-    private String rootNode;
-
-    @Field("version_type")
-    private String versionType;
-
-    @Field("uri_version")
-    private String uriVersion;
-
-    private Map<String, Object> details;
-
-    public UriEntity(String uri, String rootNode) {
-        super(generateId(uri));
-        this.uri = uri;
-        this.uriHash = generateUriHash(uri);
-        this.rootNode = rootNode;
-    }
-
-    private static String generateId(String uri) {
-        return HashUtil.hash(uri);
-    }
-
-    private static String generateUriHash(String uri) {
-        return HashUtil.hash(uri);
-    }
-
-    @PrePersist
-    @Override
-    public void prePersist() {
-        super.prePersist();
-        if (this.uriHash == null && this.uri != null) {
-            this.uriHash = generateUriHash(this.uri);
-        }
-    }
-
-    public void reset() {
-        this.uri = null;
-        this.uriHash = null;
-        this.rootNode = null;
-        this.versionType = null;
-        this.uriVersion = null;
-        this.details = null;
-        this.deleted = false;
-        this.version = 0L;
-        this.versionCode = null;
-        this.versionTime = null;
-    }
 }
 ```
 
 ## VersionEntity.java
 
 ```java
-package com.study.collect.business.testcase.entity;
+package com.study.collect.core.storage.entity;
 
-import com.study.collect.business.testcase.constant.CollectionConstants;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
-import org.springframework.data.mongodb.core.mapping.Field;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
+// VersionEntity.java
 @Data
 @EqualsAndHashCode(callSuper = true)
-@NoArgsConstructor
+@NoArgsConstructor  // 添加无参构造器
 public abstract class VersionEntity extends BaseEntity {
 
-    @Field("version_code")
-    protected String versionCode;
-
-    @Field("version_time")
-    protected LocalDateTime versionTime;
-
-    protected VersionEntity(String id) {
-        super(id);
-        initVersion();
-    }
+    protected String versionCode;    // 业务版本号
+    protected LocalDateTime versionTime;  // 版本时间
 
     public void initVersion() {
         this.version = 0L;
@@ -1165,2760 +2626,1289 @@ public abstract class VersionEntity extends BaseEntity {
     }
 
     protected String generateVersionCode() {
-        return String.format("%s%s%s%d",
-                CollectionConstants.VERSION_PREFIX,
+        return String.format("V%s_%d",
                 LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")),
-                CollectionConstants.VERSION_SEPARATOR,
                 this.version);
     }
-
-    @PrePersist
-    @Override
-    public void prePersist() {
-        super.prePersist();
-        if (this.versionCode == null) {
-            initVersion();
-        }
-    }
-
-    @PreUpdate
-    @Override
-    public void preUpdate() {
-        super.preUpdate();
-        upgradeVersion();
-    }
 }
 ```
 
-## CollectTaskManager.java
+## DefaultEntityEventHandler.java
 
 ```java
-package com.study.collect.business.testcase.manager;
+package com.study.collect.core.storage.event;
 
-import com.study.collect.business.testcase.constant.CollectionConstants;
-import com.study.collect.business.testcase.model.response.TaskResponse;
+import com.study.collect.core.storage.entity.BaseEntity;
+import com.study.collect.core.storage.event.impl.EntityEvents;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
-
-import javax.annotation.PreDestroy;
-import java.time.LocalDateTime;
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
-
-@Slf4j
-@Component
-public class CollectTaskManager {
-    private final ConcurrentHashMap<String, TaskResponse> taskMap = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, ScheduledFuture<?>> timeoutTasks = new ConcurrentHashMap<>();
-    private final ScheduledExecutorService scheduledExecutor;
-
-    public CollectTaskManager(ScheduledExecutorService scheduledExecutor) {
-        this.scheduledExecutor = scheduledExecutor;
-        // 启动定期清理任务
-        this.scheduledExecutor.scheduleAtFixedRate(
-                this::cleanupTasks,
-                1,
-                1,
-                TimeUnit.HOURS
-        );
-    }
-
-    /**
-     * 创建新任务
-     */
-    public TaskResponse createTask(String type, Map<String, Object> params, Integer priority) {
-        String taskId = generateTaskId();
-        TaskResponse task = TaskResponse.builder()
-                .taskId(taskId)
-                .type(type)
-                .status("CREATED")
-                .progress(0.0)
-                .priority(priority != null ? priority : 0)
-                .createTime(LocalDateTime.now())
-                .params(params)
-                .build();
-
-        taskMap.put(taskId, task);
-        scheduleTimeout(taskId);
-
-        return task;
-    }
-
-    /**
-     * 更新任务状态
-     */
-    public void updateTaskStatus(String taskId, String status, String message) {
-        TaskResponse task = taskMap.get(taskId);
-        if (task != null) {
-            task.setStatus(status);
-            task.setMessage(message);
-            if ("COMPLETED".equals(status) || "ERROR".equals(status)) {
-                task.setEndTime(LocalDateTime.now());
-                cancelTimeout(taskId);
-            }
-        }
-    }
-
-    /**
-     * 更新任务进度
-     */
-    public void updateTaskProgress(String taskId, long processed, long total) {
-        TaskResponse task = taskMap.get(taskId);
-        if (task != null) {
-            task.updateProgress(processed, total);
-        }
-    }
-
-    /**
-     * 获取任务状态
-     */
-    public TaskResponse getTaskStatus(String taskId) {
-        return taskMap.get(taskId);
-    }
-
-    /**
-     * 调整任务优先级
-     */
-    public boolean updateTaskPriority(String taskId, int newPriority) {
-        TaskResponse task = taskMap.get(taskId);
-        if (task != null && "CREATED".equals(task.getStatus())) {
-            task.setPriority(newPriority);
-            return true;
-        }
-        return false;
-    }
-
-    /**
-     * 获取所有活动任务
-     */
-    public List<TaskResponse> getActiveTasks() {
-        return taskMap.values().stream()
-                .filter(task -> !"COMPLETED".equals(task.getStatus())
-                        && !"ERROR".equals(task.getStatus()))
-                .sorted(Comparator.comparing(TaskResponse::getPriority).reversed())
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * 取消任务
-     */
-    public boolean cancelTask(String taskId) {
-        TaskResponse task = taskMap.get(taskId);
-        if (task != null && "CREATED".equals(task.getStatus())) {
-            task.setStatus("CANCELLED");
-            task.setEndTime(LocalDateTime.now());
-            cancelTimeout(taskId);
-            return true;
-        }
-        return false;
-    }
-
-    private String generateTaskId() {
-        return UUID.randomUUID().toString();
-    }
-
-    private void scheduleTimeout(String taskId) {
-        ScheduledFuture<?> timeoutTask = scheduledExecutor.schedule(() -> {
-            TaskResponse task = taskMap.get(taskId);
-            if (task != null && !"COMPLETED".equals(task.getStatus())
-                    && !"ERROR".equals(task.getStatus())) {
-                task.setStatus("TIMEOUT");
-                task.setEndTime(LocalDateTime.now());
-                task.setMessage("Task timeout after " + CollectionConstants.TASK_TIMEOUT + " seconds");
-            }
-        }, CollectionConstants.TASK_TIMEOUT, TimeUnit.SECONDS);
-
-        timeoutTasks.put(taskId, timeoutTask);
-    }
-
-    private void cancelTimeout(String taskId) {
-        ScheduledFuture<?> timeoutTask = timeoutTasks.remove(taskId);
-        if (timeoutTask != null) {
-            timeoutTask.cancel(false);
-        }
-    }
-
-    private void cleanupTasks() {
-        LocalDateTime cutoff = LocalDateTime.now().minusDays(7);
-        taskMap.entrySet().removeIf(entry -> {
-            TaskResponse task = entry.getValue();
-            return task.getEndTime() != null && task.getEndTime().isBefore(cutoff);
-        });
-    }
-
-    @PreDestroy
-    public void shutdown() {
-        timeoutTasks.values().forEach(task -> task.cancel(true));
-        timeoutTasks.clear();
-        taskMap.clear();
-    }
-}
-```
-
-## QueueManager.java
-
-```java
-package com.study.collect.business.testcase.manager;
-
-import com.study.collect.business.testcase.constant.CollectionConstants;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
-import org.springframework.stereotype.Component;
-
-import javax.annotation.PreDestroy;
-import java.util.Comparator;
-import java.util.concurrent.*;
-import java.util.function.Consumer;
-
-@Slf4j
-@Component
-public class QueueManager<T> {
-    private final PriorityBlockingQueue<QueueItem<T>> queue;
-    private final ConcurrentHashMap<String, QueueItem<T>> itemMap;
-    private final ThreadPoolTaskExecutor executor;
-    private volatile boolean running = true;
-
-
-    public QueueManager(ThreadPoolTaskExecutor taskExecutor) {
-        this.queue = new PriorityBlockingQueue<>(
-                CollectionConstants.TASK_QUEUE_CAPACITY,
-                Comparator.comparing(QueueItem<T>::getPriority).reversed()
-        );
-        this.itemMap = new ConcurrentHashMap<>();
-        this.executor = taskExecutor;
-
-        // 启动队列处理线程
-        startQueueProcessor();
-    }
-
-    private static class QueueItem<T> {
-        final String id;
-        final T item;
-        volatile int priority;
-        final CompletableFuture<Void> future;
-        final Consumer<T> processor;
-
-        QueueItem(String id, T item, int priority, Consumer<T> processor) {
-            this.id = id;
-            this.item = item;
-            this.priority = priority;
-            this.processor = processor;
-            this.future = new CompletableFuture<>();
-        }
-
-        int getPriority() {
-            return priority;
-        }
-    }
-
-    /**
-     * 添加任务到队列
-     */
-    public CompletableFuture<Void> enqueue(String id, T item, int priority, Consumer<T> processor) {
-        QueueItem<T> queueItem = new QueueItem<>(id, item, priority, processor);
-        if (itemMap.putIfAbsent(id, queueItem) != null) {
-            throw new IllegalStateException("Item with id " + id + " already exists in queue");
-        }
-        queue.offer(queueItem);
-        return queueItem.future;
-    }
-
-    /**
-     * 更新任务优先级
-     */
-    public boolean updatePriority(String id, int newPriority) {
-        QueueItem<T> item = itemMap.get(id);
-        if (item != null) {
-            // 创建新的队列项并重新入队
-            QueueItem<T> newItem = new QueueItem<>(id, item.item, newPriority, item.processor);
-            if (queue.remove(item)) {
-                queue.offer(newItem);
-                itemMap.put(id, newItem);
-                // 传递future的结果
-                item.future.whenComplete((v, e) -> {
-                    if (e != null) {
-                        newItem.future.completeExceptionally(e);
-                    } else {
-                        newItem.future.complete(null);
-                    }
-                });
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * 取消任务
-     */
-    public boolean cancel(String id) {
-        QueueItem<T> item = itemMap.remove(id);
-        if (item != null) {
-            queue.remove(item);
-            item.future.cancel(true);
-            return true;
-        }
-        return false;
-    }
-
-    /**
-     * 获取队列大小
-     */
-    public int getQueueSize() {
-        return queue.size();
-    }
-
-    private void startQueueProcessor() {
-        executor.execute(() -> {
-            while (running) {
-                try {
-                    QueueItem<T> item = queue.poll(1, TimeUnit.SECONDS);
-                    if (item != null) {
-                        processItem(item);
-                    }
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    break;
-                } catch (Exception e) {
-                    log.error("Error processing queue item", e);
-                }
-            }
-        });
-    }
-
-    private void processItem(QueueItem<T> item) {
-        try {
-            item.processor.accept(item.item);
-            item.future.complete(null);
-        } catch (Exception e) {
-            item.future.completeExceptionally(e);
-        } finally {
-            itemMap.remove(item.id);
-        }
-    }
-
-    @PreDestroy
-    public void shutdown() {
-        running = false;
-        // 取消所有未完成的任务
-        itemMap.values().forEach(item -> item.future.cancel(true));
-        queue.clear();
-        itemMap.clear();
-    }
-
-    /**
-     * 获取任务状态
-     */
-    public boolean isQueued(String id) {
-        return itemMap.containsKey(id);
-    }
-}
-```
-
-## PageResult.java
-
-```java
-package com.study.collect.business.testcase.model;
-
-import lombok.Builder;
-import lombok.Data;
-
-import java.util.List;
-
-@Data
-@Builder
-public class PageResult<T> {
-    private long total;       // 总记录数
-    private int page;         // 当前页码
-    private int size;         // 每页大小
-    private int totalPages;   // 总页数
-    private List<T> items;    // 当前页数据
-}
-```
-
-## CollectParam.java
-
-```java
-package com.study.collect.business.testcase.model.param;
-
-import com.study.collect.business.testcase.constant.CollectionConstants;
-import lombok.Data;
-import org.springframework.validation.annotation.Validated;
-
-import javax.validation.constraints.Max;
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotBlank;
-import java.time.LocalDateTime;
-
-@Data
-@Validated
-public class CollectParam {
-    @NotBlank(message = "rootNode cannot be empty")
-    private String rootNode;
-
-    private String version;
-
-    @NotBlank(message = "serverUri cannot be empty")
-    private String serverUri;
-
-    private Boolean incremental = false;
-
-    private LocalDateTime startTime;
-
-    private LocalDateTime endTime;
-
-    @Min(value = 50, message = "batchSize must be greater than 50")
-    @Max(value = 1000, message = "batchSize must be less than 1000")
-    private Integer batchSize = CollectionConstants.DEFAULT_BATCH_SIZE;
-
-    private Integer priority = 0;
-
-    private Boolean allowDuplicate = false;
-
-    private Integer maxRetries = CollectionConstants.HTTP_MAX_RETRY;
-
-    private Integer timeout = 3600;
-
-    private Boolean forceUpdate = false;
-
-    private String taskId;
-}
-```
-
-## DeleteParam.java
-
-```java
-package com.study.collect.business.testcase.model.param;
-
-import lombok.Data;
-import org.springframework.validation.annotation.Validated;
-
-import javax.validation.constraints.NotEmpty;
-import java.util.List;
-
-@Data
-@Validated
-public class DeleteParam {
-    private String rootNode;
-
-    @NotEmpty(message = "uris cannot be empty")
-    private List<String> uris;
-
-    private String version;
-
-    private Boolean hardDelete = false;
-
-    private Boolean async = false;
-
-    private Integer priority = 0;
-
-    private Integer batchSize;
-
-    private String taskId;
-}
-```
-
-## PageParam.java
-
-```java
-package com.study.collect.business.testcase.model.param;
-
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-import javax.validation.constraints.Max;
-import javax.validation.constraints.Min;
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-public class PageParam {
-    @Min(value = 1, message = "page must be greater than 0")
-    private int page = 1;
-
-    @Min(value = 1, message = "size must be greater than 0")
-    @Max(value = 1000, message = "size must be less than 1000")
-    private int size = 20;
-}
-```
-
-## QueryParam.java
-
-```java
-package com.study.collect.business.testcase.model.param;
-
-import lombok.Data;
-import org.springframework.validation.annotation.Validated;
-
-import java.util.List;
-
-@Data
-@Validated
-public class QueryParam {
-    private String rootNode;
-
-    private List<String> uris;
-
-    private String version;
-
-    private String versionType;
-
-    private Boolean includeDeleted = false;
-
-    private Boolean onlyDeleted = false;
-
-    private Integer page = 1;
-
-    private Integer size = 20;
-
-    private Boolean async = false;
-
-    private String taskId;
-}
-```
-
-## AsyncResponse.java
-
-```java
-package com.study.collect.business.testcase.model.response;
-
-import lombok.Builder;
-import lombok.Data;
-
-import java.time.LocalDateTime;
-
-@Data
-@Builder
-public class AsyncResponse<T> {
-    private String taskId;
-    private String status;
-    private Double progress;
-    private String message;
-    private LocalDateTime startTime;
-    private LocalDateTime endTime;
-    private T result;
-
-    public static <T> AsyncResponse<T> processing(String taskId) {
-        return AsyncResponse.<T>builder()
-                .taskId(taskId)
-                .status("PROCESSING")
-                .progress(0.0)
-                .startTime(LocalDateTime.now())
-                .build();
-    }
-
-    public static <T> AsyncResponse<T> success(String taskId, T result) {
-        return AsyncResponse.<T>builder()
-                .taskId(taskId)
-                .status("COMPLETED")
-                .progress(100.0)
-                .result(result)
-                .startTime(LocalDateTime.now())
-                .endTime(LocalDateTime.now())
-                .build();
-    }
-
-    public static <T> AsyncResponse<T> error(String taskId, String message) {
-        return AsyncResponse.<T>builder()
-                .taskId(taskId)
-                .status("ERROR")
-                .message(message)
-                .endTime(LocalDateTime.now())
-                .build();
-    }
-}
-```
-
-## BaseResponse.java
-
-```java
-package com.study.collect.business.testcase.model.response;
-
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-// BaseResponse.java
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-public class BaseResponse {
-    private String code;
-    private String message;
-
-    public static BaseResponseBuilder builder() {
-        return new BaseResponseBuilder();
-    }
-
-    public static class BaseResponseBuilder {
-        private String code;
-        private String message;
-
-        BaseResponseBuilder() {
-        }
-
-        public BaseResponseBuilder code(String code) {
-            this.code = code;
-            return this;
-        }
-
-        public BaseResponseBuilder message(String message) {
-            this.message = message;
-            return this;
-        }
-
-        public BaseResponse build() {
-            return new BaseResponse(code, message);
-        }
-    }
-}
-
-
-```
-
-## PageResponse.java
-
-```java
-package com.study.collect.business.testcase.model.response;
-
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-import java.util.List;
-//
-//
-// PageResponse.java
-@Data
-@NoArgsConstructor
-public class PageResponse<T> {
-    private String code;
-    private String message;
-    private Long total;
-    private List<T> items;
-
-    public static <T> PageResponseBuilder<T> builder() {
-        return new PageResponseBuilder<>();
-    }
-
-    public static class PageResponseBuilder<T> {
-        private String code;
-        private String message;
-        private Long total;
-        private List<T> items;
-
-        PageResponseBuilder() {
-        }
-
-        public PageResponseBuilder<T> code(String code) {
-            this.code = code;
-            return this;
-        }
-
-        public PageResponseBuilder<T> message(String message) {
-            this.message = message;
-            return this;
-        }
-
-        public PageResponseBuilder<T> total(Long total) {
-            this.total = total;
-            return this;
-        }
-
-        public PageResponseBuilder<T> items(List<T> items) {
-            this.items = items;
-            return this;
-        }
-
-        public PageResponse<T> build() {
-            PageResponse<T> response = new PageResponse<>();
-            response.setCode(code);
-            response.setMessage(message);
-            response.setTotal(total);
-            response.setItems(items);
-            return response;
-        }
-    }
-}
-```
-
-## TaskResponse.java
-
-```java
-package com.study.collect.business.testcase.model.response;
-
-import lombok.Builder;
-import lombok.Data;
-
-import java.time.LocalDateTime;
-import java.util.Map;
-
-@Data
-@Builder
-public class TaskResponse {
-    private String taskId;
-    private String type;
-    private String status;
-    private Double progress;
-    private String message;
-    private Integer priority;
-    private LocalDateTime createTime;
-    private LocalDateTime startTime;
-    private LocalDateTime endTime;
-    private Long totalCount;
-    private Long processedCount;
-    private Long failedCount;
-    private Map<String, Object> details;
-    private Map<String, Object> params;
-
-    public static TaskResponse create(String taskId, String type, Map<String, Object> params) {
-        return TaskResponse.builder()
-                .taskId(taskId)
-                .type(type)
-                .status("CREATED")
-                .progress(0.0)
-                .createTime(LocalDateTime.now())
-                .params(params)
-                .build();
-    }
-
-    public void updateProgress(long processed, long total) {
-        this.processedCount = processed;
-        this.totalCount = total;
-        this.progress = total > 0 ? (processed * 100.0) / total : 0.0;
-    }
-}
-```
-
-## VersionResponse.java
-
-```java
-package com.study.collect.business.testcase.model.response;
-
-
-import lombok.Data;
-
-//@Data
-//@SuperBuilder
-//@EqualsAndHashCode(callSuper = true)
-//public class VersionResponse extends BaseResponse {
-//    private String version;
-//    private String versionType;
-//    private String description;
-//}
-import lombok.NoArgsConstructor;
-import java.time.LocalDateTime;
-//
-@Data
-@NoArgsConstructor
-public class VersionResponse {
-    private String code;            // 响应码
-    private String message;         // 响应消息
-    private String version;         // 版本号
-    private String versionType;     // 版本类型 (TRUNK/BRANCH)
-    private String description;     // 版本描述
-    private LocalDateTime createTime;  // 创建时间
-    private LocalDateTime updateTime;  // 更新时间
-    private String status;          // 版本状态
-    private Integer sort;           // 排序号
-
-    public static VersionResponseBuilder builder() {
-        return new VersionResponseBuilder();
-    }
-
-    public static class VersionResponseBuilder {
-        private String code;
-        private String message;
-        private String version;
-        private String versionType;
-        private String description;
-        private LocalDateTime createTime;
-        private LocalDateTime updateTime;
-        private String status;
-        private Integer sort;
-
-        VersionResponseBuilder() {
-        }
-
-        public VersionResponseBuilder code(String code) {
-            this.code = code;
-            return this;
-        }
-
-        public VersionResponseBuilder message(String message) {
-            this.message = message;
-            return this;
-        }
-
-        public VersionResponseBuilder version(String version) {
-            this.version = version;
-            return this;
-        }
-
-        public VersionResponseBuilder versionType(String versionType) {
-            this.versionType = versionType;
-            return this;
-        }
-
-        public VersionResponseBuilder description(String description) {
-            this.description = description;
-            return this;
-        }
-
-        public VersionResponseBuilder createTime(LocalDateTime createTime) {
-            this.createTime = createTime;
-            return this;
-        }
-
-        public VersionResponseBuilder updateTime(LocalDateTime updateTime) {
-            this.updateTime = updateTime;
-            return this;
-        }
-
-        public VersionResponseBuilder status(String status) {
-            this.status = status;
-            return this;
-        }
-
-        public VersionResponseBuilder sort(Integer sort) {
-            this.sort = sort;
-            return this;
-        }
-
-        public VersionResponse build() {
-            VersionResponse response = new VersionResponse();
-            response.setCode(code);
-            response.setMessage(message);
-            response.setVersion(version);
-            response.setVersionType(versionType);
-            response.setDescription(description);
-            response.setCreateTime(createTime);
-            response.setUpdateTime(updateTime);
-            response.setStatus(status);
-            response.setSort(sort);
-            return response;
-        }
-
-        public String toString() {
-            return "VersionResponse.VersionResponseBuilder(code=" + this.code +
-                    ", message=" + this.message +
-                    ", version=" + this.version +
-                    ", versionType=" + this.versionType +
-                    ", description=" + this.description +
-                    ", createTime=" + this.createTime +
-                    ", updateTime=" + this.updateTime +
-                    ", status=" + this.status +
-                    ", sort=" + this.sort + ")";
-        }
-    }
-}
-```
-
-## HttpResponseParser.java
-
-```java
-package com.study.collect.business.testcase.model.response.parse;
-
-import java.io.IOException;
 
 /**
- * HTTP响应解析器接口
- * @param <T> 解析结果类型
+ * 默认实体事件处理器
  */
-public interface HttpResponseParser<T> {
-    /**
-     * 解析HTTP响应
-     * @param response 响应字符串
-     * @return 解析后的结果
-     * @throws IOException 解析异常
-     */
-    T parse(String response) throws IOException;
+@Slf4j
+@Component
+public class DefaultEntityEventHandler {
 
-    /**
-     * 从错误响应中提取错误信息
-     * @param errorResponse 错误响应
-     * @return 错误信息
-     */
-    default String parseError(String errorResponse) {
-        try {
-            return errorResponse;
-        } catch (Exception e) {
-            return "Failed to parse error response";
-        }
+    @EventListener
+    public <T extends BaseEntity> void handleBeforeSave(EntityEvents.BeforeSaveEvent<T> event) {
+        log.debug("Entity before save: {}", event.getEntity());
+    }
+
+    @EventListener
+    public <T extends BaseEntity> void handleAfterSave(EntityEvents.AfterSaveEvent<T> event) {
+        log.debug("Entity after save: {}", event.getEntity());
+    }
+
+    @EventListener
+    public <T extends BaseEntity> void handleBeforeUpdate(EntityEvents.BeforeUpdateEvent<T> event) {
+        log.debug("Entity before update: {}", event.getEntity());
+    }
+
+    @EventListener
+    public <T extends BaseEntity> void handleAfterUpdate(EntityEvents.AfterUpdateEvent<T> event) {
+        log.debug("Entity after update: {}", event.getEntity());
+    }
+
+    @EventListener
+    public <T extends BaseEntity> void handleBeforeDelete(EntityEvents.BeforeDeleteEvent<T> event) {
+        log.debug("Entity before delete: {}", event.getEntity());
+    }
+
+    @EventListener
+    public <T extends BaseEntity> void handleAfterDelete(EntityEvents.AfterDeleteEvent<T> event) {
+        log.debug("Entity after delete: {}", event.getEntity());
+    }
+
+    @EventListener
+    public <T extends BaseEntity> void handleVersionUpgrade(EntityEvents.VersionUpgradeEvent<T> event) {
+        log.debug("Entity version upgrade: {} from {} to {}",
+                event.getEntity(), event.getOldVersion(), event.getNewVersion());
     }
 }
 ```
 
-## UriDetailResponseParser.java
+## EntityEvent.java
 
 ```java
-package com.study.collect.business.testcase.model.response.parse;
+package com.study.collect.core.storage.event;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
+import com.study.collect.core.storage.entity.BaseEntity;
+import lombok.Getter;
+import org.springframework.context.ApplicationEvent;
+
+/**
+ * 实体事件基类
+ */
+@Getter
+public abstract class EntityEvent<T extends BaseEntity> extends ApplicationEvent {
+
+    protected final T entity;
+
+    public EntityEvent(T entity) {
+        super(entity);
+        this.entity = entity;
+    }
+}
+```
+
+## EntityEventListener.java
+
+```java
+package com.study.collect.core.storage.event;
+
+import com.study.collect.core.storage.entity.BaseEntity;
+import com.study.collect.core.storage.entity.VersionEntity;
+import com.study.collect.core.storage.event.impl.EntityEvents;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.mongodb.core.mapping.event.AbstractMongoEventListener;
+import org.springframework.data.mongodb.core.mapping.event.BeforeConvertEvent;
 import org.springframework.stereotype.Component;
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
 
 @Slf4j
 @Component
-@RequiredArgsConstructor
-public class UriDetailResponseParser implements HttpResponseParser<List<Map<String, Object>>> {
-    private final ObjectMapper objectMapper;
+public class EntityEventListener<T extends BaseEntity>
+        extends AbstractMongoEventListener<T> {
+
+    @Autowired
+    private ApplicationEventPublisher eventPublisher;
 
     @Override
-    public List<Map<String, Object>> parse(String response) throws IOException {
-        try {
-            JsonNode root = objectMapper.readTree(response);
-            validateResponse(root);
+    public void onBeforeConvert(BeforeConvertEvent<T> event) {
+        T entity = event.getSource();
 
-            List<Map<String, Object>> details = new ArrayList<>();
-            JsonNode items = root.path("items");
-            if (items.isArray()) {
-                items.forEach(item -> {
-                    try {
-                        Map<String, Object> detail = convertToMap(item);
-                        if (detail != null && !detail.isEmpty()) {
-                            details.add(detail);
-                        }
-                    } catch (Exception e) {
-                        log.error("Failed to parse URI detail item: {}", item, e);
-                    }
-                });
+        // 处理版本
+        if (entity instanceof VersionEntity versionEntity) {
+            String oldVersion = versionEntity.getVersionCode();
+            if (oldVersion == null) {
+                versionEntity.initVersion();
+            } else {
+                versionEntity.upgradeVersion();
+                publishVersionUpgradeEvent(entity, oldVersion,
+                        versionEntity.getVersionCode());
             }
-
-            return details;
-        } catch (Exception e) {
-            log.error("Failed to parse URI details response: {}", response, e);
-            throw new IOException("Failed to parse URI details response", e);
         }
     }
 
-    private Map<String, Object> convertToMap(JsonNode node) {
-        Map<String, Object> result = new LinkedHashMap<>();
-        node.fields().forEachRemaining(entry -> {
-            String key = entry.getKey();
-            JsonNode valueNode = entry.getValue();
-            Object value = convertJsonNode(valueNode);
-            if (value != null) {
-                result.put(key, value);
-            }
-        });
-        return result;
+    private void publishVersionUpgradeEvent(T entity, String oldVersion,
+                                            String newVersion) {
+        EntityEvents.VersionUpgradeEvent<T> event = new EntityEvents.VersionUpgradeEvent<>(
+                entity, oldVersion, newVersion
+        );
+        eventPublisher.publishEvent(event);
     }
+}
+```
 
-    private Object convertJsonNode(JsonNode node) {
-        if (node.isNull()) {
-            return null;
-        } else if (node.isTextual()) {
-            return node.asText();
-        } else if (node.isNumber()) {
-            return node.numberValue();
-        } else if (node.isBoolean()) {
-            return node.asBoolean();
-        } else if (node.isArray()) {
-            List<Object> list = new ArrayList<>();
-            node.forEach(item -> {
-                Object value = convertJsonNode(item);
-                if (value != null) {
-                    list.add(value);
-                }
-            });
-            return list;
-        } else if (node.isObject()) {
-            return convertToMap(node);
-        } else {
-            return node.toString();
+## EntityEvents.java
+
+```java
+package com.study.collect.core.storage.event.impl;
+
+import com.study.collect.core.storage.entity.BaseEntity;
+import com.study.collect.core.storage.event.EntityEvent;
+import lombok.Getter;
+
+public class EntityEvents {
+
+    @Getter
+    public static class BeforeSaveEvent<T extends BaseEntity> extends EntityEvent<T> {
+        public BeforeSaveEvent(T entity) {
+            super(entity);
         }
     }
 
-    private void validateResponse(JsonNode root) throws IOException {
-        if (!root.has("items")) {
-            throw new IOException("Invalid response format: missing items field");
+    @Getter
+    public static class AfterSaveEvent<T extends BaseEntity> extends EntityEvent<T> {
+        public AfterSaveEvent(T entity) {
+            super(entity);
         }
     }
 
-    @Override
-    public String parseError(String errorResponse) {
-        try {
-            JsonNode root = objectMapper.readTree(errorResponse);
-            return root.path("message").asText("Unknown error");
-        } catch (Exception e) {
-            log.error("Failed to parse error response: {}", errorResponse, e);
-            return "Failed to parse error response";
+    @Getter
+    public static class BeforeUpdateEvent<T extends BaseEntity> extends EntityEvent<T> {
+        public BeforeUpdateEvent(T entity) {
+            super(entity);
+        }
+    }
+
+    @Getter
+    public static class AfterUpdateEvent<T extends BaseEntity> extends EntityEvent<T> {
+        public AfterUpdateEvent(T entity) {
+            super(entity);
+        }
+    }
+
+    @Getter
+    public static class BeforeDeleteEvent<T extends BaseEntity> extends EntityEvent<T> {
+        public BeforeDeleteEvent(T entity) {
+            super(entity);
+        }
+    }
+
+    @Getter
+    public static class AfterDeleteEvent<T extends BaseEntity> extends EntityEvent<T> {
+        public AfterDeleteEvent(T entity) {
+            super(entity);
+        }
+    }
+
+    @Getter
+    public static class VersionUpgradeEvent<T extends BaseEntity> extends EntityEvent<T> {
+        private final String oldVersion;
+        private final String newVersion;
+
+        public VersionUpgradeEvent(T entity, String oldVersion, String newVersion) {
+            super(entity);
+            this.oldVersion = oldVersion;
+            this.newVersion = newVersion;
         }
     }
 }
 ```
 
-## UriListResponseParser.java
+## BaseMongoRepository.java
 
 ```java
-package com.study.collect.business.testcase.model.response.parse;
+package com.study.collect.core.storage.repository;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.study.collect.business.testcase.model.response.PageResponse;
-import lombok.RequiredArgsConstructor;
+import com.study.collect.core.storage.entity.BaseEntity;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-
-@Slf4j
-@Component
-@RequiredArgsConstructor
-public class UriListResponseParser implements HttpResponseParser<PageResponse<String>> {
-    private final ObjectMapper objectMapper;
-
-    @Override
-    public PageResponse<String> parse(String response) throws IOException {
-        try {
-            JsonNode root = objectMapper.readTree(response);
-            validateResponse(root);
-
-            PageResponse<String> pageResponse = new PageResponse<>();
-            pageResponse.setCode(root.path("code").asText());
-            pageResponse.setMessage(root.path("message").asText());
-            pageResponse.setTotal(root.path("total").asLong());
-
-            List<String> uris = new ArrayList<>();
-            JsonNode items = root.path("items");
-            if (items.isArray()) {
-                items.forEach(item -> {
-                    String uri = item.path("uri").asText();
-                    if (uri != null && !uri.isEmpty()) {
-                        uris.add(uri);
-                    }
-                });
-            }
-
-            pageResponse.setItems(uris);
-            return pageResponse;
-        } catch (Exception e) {
-            log.error("Failed to parse URI list response: {}", response, e);
-            throw new IOException("Failed to parse URI list response", e);
-        }
-    }
-
-    private void validateResponse(JsonNode root) throws IOException {
-        if (!root.has("code") || !root.has("total") || !root.has("items")) {
-            throw new IOException("Invalid response format: missing required fields");
-        }
-    }
-
-    @Override
-    public String parseError(String errorResponse) {
-        try {
-            JsonNode root = objectMapper.readTree(errorResponse);
-            return root.path("message").asText("Unknown error");
-        } catch (Exception e) {
-            log.error("Failed to parse error response: {}", errorResponse, e);
-            return "Failed to parse error response";
-        }
-    }
-}
-```
-
-## VersionResponseParser.java
-
-```java
-package com.study.collect.business.testcase.model.response.parse;
-
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.study.collect.business.testcase.model.response.PageResponse;
-import com.study.collect.business.testcase.model.response.VersionResponse;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-
-import java.io.IOException;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-
-@Slf4j
-@Component
-@RequiredArgsConstructor
-public class VersionResponseParser implements HttpResponseParser<PageResponse<VersionResponse>> {
-    private final ObjectMapper objectMapper;
-
-    @Override
-    public PageResponse<VersionResponse> parse(String response) throws IOException {
-        try {
-            JsonNode root = objectMapper.readTree(response);
-            validateResponse(root);
-
-            PageResponse<VersionResponse> pageResponse = new PageResponse<>();
-            pageResponse.setCode(root.path("code").asText());
-            pageResponse.setMessage(root.path("message").asText());
-            pageResponse.setTotal(root.path("total").asLong());
-
-            List<VersionResponse> versions = new ArrayList<>();
-            JsonNode items = root.path("items");
-            if (items.isArray()) {
-                items.forEach(item -> {
-                    try {
-                        VersionResponse version = parseVersionItem(item);
-                        if (version != null) {
-                            versions.add(version);
-                        }
-                    } catch (Exception e) {
-                        log.error("Failed to parse version item: {}", item, e);
-                    }
-                });
-            }
-
-            pageResponse.setItems(versions);
-            return pageResponse;
-        } catch (Exception e) {
-            log.error("Failed to parse version response: {}", response, e);
-            throw new IOException("Failed to parse version response", e);
-        }
-    }
-
-    private VersionResponse parseVersionItem(JsonNode item) {
-        return VersionResponse.builder()
-                .version(item.path("version").asText())
-                .versionType(item.path("versionType").asText())
-                .description(item.path("description").asText())
-                .createTime(parseDateTime(item.path("createTime").asText()))
-                .updateTime(parseDateTime(item.path("updateTime").asText()))
-                .status(item.path("status").asText())
-                .sort(item.path("sort").asInt())
-                .build();
-    }
-
-    private LocalDateTime parseDateTime(String dateTimeStr) {
-        try {
-            return LocalDateTime.parse(dateTimeStr);
-        } catch (Exception e) {
-            log.debug("Failed to parse datetime: {}", dateTimeStr);
-            return null;
-        }
-    }
-
-    private void validateResponse(JsonNode root) throws IOException {
-        if (!root.has("code") || !root.has("total") || !root.has("items")) {
-            throw new IOException("Invalid response format: missing required fields");
-        }
-    }
-
-    @Override
-    public String parseError(String errorResponse) {
-        try {
-            JsonNode root = objectMapper.readTree(errorResponse);
-            return root.path("message").asText("Unknown error");
-        } catch (Exception e) {
-            log.error("Failed to parse error response: {}", errorResponse, e);
-            return "Failed to parse error response";
-        }
-    }
-}
-```
-
-## UriRepository.java
-
-```java
-package com.study.collect.business.testcase.repository;
-
-import com.mongodb.bulk.BulkWriteResult;
-import com.mongodb.client.MongoCollection;
-import com.mongodb.client.model.*;
-import com.study.collect.business.testcase.constant.CollectionConstants;
-import com.study.collect.business.testcase.entity.UriEntity;
-import com.study.collect.business.testcase.utils.HashUtil;
-import lombok.extern.slf4j.Slf4j;
-import org.bson.Document;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.MongoOperations;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
-import org.springframework.stereotype.Repository;
-import org.springframework.util.CollectionUtils;
+import org.springframework.data.mongodb.repository.query.MongoEntityInformation;
+import org.springframework.data.mongodb.repository.support.SimpleMongoRepository;
 
 import java.time.LocalDateTime;
-import java.util.*;
-import java.util.function.Function;
-import java.util.stream.Collectors;
+import java.util.List;
 
 @Slf4j
-@Repository
-public class UriRepository {
-    private final MongoTemplate mongoTemplate;
+public class BaseMongoRepository<T extends BaseEntity>
+        extends SimpleMongoRepository<T, String> implements IRepository<T> {
 
-    public UriRepository(MongoTemplate mongoTemplate) {
-        this.mongoTemplate = mongoTemplate;
+    private final MongoOperations mongoOperations;
+    private final MongoEntityInformation<T, String> entityInformation;
+
+    public BaseMongoRepository(MongoEntityInformation<T, String> metadata,
+                               MongoOperations mongoOperations) {
+        super(metadata, mongoOperations);
+        this.mongoOperations = mongoOperations;
+        this.entityInformation = metadata;
     }
+
+    @Override
+    public T findByCode(String code) {
+        Query query = Query.query(
+                Criteria.where("code").is(code)
+                        .and("deleted").is(false)
+        );
+        return mongoOperations.findOne(query, entityInformation.getJavaType());
+    }
+
+    @Override
+    public Page<T> findByDeletedFalse(Pageable pageable) {
+        Query query = Query.query(Criteria.where("deleted").is(false));
+        return findAll(query, pageable);
+    }
+
+    @Override
+    public List<T> findByVersionCodeGreaterThan(String versionCode) {
+        Query query = Query.query(Criteria.where("versionCode").gt(versionCode));
+        return mongoOperations.find(query, entityInformation.getJavaType());
+    }
+
+    @Override
+    public void softDelete(String id) {
+        Query query = Query.query(Criteria.where("id").is(id));
+        Update update = Update.update("deleted", true)
+                .set("updateTime", LocalDateTime.now());
+        mongoOperations.updateFirst(query, update, entityInformation.getJavaType());
+    }
+
+    @Override
+    public void softDelete(List<String> ids) {
+        Query query = Query.query(Criteria.where("id").in(ids));
+        Update update = Update.update("deleted", true)
+                .set("updateTime", LocalDateTime.now());
+        mongoOperations.updateMulti(query, update, entityInformation.getJavaType());
+    }
+
+    @Override
+    public void updateStatus(String id, String status) {
+        Query query = Query.query(Criteria.where("id").is(id));
+        Update update = Update.update("status", status)
+                .set("updateTime", LocalDateTime.now());
+        mongoOperations.updateFirst(query, update, entityInformation.getJavaType());
+    }
+
+    protected Page<T> findAll(Query query, Pageable pageable) {
+        long total = mongoOperations.count(query, entityInformation.getJavaType());
+        List<T> content = mongoOperations.find(query.with(pageable),
+                entityInformation.getJavaType());
+        return new PageImpl<>(content, pageable, total);
+    }
+}
+```
+
+## IRepository.java
+
+```java
+package com.study.collect.core.storage.repository;
+
+import com.study.collect.core.storage.entity.BaseEntity;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.mongodb.repository.MongoRepository;
+import org.springframework.data.repository.NoRepositoryBean;
+
+import java.util.List;
+
+@NoRepositoryBean
+public interface IRepository<T extends BaseEntity> extends MongoRepository<T, String> {
+    /**
+     * 根据业务编码查询
+     */
+    T findByCode(String code);
 
     /**
-     * 生成集合名称
+     * 分页查询未删除的数据
      */
-    private String getCollectionName(String rootNode) {
-        return String.format("%s_%s", CollectionConstants.URI_COLLECTION_PREFIX, rootNode);
-    }
+    Page<T> findByDeletedFalse(Pageable pageable);
 
     /**
-     * 批量插入或更新
+     * 根据版本号查询数据
      */
-    public BulkWriteResult batchUpsert(String rootNode, List<UriEntity> entities) {
-        if (CollectionUtils.isEmpty(entities)) {
-            return null;
-        }
+    List<T> findByVersionCodeGreaterThan(String versionCode);
 
-        String collectionName = getCollectionName(rootNode);
-        MongoCollection<Document> collection = mongoTemplate.getCollection(collectionName);
-
-        List<WriteModel<Document>> operations = new ArrayList<>();
-        for (UriEntity entity : entities) {
-            Document query = new Document("uri_hash", entity.getUriHash());
-            Document doc = convertEntityToDocument(entity);
-            operations.add(new UpdateOneModel<>(
-                    query,
-                    new Document("$set", doc),
-                    new UpdateOptions().upsert(true)
-            ));
-        }
-
-        try {
-            BulkWriteOptions options = new BulkWriteOptions()
-                    .ordered(false)
-                    .bypassDocumentValidation(true);
-            return collection.bulkWrite(operations, options);
-        } catch (Exception e) {
-            log.error("Failed to batch upsert to collection {}", collectionName, e);
-            throw new RuntimeException("Batch upsert failed", e);
-        }
-    }
+    /**
+     * 软删除
+     */
+    void softDelete(String id);
 
     /**
      * 批量软删除
      */
-    public long batchSoftDelete(String rootNode, List<String> uris) {
-        if (CollectionUtils.isEmpty(uris)) {
-            return 0L;
-        }
-
-        List<String> uriHashes = uris.stream()
-                .map(HashUtil::hash)
-                .collect(Collectors.toList());
-
-        Query query = new Query(Criteria.where("uri_hash").in(uriHashes));
-        Update update = new Update()
-                .set("is_deleted", true)
-                .set("update_time", LocalDateTime.now());
-
-        try {
-            return mongoTemplate.updateMulti(
-                    query,
-                    update,
-                    getCollectionName(rootNode)
-            ).getModifiedCount();
-        } catch (Exception e) {
-            log.error("Failed to batch soft delete in collection {}", rootNode, e);
-            throw new RuntimeException("Batch soft delete failed", e);
-        }
-    }
+    void softDelete(List<String> ids);
 
     /**
-     * 批量硬删除
+     * 更新状态
      */
-    public long batchHardDelete(String rootNode, List<String> uris) {
-        if (CollectionUtils.isEmpty(uris)) {
-            return 0L;
-        }
+    void updateStatus(String id, String status);
+}
+```
 
-        List<String> uriHashes = uris.stream()
-                .map(HashUtil::hash)
-                .collect(Collectors.toList());
+## VersionRepository.java
 
-        Query query = new Query(Criteria.where("uri_hash").in(uriHashes));
+```java
+package com.study.collect.core.storage.repository;
 
-        try {
-            return mongoTemplate.remove(
-                    query,
-                    UriEntity.class,
-                    getCollectionName(rootNode)
-            ).getDeletedCount();
-        } catch (Exception e) {
-            log.error("Failed to batch hard delete in collection {}", rootNode, e);
-            throw new RuntimeException("Batch hard delete failed", e);
-        }
+public class VersionRepository {
+}
+
+```
+
+## CustomMongoRepositoryFactory.java
+
+```java
+package com.study.collect.core.storage.repository.factory;
+
+import com.study.collect.core.storage.entity.BaseEntity;
+import com.study.collect.core.storage.repository.BaseMongoRepository;
+import org.springframework.data.mongodb.core.MongoOperations;
+import org.springframework.data.mongodb.repository.query.MongoEntityInformation;
+import org.springframework.data.mongodb.repository.support.MongoRepositoryFactory;
+import org.springframework.data.repository.core.RepositoryInformation;
+import org.springframework.data.repository.core.RepositoryMetadata;
+
+public class CustomMongoRepositoryFactory extends MongoRepositoryFactory {
+
+    private final MongoOperations mongoOperations;
+
+    public CustomMongoRepositoryFactory(MongoOperations mongoOperations) {
+        super(mongoOperations);
+        this.mongoOperations = mongoOperations;
     }
 
-    /**
-     * 分页查询
-     */
-    public Page<UriEntity> findByCondition(
-            String rootNode,
-            String version,
-            String versionType,
-            Boolean includeDeleted,
-            Pageable pageable
-    ) {
-        Criteria criteria = new Criteria();
-
-        if (version != null) {
-            criteria.and("uri_version").is(version);
-        }
-        if (versionType != null) {
-            criteria.and("version_type").is(versionType);
-        }
-        if (!includeDeleted) {
-            criteria.and("is_deleted").is(false);
+    @Override
+    protected Object getTargetRepository(RepositoryInformation information) {
+        Class<?> domainClass = information.getDomainType();
+        if (!BaseEntity.class.isAssignableFrom(domainClass)) {
+            throw new IllegalArgumentException("Domain class must extend BaseEntity");
         }
 
-        Query query = new Query(criteria).with(pageable);
-        String collectionName = getCollectionName(rootNode);
+        @SuppressWarnings("unchecked")
+        MongoEntityInformation<? extends BaseEntity, String> entityInformation =
+                getEntityInformation((Class<? extends BaseEntity>) domainClass);
 
-        try {
-            long total = mongoTemplate.count(query, UriEntity.class, collectionName);
-            List<UriEntity> content = mongoTemplate.find(query, UriEntity.class, collectionName);
-            return new PageImpl<>(content, pageable, total);
-        } catch (Exception e) {
-            log.error("Failed to query collection {}", collectionName, e);
-            throw new RuntimeException("Query failed", e);
-        }
+        return getTargetRepositoryViaReflection(information,
+                entityInformation, mongoOperations);
     }
 
-    /**
-     * 批量查询
-     */
-    public List<UriEntity> batchQuery(
-            List<String> uris,
-            Function<String, String> rootNodeResolver,
-            Boolean includeDeleted
-    ) {
-        if (CollectionUtils.isEmpty(uris)) {
-            return new ArrayList<>();
-        }
-
-        // 按rootNode分组
-        Map<String, List<String>> groupedUris = uris.stream()
-                .collect(Collectors.groupingBy(rootNodeResolver));
-
-        List<UriEntity> results = new ArrayList<>();
-
-        for (Map.Entry<String, List<String>> entry : groupedUris.entrySet()) {
-            String rootNode = entry.getKey();
-            List<String> uriGroup = entry.getValue();
-
-            List<String> uriHashes = uriGroup.stream()
-                    .map(HashUtil::hash)
-                    .collect(Collectors.toList());
-
-            Criteria criteria = Criteria.where("uri_hash").in(uriHashes);
-            if (!includeDeleted) {
-                criteria.and("is_deleted").is(false);
-            }
-
-            Query query = new Query(criteria);
-            String collectionName = getCollectionName(rootNode);
-
-            try {
-                List<UriEntity> groupResults = mongoTemplate.find(
-                        query,
-                        UriEntity.class,
-                        collectionName
-                );
-                results.addAll(groupResults);
-            } catch (Exception e) {
-                log.error("Failed to query collection {}", collectionName, e);
-                // 继续处理其他分组
-            }
-        }
-
-        return results;
-    }
-
-    /**
-     * 删除不存在的URI
-     */
-    public void deleteNotInUris(String rootNode, Set<String> uriHashes) {
-        Query query = new Query(
-                Criteria.where("uri_hash").nin(uriHashes)
-        );
-
-        try {
-            mongoTemplate.remove(
-                    query,
-                    UriEntity.class,
-                    getCollectionName(rootNode)
-            );
-        } catch (Exception e) {
-            log.error("Failed to delete non-existing URIs in collection {}", rootNode, e);
-            throw new RuntimeException("Delete non-existing URIs failed", e);
-        }
-    }
-
-    private Document convertEntityToDocument(UriEntity entity) {
-        Document doc = new Document();
-        doc.put("uri", entity.getUri());
-        doc.put("uri_hash", entity.getUriHash());
-        doc.put("root_node", entity.getRootNode());
-        doc.put("version_type", entity.getVersionType());
-        doc.put("uri_version", entity.getUriVersion());
-        doc.put("details", entity.getDetails());
-        doc.put("version", entity.getVersion());
-        doc.put("version_code", entity.getVersionCode());
-        doc.put("version_time", entity.getVersionTime());
-        doc.put("update_time", LocalDateTime.now());
-        doc.put("is_deleted", false);
-
-        if (entity.getCreateTime() == null) {
-            doc.put("create_time", LocalDateTime.now());
-        }
-
-        return doc;
+    @Override
+    protected Class<?> getRepositoryBaseClass(RepositoryMetadata metadata) {
+        return BaseMongoRepository.class;
     }
 }
 ```
 
-## UriCollectService.java
+## CustomMongoRepositoryFactoryBean.java
 
 ```java
-package com.study.collect.business.testcase.service;
+package com.study.collect.core.storage.repository.factory;
 
-import com.study.collect.business.testcase.entity.UriEntity;
-import com.study.collect.business.testcase.model.param.CollectParam;
-import com.study.collect.business.testcase.model.param.DeleteParam;
-import com.study.collect.business.testcase.model.param.QueryParam;
-import com.study.collect.business.testcase.model.response.AsyncResponse;
-import org.springframework.data.domain.Page;
+import com.study.collect.core.storage.entity.BaseEntity;
+import org.springframework.data.mongodb.core.MongoOperations;
+import org.springframework.data.mongodb.repository.support.MongoRepositoryFactoryBean;
+import org.springframework.data.repository.Repository;
+import org.springframework.data.repository.core.support.RepositoryFactorySupport;
 
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
+public class CustomMongoRepositoryFactoryBean<T extends Repository<S, String>, S extends BaseEntity>
+        extends MongoRepositoryFactoryBean<T, S, String> {
+
+    public CustomMongoRepositoryFactoryBean(Class<? extends T> repositoryInterface) {
+        super(repositoryInterface);
+    }
+
+    @Override
+    protected RepositoryFactorySupport getFactoryInstance(MongoOperations operations) {
+        return new CustomMongoRepositoryFactory(operations);
+    }
+}
+```
+
+## package-info.java
+
+```java
+/**
+ * 任务模块
+ * 这个包包含与任务模型相关的类和接口。
+ * 任务模型用于表示和管理应用程序中的各种任务。
+ * 这些模型可能包括任务定义、调度信息和执行细节。
+ */
+package com.study.collect.core.task;
+```
+
+## MyBatisConfig.java
+
+```java
+package com.study.collect.core.task.config;
+
+import org.apache.ibatis.session.SqlSessionFactory;
+import org.mybatis.spring.SqlSessionFactoryBean;
+import org.mybatis.spring.annotation.MapperScan;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
+import javax.sql.DataSource;
+
+@Configuration
+@ConditionalOnProperty(prefix = "spring.datasource", name = "enabled", havingValue = "true", matchIfMissing = true)
+@MapperScan("com.study.collect.core.task.mapper")
+public class MyBatisConfig {
+
+    @Bean
+    public SqlSessionFactory sqlSessionFactory(@Qualifier("dataSource") DataSource dataSource) throws Exception {
+        SqlSessionFactoryBean sessionFactory = new SqlSessionFactoryBean();
+        sessionFactory.setDataSource(dataSource);
+
+        // 配置驼峰命名转换
+        org.apache.ibatis.session.Configuration configuration =
+                new org.apache.ibatis.session.Configuration();
+        configuration.setMapUnderscoreToCamelCase(true);
+        sessionFactory.setConfiguration(configuration);
+
+        // 设置XML映射文件路径
+        PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
+        sessionFactory.setMapperLocations(resolver.getResources("classpath*:mapper/*.xml"));
+
+        // 设置实体类别名包
+        sessionFactory.setTypeAliasesPackage("com.study.collect.core.task.entity");
+
+        return sessionFactory.getObject();
+    }
+
+}
+
+```
+
+## SchedulerConfiguration.java
+
+```java
+package com.study.collect.core.task.config;
 
 /**
- * URI采集服务接口
+ * 调度器配置
  */
-public interface UriCollectService {
-
-    /**
-     * 异步采集数据
-     * @param param 采集参数
-     * @return 异步响应，包含任务ID
-     */
-    AsyncResponse<String> collectData(CollectParam param);
-
-    /**
-     * 异步删除数据
-     * @param param 删除参数
-     * @return 异步响应，包含删除结果
-     */
-    AsyncResponse<Long> deleteData(DeleteParam param);
-
-    /**
-     * 查询URI数据
-     * @param param 查询参数
-     * @return 分页结果
-     */
-    Page<UriEntity> queryUri(QueryParam param);
-
-    /**
-     * 批量查询URI数据
-     * @param uris URI列表
-     * @param includeDeleted 是否包含已删除数据
-     * @return URI实体列表
-     */
-    List<UriEntity> batchQueryUri(List<String> uris, Boolean includeDeleted);
-
-    /**
-     * 获取任务状态
-     * @param taskId 任务ID
-     * @return 任务状态
-     */
-    AsyncResponse<Void> getTaskStatus(String taskId);
-
-    /**
-     * 取消任务
-     * @param taskId 任务ID
-     * @return 是否成功取消
-     */
-    boolean cancelTask(String taskId);
-
-    /**
-     * 更新任务优先级
-     * @param taskId 任务ID
-     * @param priority 新优先级
-     * @return 是否成功更新
-     */
-    boolean updateTaskPriority(String taskId, int priority);
-
-    /**
-     * 获取活动任务列表
-     * @return 活动任务列表
-     */
-    List<AsyncResponse<Void>> getActiveTasks();
+public class SchedulerConfiguration {
 }
+
 ```
 
-## UriHttpService.java
+## TaskConfiguration.java
 
 ```java
-package com.study.collect.business.testcase.service.http;
+package com.study.collect.core.task.config;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.study.collect.business.testcase.constant.CollectionConstants;
-import com.study.collect.business.testcase.model.param.CollectParam;
-import com.study.collect.business.testcase.model.param.PageParam;
-import com.study.collect.business.testcase.model.response.PageResponse;
-import com.study.collect.business.testcase.model.response.VersionResponse;
-import com.study.collect.business.testcase.model.response.parse.HttpResponseParser;
-import com.study.collect.business.testcase.utils.HttpUtil;
-import com.study.collect.business.testcase.utils.RateLimiter;
-import lombok.RequiredArgsConstructor;
+import com.study.collect.core.task.definition.TaskProperties;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
-import org.springframework.stereotype.Service;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
-
+/**
+ * 任务配置类
+ */
 @Slf4j
-@Service
-@RequiredArgsConstructor
-public class UriHttpService {
-    private final HttpResponseParser<PageResponse<VersionResponse>> versionParser;
-    private final HttpResponseParser<PageResponse<String>> uriListParser;
-    private final HttpResponseParser<List<Map<String, Object>>> uriDetailParser;
-    private final RateLimiter rateLimiter;
+@Configuration
+@EnableScheduling
+@EnableConfigurationProperties(TaskProperties.class)
+public class TaskConfiguration {
 
-    @Qualifier("httpExecutor")
-    private final ThreadPoolTaskExecutor httpExecutor;
+    @Bean
+    public ThreadPoolTaskScheduler taskScheduler(TaskProperties properties) {
+        ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
 
-    /**
-     * 异步获取版本列表
-     */
-    public CompletableFuture<PageResponse<VersionResponse>> getVersionsAsync(
-            CollectParam param, PageParam pageParam) {
-        String serverUri = param.getServerUri();
-        String rootNode = param.getRootNode();
-        return CompletableFuture.supplyAsync(() -> {
-            try {
-                rateLimiter.acquire();
-                String response = HttpUtil.post(
-                        serverUri + "/api/versions",
-                        String.format(
-                                "{\"rootNode\":\"%s\",\"page\":\"%s\",\"size\":\"%s\"}",
-                                rootNode,
-                                pageParam.getPage(),
-                                pageParam.getSize()
-                        )).getBody();
-                return versionParser.parse(response);
-            } catch (Exception e) {
-                log.error("Failed to get versions for rootNode: {}", rootNode, e);
-                throw new RuntimeException("Failed to get versions", e);
-            }
-        }, httpExecutor);
-    }
+        // 配置线程池核心参数
+        scheduler.setPoolSize(properties.getThreadPool().getCoreSize());
+        scheduler.setThreadNamePrefix("TaskScheduler-");
 
-    /**
-     * 异步获取URI列表
-     */
-    public CompletableFuture<PageResponse<String>> getUriListAsync(
-            CollectParam param, String version, PageParam pageParam) {
-        String serverUri = param.getServerUri();
-        return CompletableFuture.supplyAsync(() -> {
-            try {
-                rateLimiter.acquire();
-                String response = HttpUtil.post(
-                        serverUri + "/api/uris",
-                        String.format(
-                                "{\"version\":\"%s\",\"page\":\"%s\",\"size\":\"%s\"}",
-                                version,
-                                pageParam.getPage(),
-                                pageParam.getSize()
-                        )
-                ).getBody();
-                return uriListParser.parse(response);
-            } catch (Exception e) {
-                log.error("Failed to get URI list for version: {}", version, e);
-                throw new RuntimeException("Failed to get URI list", e);
-            }
-        }, httpExecutor);
-    }
+        // 配置优雅停机
+        scheduler.setWaitForTasksToCompleteOnShutdown(true);
+        scheduler.setAwaitTerminationSeconds(properties.getThreadPool().getAwaitTerminationSeconds());
 
-    /**
-     * 批量获取URI详情
-     */
-    public CompletableFuture<List<Map<String, Object>>> getUriDetailsAsync(
-            CollectParam param, List<String> uris) {
-        String serverUri = param.getServerUri();
-        if (uris == null || uris.isEmpty()) {
-            return CompletableFuture.completedFuture(Collections.emptyList());
-        }
+        // 配置异常处理
+        scheduler.setErrorHandler(throwable ->
+                log.error("Task execution error: {}", throwable.getMessage(), throwable)
+        );
 
-        return CompletableFuture.supplyAsync(() -> {
-            try {
-                rateLimiter.acquire();
-                String response = HttpUtil.post(
-                        serverUri + "/api/details",
-                        "{\"uris\":" + new ObjectMapper().writeValueAsString(uris) + "}"
-                ).getBody();
-                return uriDetailParser.parse(response);
-            } catch (Exception e) {
-                log.error("Failed to get URI details for {} URIs", uris.size(), e);
-                throw new RuntimeException("Failed to get URI details", e);
-            }
-        }, httpExecutor);
-    }
+        // 配置任务拒绝处理
+        scheduler.setRejectedExecutionHandler((runnable, executor) ->
+                log.error("Task rejected: thread pool exhausted. Current pool size: {}",
+                        executor.getPoolSize())
+        );
 
-    /**
-     * 同步获取所有版本
-     */
-    public List<String> getAllVersions(CollectParam param) throws IOException {
-        String rootNode = param.getRootNode();
-        List<String> allVersions = new ArrayList<>();
-        PageParam pageParam = new PageParam(1, CollectionConstants.DEFAULT_BATCH_SIZE);
-
-        try {
-            // 获取第一页和总数
-            PageResponse<VersionResponse> firstPage = getVersionsAsync(param, pageParam)
-                    .get(30, TimeUnit.SECONDS);
-
-            // 处理第一页
-            processVersionPage(firstPage, allVersions);
-
-            // 处理剩余页
-            long totalPages = (firstPage.getTotal() + pageParam.getSize() - 1) / pageParam.getSize();
-            List<CompletableFuture<Void>> futures = new ArrayList<>();
-
-            for (int page = 2; page <= totalPages; page++) {
-                final int currentPage = page;
-                CompletableFuture<Void> future = getVersionsAsync(
-                        param, new PageParam(currentPage, pageParam.getSize())
-                ).thenAccept(pageResponse -> processVersionPage(pageResponse, allVersions));
-
-                futures.add(future);
-            }
-
-            // 等待所有请求完成
-            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
-                    .get(5, TimeUnit.MINUTES);
-
-        } catch (Exception e) {
-            log.error("Failed to get all versions for rootNode: {}", rootNode, e);
-            throw new IOException("Failed to get all versions", e);
-        }
-
-        return allVersions;
-    }
-
-    /**
-     * 获取版本下的所有URI
-     */
-    public List<String> getAllUrisForVersion(CollectParam param, String version) throws IOException {
-        List<String> allUris = new ArrayList<>();
-        PageParam pageParam = new PageParam(1, CollectionConstants.DEFAULT_BATCH_SIZE);
-
-        try {
-            // 获取第一页和总数
-            PageResponse<String> firstPage = getUriListAsync(param, version, pageParam)
-                    .get(30, TimeUnit.SECONDS);
-
-            allUris.addAll(firstPage.getItems());
-
-            // 处理剩余页
-            long totalPages = (firstPage.getTotal() + pageParam.getSize() - 1) / pageParam.getSize();
-            List<CompletableFuture<Void>> futures = new ArrayList<>();
-
-            for (int page = 2; page <= totalPages; page++) {
-                final int currentPage = page;
-                CompletableFuture<Void> future = getUriListAsync(
-                        param, version, new PageParam(currentPage, pageParam.getSize())
-                ).thenAccept(pageResponse -> allUris.addAll(pageResponse.getItems()));
-
-                futures.add(future);
-            }
-
-            // 等待所有请求完成
-            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
-                    .get(5, TimeUnit.MINUTES);
-
-        } catch (Exception e) {
-            log.error("Failed to get all URIs for version: {}", version, e);
-            throw new IOException("Failed to get all URIs", e);
-        }
-
-        return allUris;
-    }
-
-    private void processVersionPage(PageResponse<VersionResponse> pageResponse, List<String> versions) {
-        if (pageResponse != null && pageResponse.getItems() != null) {
-            versions.addAll(pageResponse.getItems().stream()
-                    .map(VersionResponse::getVersion)
-                    .collect(Collectors.toList()));
-        }
-    }
-
-    /**
-     * 批量处理URI详情
-     */
-    public List<Map<String, Object>> batchGetUriDetails(
-            CollectParam param, List<String> uris, int batchSize) throws IOException {
-        List<Map<String, Object>> allDetails = new ArrayList<>();
-        List<List<String>> batches = new ArrayList<>();
-
-        // 分批
-        for (int i = 0; i < uris.size(); i += batchSize) {
-            batches.add(uris.subList(i, Math.min(i + batchSize, uris.size())));
-        }
-
-        try {
-            // 并行处理每个批次
-            List<CompletableFuture<List<Map<String, Object>>>> futures = batches.stream()
-                    .map(batch -> getUriDetailsAsync(param, batch))
-                    .collect(Collectors.toList());
-
-            // 等待所有批次完成
-            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
-                    .get(5, TimeUnit.MINUTES);
-
-            // 收集结果
-            for (CompletableFuture<List<Map<String, Object>>> future : futures) {
-                allDetails.addAll(future.get());
-            }
-
-        } catch (Exception e) {
-            log.error("Failed to batch get URI details", e);
-            throw new IOException("Failed to batch get URI details", e);
-        }
-
-        return allDetails;
+        return scheduler;
     }
 }
 ```
 
-## UriCleanupService.java
+## TaskProperties.java
 
 ```java
-package com.study.collect.business.testcase.service.impl;
+package com.study.collect.core.task.definition;
 
-import com.study.collect.business.testcase.model.PageResult;
-import com.study.collect.business.testcase.repository.UriRepository;
+import lombok.Data;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+
+@Data
+@ConfigurationProperties(prefix = "collect.task")
+public class TaskProperties {
+
+    /**
+     * 是否启用任务调度
+     */
+    private boolean enabled = true;
+
+    /**
+     * 线程池配置
+     */
+    private ThreadPool threadPool = new ThreadPool();
+
+    /**
+     * 执行配置
+     */
+    private Execution execution = new Execution();
+
+    @Data
+    public static class ThreadPool {
+        /**
+         * 核心线程数
+         */
+        private int coreSize = 10;
+
+        /**
+         * 最大线程数
+         */
+        private int maxSize = 20;
+
+        /**
+         * 队列容量
+         */
+        private int queueCapacity = 200;
+
+        /**
+         * 线程空闲超时时间（秒）
+         */
+        private int keepAliveSeconds = 60;
+
+        /**
+         * 优雅停机等待时间（秒）
+         */
+        private int awaitTerminationSeconds = 60;
+    }
+
+    @Data
+    public static class Execution {
+        /**
+         * 任务超时时间（秒）
+         */
+        private int timeout = 3600;
+
+        /**
+         * 重试次数
+         */
+        private int retryTimes = 3;
+
+        /**
+         * 重试间隔（秒）
+         */
+        private int retryInterval = 300;
+
+        /**
+         * 是否允许并行执行
+         */
+        private boolean allowParallel = true;
+    }
+}
+```
+
+## TaskConfig.java
+
+```java
+package com.study.collect.core.task.entity;
+
+import lombok.Data;
+import java.time.LocalDateTime;
+
+/**
+ * 任务配置
+ */
+@Data
+public class TaskConfig {
+    private Long id;
+    private String taskCode;        // 任务编码
+    private String taskName;        // 任务名称
+    private String taskHandler;     // 任务处理器
+    private String taskParam;       // 任务参数(JSON)
+    private String cronExpr;        // cron表达式
+    private Integer shardTotal;     // 分片总数
+    private Integer retryTimes;     // 重试次数
+    private Integer retryInterval;  // 重试间隔(秒)
+    private Integer timeout;        // 超时时间(秒)
+    private Integer status;         // 状态:0-禁用,1-启用
+    private String remark;          // 备注
+    private LocalDateTime createTime; // 创建时间
+    private LocalDateTime updateTime; // 更新时间
+}
+```
+
+## TaskInstance.java
+
+```java
+package com.study.collect.core.task.entity;
+
+import lombok.Data;
+import java.time.LocalDateTime;
+/**
+ * 任务实例
+ */
+@Data
+public class TaskInstance {
+    private Long id;
+    private String instanceId;      // 实例ID
+    private String taskCode;        // 任务编码
+    private Integer shardIndex;     // 分片索引
+    private Integer shardTotal;     // 分片总数
+    private String shardParam;      // 分片参数
+    private Integer status;         // 状态
+    private String errorMsg;        // 错误信息
+    private String hostName;        // 执行机器
+    private LocalDateTime startTime;  // 开始时间
+    private LocalDateTime endTime;    // 结束时间
+    private LocalDateTime createTime; // 创建时间
+    private LocalDateTime updateTime; // 更新时间
+}
+```
+
+## TaskLog.java
+
+```java
+package com.study.collect.core.task.entity;
+
+import lombok.Data;
+import java.time.LocalDateTime;
+
+/**
+ * 任务日志
+ */
+@Data
+public class TaskLog {
+    private Long id;
+    private String instanceId;      // 实例ID
+    private String taskCode;        // 任务编码
+    private Integer logType;        // 日志类型:1-开始,2-心跳,3-进度,4-结果,5-错误
+    private String logContent;      // 日志内容
+    private LocalDateTime createTime; // 创建时间
+
+    public TaskLog() {
+    }
+
+    public TaskLog(String instanceId, String taskCode, Integer logType, String logContent) {
+        this.instanceId = instanceId;
+        this.taskCode = taskCode;
+        this.logType = logType;
+        this.logContent = logContent;
+        this.createTime = LocalDateTime.now();
+    }
+}
+```
+
+## LogTypeEnum.java
+
+```java
+package com.study.collect.core.task.enums;
+
+import lombok.Getter;
+
+@Getter
+public enum LogTypeEnum {
+    START(1, "开始执行"),
+    HEARTBEAT(2, "心跳检测"),
+    PROGRESS(3, "执行进度"),
+    RESULT(4, "执行结果"),
+    ERROR(5, "执行错误");
+
+    private final Integer code;
+    private final String desc;
+
+    LogTypeEnum(Integer code, String desc) {
+        this.code = code;
+        this.desc = desc;
+    }
+}
+```
+
+## TaskStatusEnum.java
+
+```java
+package com.study.collect.core.task.enums;
+
+import lombok.Getter;
+
+@Getter
+public enum TaskStatusEnum {
+    INIT(0, "初始化"),
+    RUNNING(1, "执行中"),
+    SUCCESS(2, "执行成功"),
+    FAILED(3, "执行失败"),
+    TIMEOUT(4, "执行超时"),
+    CANCELED(5, "已取消");
+
+    private final Integer code;
+    private final String desc;
+
+    TaskStatusEnum(Integer code, String desc) {
+        this.code = code;
+        this.desc = desc;
+    }
+
+    public static TaskStatusEnum getByCode(Integer code) {
+        if (code == null) {
+            return null;
+        }
+        for (TaskStatusEnum status : TaskStatusEnum.values()) {
+            if (status.getCode().equals(code)) {
+                return status;
+            }
+        }
+        return null;
+    }
+}
+```
+
+## TaskValidationException.java
+
+```java
+package com.study.collect.core.task.exception;
+
+public class TaskValidationException extends RuntimeException {
+
+    public TaskValidationException(String message) {
+        super(message);
+    }
+
+    public TaskValidationException(String message, Throwable cause) {
+        super(message, cause);
+    }
+}
+```
+
+## AbstractTaskHandler.java
+
+```java
+package com.study.collect.core.task.handler;
+
+import com.study.collect.core.task.model.TaskContext;
+import com.study.collect.core.task.model.TaskResult;
+import lombok.extern.slf4j.Slf4j;
+
+/**
+ * 任务处理器抽象类
+ */
+@Slf4j
+public abstract class AbstractTaskHandler implements TaskHandler {
+
+    @Override
+    public TaskResult execute(TaskContext context) {
+        String taskId = context.getTaskId();
+        log.info("开始执行任务: taskId={}, type={}", taskId, getType());
+
+        try {
+            // 前置处理
+            beforeExecute(context);
+
+            // 执行任务
+            Object result = doExecute(context);
+
+            // 后置处理
+            afterExecute(context, result);
+
+            log.info("任务执行完成: taskId={}", taskId);
+            return TaskResult.success(taskId, result);
+
+        } catch (Exception e) {
+            log.error("任务执行失败: taskId={}", taskId, e);
+            return TaskResult.failure(taskId, e.getMessage());
+        }
+    }
+
+    /**
+     * 任务执行前的处理
+     */
+    protected void beforeExecute(TaskContext context) {
+        // 子类可以覆盖实现
+    }
+
+    /**
+     * 执行具体任务
+     */
+    protected abstract Object doExecute(TaskContext context);
+
+    /**
+     * 任务执行后的处理
+     */
+    protected void afterExecute(TaskContext context, Object result) {
+        // 子类可以覆盖实现
+    }
+}
+```
+
+## SampleTaskHandler.java
+
+```java
+package com.study.collect.core.task.handler;
+
+import com.study.collect.core.task.model.TaskContext;
+import org.springframework.stereotype.Component;
+
+@Component
+public class SampleTaskHandler extends AbstractTaskHandler {
+
+    @Override
+    public String getType() {
+        return "sample";
+    }
+
+    @Override
+    protected Object doExecute(TaskContext context) {
+        // 实现具体的任务处理逻辑
+        return "Task executed successfully";
+    }
+}
+```
+
+## TaskHandler.java
+
+```java
+package com.study.collect.core.task.handler;
+
+import com.study.collect.core.task.model.TaskContext;
+import com.study.collect.core.task.model.TaskResult;
+
+/**
+ * 任务处理器
+ */
+public interface TaskHandler {
+    /**
+     * 执行任务
+     * @param context 任务上下文
+     * @return 任务执行结果
+     */
+    TaskResult execute(TaskContext context);
+
+    /**
+     * 获取处理器类型
+     * @return 处理器类型标识
+     */
+    String getType();
+}
+```
+
+## TaskHandlerManager.java
+
+```java
+package com.study.collect.core.task.handler;
+
+import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.scheduling.annotation.Async;
-import org.springframework.stereotype.Service;
-
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-
-@Service
-@Slf4j
-public class UriCleanupService {
-    private final UriRepository repository;
-    private static final int PAGE_SIZE = 10000;
-    private static final int DELETE_BATCH_SIZE = 10000;
-
-    @Autowired
-    public UriCleanupService(UriRepository repository) {
-        this.repository = repository;
-    }
-
-    /**
-     * 清理不在总列表中的URI数据
-     * @param allUriHashes 总的uriHash列表
-     * @param rootNode 根节点
-     */
-    public void cleanupUriData(List<String> allUriHashes, String rootNode) {
-        try {
-            log.info("Starting URI cleanup process, total hashes: {}", allUriHashes.size());
-            Set<String> allHashSet = new HashSet<>(allUriHashes);
-            Set<String> toDeleteHashes = new HashSet<>();
-
-            // 分页查询数据库中的uriHash
-            int page = 1;
-            PageResult<String> pageResult;
-            do {
-                pageResult = repository.findUriHashesPage(rootNode, null, null, page, PAGE_SIZE);
-
-                // 找出不在总列表中的hash
-                for (String dbHash : pageResult.getItems()) {
-                    if (!allHashSet.contains(dbHash)) {
-                        toDeleteHashes.add(dbHash);
-                    }
-                }
-
-                log.info("Processed page {}/{}, found {} hashes to delete",
-                        page, pageResult.getTotalPages(), toDeleteHashes.size());
-                page++;
-            } while (page <= pageResult.getTotalPages());
-
-            // 如果有需要删除的数据，进行批量删除
-            if (!toDeleteHashes.isEmpty()) {
-                log.info("Starting deletion of {} hashes", toDeleteHashes.size());
-                List<String> toDeleteList = new ArrayList<>(toDeleteHashes);
-
-                // 分批删除
-                for (int i = 0; i < toDeleteList.size(); i += DELETE_BATCH_SIZE) {
-                    int end = Math.min(i + DELETE_BATCH_SIZE, toDeleteList.size());
-                    List<String> batch = toDeleteList.subList(i, end);
-
-                    try {
-                        repository.deleteByUriHashes(batch);
-                        log.info("Deleted batch {}-{} of {}", i, end, toDeleteList.size());
-                    } catch (Exception e) {
-                        log.error("Error deleting batch {}-{}", i, end, e);
-                    }
-                }
-
-                log.info("Cleanup completed, deleted {} hashes", toDeleteList.size());
-            } else {
-                log.info("No hashes need to be deleted");
-            }
-
-        } catch (Exception e) {
-            log.error("Error during cleanup process", e);
-            throw new RuntimeException("Cleanup process failed", e);
-        }
-    }
-
-    /**
-     * 异步执行清理过程
-     */
-    @Async
-    public CompletableFuture<Void> cleanupUriDataAsync(List<String> allUriHashes, String rootNode) {
-        return CompletableFuture.runAsync(() -> cleanupUriData(allUriHashes, rootNode));
-    }
-}
-```
-
-## UriCollectServiceImpl.java
-
-```java
-package com.study.collect.business.testcase.service.impl;
-
-import com.study.collect.business.testcase.constant.CollectionConstants;
-import com.study.collect.business.testcase.entity.UriEntity;
-import com.study.collect.business.testcase.manager.CollectTaskManager;
-import com.study.collect.business.testcase.manager.QueueManager;
-import com.study.collect.business.testcase.model.param.CollectParam;
-import com.study.collect.business.testcase.model.param.DeleteParam;
-import com.study.collect.business.testcase.model.param.QueryParam;
-import com.study.collect.business.testcase.model.response.AsyncResponse;
-import com.study.collect.business.testcase.model.response.PageResponse;
-import com.study.collect.business.testcase.model.response.TaskResponse;
-import com.study.collect.business.testcase.repository.UriRepository;
-import com.study.collect.business.testcase.service.UriCollectService;
-import com.study.collect.business.testcase.service.http.UriHttpService;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.pool2.ObjectPool;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.stereotype.Service;
-import org.springframework.util.CollectionUtils;
-
-import java.util.*;
-import java.util.stream.Collectors;
-
-@Slf4j
-@Service
-@RequiredArgsConstructor
-public class UriCollectServiceImpl implements UriCollectService {
-    private final UriHttpService httpService;
-    private final UriRepository repository;
-    private final ObjectPool<UriEntity> entityPool;
-    private final CollectTaskManager taskManager;
-    private final QueueManager<CollectParam> collectQueue;
-    private final QueueManager<DeleteParam> deleteQueue;
-
-    @Override
-    public AsyncResponse<String> collectData(CollectParam param) {
-        // 1. 创建任务
-        TaskResponse task = taskManager.createTask(
-                "COLLECT",
-                Map.of("rootNode", param.getRootNode(),
-                        "serverUri", param.getServerUri(),
-                        "version", param.getVersion()),
-                param.getPriority()
-        );
-
-        // 2. 将任务加入队列
-        collectQueue.enqueue(
-                task.getTaskId(),
-                param,
-                param.getPriority(),
-                this::processCollectTask
-        ).exceptionally(throwable -> {
-            taskManager.updateTaskStatus(
-                    task.getTaskId(),
-                    "ERROR",
-                    throwable.getMessage()
-            );
-            return null;
-        });
-
-        // 3. 返回异步响应
-        return AsyncResponse.<String>builder()
-                .taskId(task.getTaskId())
-                .status("QUEUED")
-                .message("Task queued successfully")
-                .build();
-    }
-
-    private void processCollectTask(CollectParam param) {
-        String taskId = param.getTaskId();
-        try {
-            taskManager.updateTaskStatus(taskId, "PROCESSING", "Starting data collection");
-
-            // 1. 获取所有版本
-            List<String> allVersions = httpService.getAllVersions(param
-            );
-
-            taskManager.updateTaskStatus(
-                    taskId,
-                    "PROCESSING",
-                    String.format("Found %d versions", allVersions.size())
-            );
-
-            // 2. 如果是增量同步，先清理数据
-            if (param.getIncremental()) {
-                cleanupIncrementalData(param, allVersions);
-            }
-
-            // 3. 处理每个版本
-            long totalProcessed = 0;
-            long estimatedTotal = calculateEstimatedTotal(param, allVersions);
-
-            taskManager.updateTaskProgress(taskId, totalProcessed, estimatedTotal);
-
-            for (String version : allVersions) {
-                totalProcessed += processVersion(
-                        param,
-                        version,
-                        taskId
-                );
-                taskManager.updateTaskProgress(taskId, totalProcessed, estimatedTotal);
-            }
-
-            taskManager.updateTaskStatus(
-                    taskId,
-                    "COMPLETED",
-                    String.format("Processed %d URIs", totalProcessed)
-            );
-
-        } catch (Exception e) {
-            log.error("Error processing collect task: {}", taskId, e);
-            taskManager.updateTaskStatus(
-                    taskId,
-                    "ERROR",
-                    "Error: " + e.getMessage()
-            );
-            throw new RuntimeException("Task processing failed", e);
-        }
-    }
-
-    private long processVersion(
-      CollectParam param,
-            String version,
-            String taskId
-    ) throws Exception {
-        String rootNode = param.getRootNode();
-        // 1. 获取该版本下的所有URI
-        List<String> allUris = httpService.getAllUrisForVersion(param, version);
-        long totalProcessed = 0;
-
-        // 2. 分批处理
-        List<List<String>> batches = partition(
-                allUris,
-                CollectionConstants.DEFAULT_BATCH_SIZE
-        );
-
-        for (List<String> batch : batches) {
-            // 获取URI详情
-            List<Map<String, Object>> details = httpService.batchGetUriDetails(
-                    param,
-                    batch,
-                    CollectionConstants.DEFAULT_BATCH_SIZE
-            );
-
-            // 创建实体并保存
-            List<UriEntity> entities = new ArrayList<>();
-            for (Map<String, Object> detail : details) {
-                UriEntity entity = null;
-                try {
-                    entity = entityPool.borrowObject();
-                    fillEntity(entity, rootNode, version, detail);
-                    entities.add(entity);
-                } catch (Exception e) {
-                    log.error("Error creating entity", e);
-                    if (entity != null) {
-                        entityPool.returnObject(entity);
-                    }
-                }
-            }
-
-            try {
-                if (!entities.isEmpty()) {
-                    repository.batchUpsert(rootNode, entities);
-                    totalProcessed += entities.size();
-                }
-            } finally {
-                // 返还对象到对象池
-                for (UriEntity entity : entities) {
-                    try {
-                        entityPool.returnObject(entity);
-                    } catch (Exception e) {
-                        log.error("Error returning entity to pool", e);
-                    }
-                }
-            }
-
-            // 更新任务进度
-            taskManager.updateTaskStatus(
-                    taskId,
-                    "PROCESSING",
-                    String.format("Processing version %s: %d/%d",
-                            version, totalProcessed, allUris.size())
-            );
-        }
-
-        return totalProcessed;
-    }
-
-    @Override
-    public AsyncResponse<Long> deleteData(DeleteParam param) {
-        // 1. 创建任务
-        TaskResponse task = taskManager.createTask(
-                "DELETE",
-                Map.of("rootNode", param.getRootNode(),
-                        "urisCount", param.getUris().size(),
-                        "hardDelete", param.getHardDelete()),
-                param.getPriority()
-        );
-
-        // 2. 将任务加入队列
-        deleteQueue.enqueue(
-                task.getTaskId(),
-                param,
-                param.getPriority(),
-                this::processDeleteTask
-        ).exceptionally(throwable -> {
-            taskManager.updateTaskStatus(
-                    task.getTaskId(),
-                    "ERROR",
-                    throwable.getMessage()
-            );
-            return null;
-        });
-
-        // 3. 返回异步响应
-        return AsyncResponse.<Long>builder()
-                .taskId(task.getTaskId())
-                .status("QUEUED")
-                .message("Delete task queued successfully")
-                .build();
-    }
-
-    private void processDeleteTask(DeleteParam param) {
-        String taskId = param.getTaskId();
-        try {
-            taskManager.updateTaskStatus(taskId, "PROCESSING", "Starting data deletion");
-
-            List<List<String>> batches = partition(
-                    param.getUris(),
-                    param.getBatchSize() != null ?
-                            param.getBatchSize() :
-                            CollectionConstants.DEFAULT_BATCH_SIZE
-            );
-
-            long totalDeleted = 0;
-            for (List<String> batch : batches) {
-                long batchCount;
-                if (param.getHardDelete()) {
-                    batchCount = repository.batchHardDelete(param.getRootNode(), batch);
-                } else {
-                    batchCount = repository.batchSoftDelete(param.getRootNode(), batch);
-                }
-                totalDeleted += batchCount;
-
-                taskManager.updateTaskProgress(
-                        taskId,
-                        totalDeleted,
-                        param.getUris().size()
-                );
-            }
-
-            taskManager.updateTaskStatus(
-                    taskId,
-                    "COMPLETED",
-                    String.format("Deleted %d URIs", totalDeleted)
-            );
-
-        } catch (Exception e) {
-            log.error("Error processing delete task: {}", taskId, e);
-            taskManager.updateTaskStatus(
-                    taskId,
-                    "ERROR",
-                    "Error: " + e.getMessage()
-            );
-            throw new RuntimeException("Delete task processing failed", e);
-        }
-    }
-
-    @Override
-    public Page<UriEntity> queryUri(QueryParam param) {
-        return repository.findByCondition(
-                param.getRootNode(),
-                param.getVersion(),
-                param.getVersionType(),
-                param.getIncludeDeleted(),
-                PageRequest.of(param.getPage() - 1, param.getSize())
-        );
-    }
-
-    @Override
-    public List<UriEntity> batchQueryUri(List<String> uris, Boolean includeDeleted) {
-        if (CollectionUtils.isEmpty(uris)) {
-            return Collections.emptyList();
-        }
-
-        // 使用第一个URI的rootNode作为默认值
-        return repository.batchQuery(
-                uris,
-                this::extractRootNode,
-                includeDeleted
-        );
-    }
-
-    @Override
-    public AsyncResponse<Void> getTaskStatus(String taskId) {
-        TaskResponse task = taskManager.getTaskStatus(taskId);
-        if (task == null) {
-            return AsyncResponse.<Void>builder()
-                    .taskId(taskId)
-                    .status("NOT_FOUND")
-                    .message("Task not found")
-                    .build();
-        }
-
-        return AsyncResponse.<Void>builder()
-                .taskId(taskId)
-                .status(task.getStatus())
-                .message(task.getMessage())
-                .progress(task.getProgress())
-                .startTime(task.getStartTime())
-                .endTime(task.getEndTime())
-                .build();
-    }
-
-    @Override
-    public boolean cancelTask(String taskId) {
-        // 尝试取消队列中的任务
-        if (collectQueue.cancel(taskId) || deleteQueue.cancel(taskId)) {
-            taskManager.cancelTask(taskId);
-            return true;
-        }
-        return false;
-    }
-
-    @Override
-    public boolean updateTaskPriority(String taskId, int priority) {
-        // 更新任务优先级
-        if (collectQueue.updatePriority(taskId, priority) ||
-                deleteQueue.updatePriority(taskId, priority)) {
-            return taskManager.updateTaskPriority(taskId, priority);
-        }
-        return false;
-    }
-
-    @Override
-    public List<AsyncResponse<Void>> getActiveTasks() {
-        return taskManager.getActiveTasks().stream()
-                .map(task -> AsyncResponse.<Void>builder()
-                        .taskId(task.getTaskId())
-                        .status(task.getStatus())
-                        .message(task.getMessage())
-                        .progress(task.getProgress())
-                        .startTime(task.getStartTime())
-                        .build())
-                .collect(Collectors.toList());
-    }
-
-    private void cleanupIncrementalData(
-            CollectParam param,
-            List<String> versions
-    ) throws Exception {
-        String rootNode = param.getRootNode();
-        Set<String> allUriHashes = new HashSet<>();
-
-        // 获取所有版本的URI
-        for (String version : versions) {
-            List<String> versionUris = httpService.getAllUrisForVersion(param, version);
-            allUriHashes.addAll(versionUris.stream()
-                    .map(this::generateUriHash)
-                    .collect(Collectors.toSet()));
-        }
-
-        // 删除不存在的URI //TODO 改成分页批量删除 ,可选软删除或者硬删除，根据param.getHardDelete()来判断
-        repository.deleteNotInUris(rootNode, allUriHashes);
-    }
-
-    private String generateUriHash(String uri) {
-        return Objects.hash(uri) + "";
-    }
-
-    private String extractRootNode(String uri) {
-        // 从URI中提取rootNode的逻辑
-        String[] parts = uri.split("/");
-        return parts.length > 0 ? parts[0] : "";
-    }
-
-    private <T> List<List<T>> partition(List<T> list, int size) {
-        if (CollectionUtils.isEmpty(list)) {
-            return Collections.emptyList();
-        }
-
-        List<List<T>> partitions = new ArrayList<>();
-        for (int i = 0; i < list.size(); i += size) {
-            partitions.add(list.subList(i, Math.min(i + size, list.size())));
-        }
-        return partitions;
-    }
-
-    private long calculateEstimatedTotal(CollectParam param, List<String> versions) {
-        long total = 0;
-        for (String version : versions) {
-            try {
-                PageResponse<String> response = httpService.getUriListAsync(
-                        param,
-                        version,
-                        new com.study.collect.business.testcase.model.param.PageParam(1, 1)
-                ).get();
-                total += response.getTotal();
-            } catch (Exception e) {
-                log.warn("Error calculating total for version: {}", version, e);
-            }
-        }
-        return total;
-    }
-
-    private void fillEntity(UriEntity entity, String rootNode, String version, Map<String, Object> detail) {
-        entity.setUri((String) detail.get("uri"));
-        entity.setRootNode(rootNode);
-        entity.setVersionType(getVersionType(version));
-        entity.setUriVersion(version);
-        entity.setDetails(detail);
-    }
-
-    private String getVersionType(String version) {
-        return version.toLowerCase().contains("branch") ? "BRANCH" : "TRUNK";
-    }
-}
-```
-
-## HashUtil.java
-
-```java
-package com.study.collect.business.testcase.utils;
-
-import org.apache.commons.codec.digest.DigestUtils;
-
-import org.apache.commons.codec.digest.DigestUtils;
-//
-public class HashUtil {
-    public static String hash(String input) {
-        return DigestUtils.sha256Hex(input);
-    }
-}
-
-```
-
-## HttpUtil.java
-
-```java
-package com.study.collect.business.testcase.utils;
-
-import javax.net.ssl.*;
-import java.io.*;
-import java.net.HttpURLConnection;
-import java.net.ProtocolException;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
-import java.security.cert.X509Certificate;
+import org.springframework.stereotype.Component;
+//import javax.annotation.PostConstruct;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.*;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import java.util.stream.Collectors;
 
 /**
- * HTTP/HTTPS工具类，支持同步/异步请求，自动重试，SSL证书验证绕过
- * 特性：
- * 1. 支持HTTP/HTTPS，自动绕过SSL证书验证
- * 2. 支持同步/异步请求
- * 3. 自动重试机制
- * 4. 线程池管理
- * 5. 支持批量请求
- * 6. 完整的请求/响应日志
+ * 任务处理器管理器
  */
-//
-public class HttpUtil {
-    private static final Logger logger = Logger.getLogger(HttpUtil.class.getName());
-    
-    // 配置常量
-    private static final int CONNECT_TIMEOUT = 5000; // 连接超时时间
-    private static final int READ_TIMEOUT = 15000;   // 读取超时时间
-    private static final int MAX_RETRY = 3;          // 最大重试次数
-    private static final int RETRY_INTERVAL = 1000;  // 重试间隔基数（毫秒）
-    
-    // 线程池配置
-    private static final ExecutorService executorService = new ThreadPoolExecutor(
-            10,                 // 核心线程数
-            20,                // 最大线程数
-            60L,               // 空闲线程存活时间
-            TimeUnit.SECONDS,
-            new LinkedBlockingQueue<>(1000), // 工作队列
-            new ThreadFactory() {
-                private int count = 0;
-                @Override
-                public Thread newThread(Runnable r) {
-                    Thread thread = new Thread(r);
-                    thread.setName("HttpUtil-Worker-" + count++);
-                    thread.setDaemon(true); // 设置为守护线程
-                    return thread;
-                }
-            },
-            new ThreadPoolExecutor.CallerRunsPolicy() // 拒绝策略
-    );
+@Slf4j
+@Component
+public class TaskHandlerManager {
 
-    /**
-     * 静态初始化：配置SSL，允许所有证书
-     */
-    static {
-        disableSslVerification();
+//    private final Map<String, TaskHandler> handlerMap = new HashMap<>();
+
+    @Autowired
+    private List<TaskHandler> handlers;
+
+    @PostConstruct
+    public void init() {
+        handlers.forEach(handler -> handlerMap.put(handler.getType(), handler));
     }
 
-    /**
-     * HTTP响应对象
-     */
-    public static class HttpResponse {
-        private final int code;
-        private final String body;
-        private final Map<String, List<String>> headers;
-        private final long responseTime; // 响应时间（毫秒）
+//    public TaskHandler getHandler(String type) {
+//        TaskHandler handler = handlerMap.get(type);
+//        if (handler == null) {
+//            throw new IllegalArgumentException("未找到任务处理器: " + type);
+//        }
+//        return handler;
+//    }
 
-        public HttpResponse(int code, String body, Map<String, List<String>> headers, long responseTime) {
-            this.code = code;
-            this.body = body;
-            this.headers = headers;
-            this.responseTime = responseTime;
+    private final Map<String, TaskHandler> handlerMap = new HashMap<>();
+
+    @Autowired
+    public TaskHandlerManager(List<TaskHandler> handlers) {
+        handlers.forEach(handler -> {
+            handlerMap.put(handler.getType(), handler);
+            log.info("注册任务处理器: {}", handler.getType());
+        });
+    }
+
+    public TaskHandler getHandler(String type) {
+        TaskHandler handler = handlerMap.get(type);
+        if (handler == null) {
+            throw new IllegalArgumentException("未找到任务处理器: " + type);
         }
-
-        public int getCode() { return code; }
-        public String getBody() { return body; }
-        public Map<String, List<String>> getHeaders() { return headers; }
-        public long getResponseTime() { return responseTime; }
-
-        @Override
-        public String toString() {
-            return String.format("HttpResponse{code=%d, responseTime=%dms, bodyLength=%d}",
-                    code, responseTime, body != null ? body.length() : 0);
-        }
-    }
-
-    /**
-     * 禁用SSL证书验证
-     */
-    private static void disableSslVerification() {
-        try {
-            // 创建信任所有证书的TrustManager
-            TrustManager[] trustAllCerts = new TrustManager[]{new X509TrustManager() {
-                public X509Certificate[] getAcceptedIssuers() { return null; }
-                public void checkClientTrusted(X509Certificate[] certs, String authType) {}
-                public void checkServerTrusted(X509Certificate[] certs, String authType) {}
-            }};
-
-            // 安装自定义的SSLContext
-            SSLContext sc = SSLContext.getInstance("SSL");
-            sc.init(null, trustAllCerts, new java.security.SecureRandom());
-            HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
-
-            // 配置主机名验证器
-            HostnameVerifier allHostsValid = (hostname, session) -> true;
-            HttpsURLConnection.setDefaultHostnameVerifier(allHostsValid);
-        } catch (Exception e) {
-            logger.log(Level.SEVERE, "SSL verification disable failed", e);
-        }
-    }
-
-    /**
-     * 执行HTTP请求
-     * @param method HTTP方法
-     * @param urlStr 请求URL
-     * @param body 请求体
-     * @param headers 请求头
-     * @return HTTP响应对象
-     */
-    public static HttpResponse request(String method, String urlStr, String body, Map<String, String> headers) throws IOException {
-        HttpURLConnection conn = null;
-        int retryCount = 0;
-        long startTime = System.currentTimeMillis();
-        
-        while (retryCount < MAX_RETRY) {
-            try {
-                URL url = new URL(urlStr);
-                conn = (HttpURLConnection) url.openConnection();
-                configureConnection(conn, method, headers);
-
-                // 写入请求体
-                if (shouldWriteBody(method, body)) {
-                    writeRequestBody(conn, body);
-                }
-
-                // 获取响应
-                int responseCode = conn.getResponseCode();
-                String responseBody = readResponse(conn, responseCode);
-                long responseTime = System.currentTimeMillis() - startTime;
-
-                // 记录请求信息
-                logRequest(method, urlStr, headers, body, responseCode, responseTime);
-
-                return new HttpResponse(responseCode, responseBody, conn.getHeaderFields(), responseTime);
-                
-            } catch (IOException e) {
-                handleRetry(++retryCount, e, urlStr);
-            } finally {
-                if (conn != null) {
-                    conn.disconnect();
-                }
-            }
-        }
-        
-        throw new IOException("Max retries exceeded for URL: " + urlStr);
-    }
-
-    /**
-     * 配置HTTP连接
-     */
-    private static void configureConnection(HttpURLConnection conn, String method, Map<String, String> headers) throws ProtocolException {
-        conn.setRequestMethod(method);
-        conn.setConnectTimeout(CONNECT_TIMEOUT);
-        conn.setReadTimeout(READ_TIMEOUT);
-        conn.setDoOutput(true);
-        conn.setDoInput(true);
-
-        // 设置通用headers
-        conn.setRequestProperty("Accept", "application/json");
-        conn.setRequestProperty("Content-Type", "application/json");
-        
-        // 设置自定义headers
-        if (headers != null) {
-            headers.forEach(conn::setRequestProperty);
-        }
-    }
-
-    /**
-     * 判断是否需要写入请求体
-     */
-    private static boolean shouldWriteBody(String method, String body) {
-        return body != null && !body.isEmpty() && 
-               (method.equals("POST") || method.equals("PUT") || method.equals("PATCH"));
-    }
-
-    /**
-     * 写入请求体
-     */
-    private static void writeRequestBody(HttpURLConnection conn, String body) throws IOException {
-        try (OutputStream os = conn.getOutputStream()) {
-            byte[] input = body.getBytes(StandardCharsets.UTF_8);
-            os.write(input, 0, input.length);
-        }
-    }
-
-    /**
-     * 读取响应内容
-     */
-    private static String readResponse(HttpURLConnection conn, int responseCode) throws IOException {
-        try (InputStream is = (responseCode >= 400) ? conn.getErrorStream() : conn.getInputStream()) {
-            if (is != null) {
-                try (BufferedReader br = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
-                    return br.lines().collect(Collectors.joining("\n"));
-                }
-            }
-        }
-        return "";
-    }
-
-    /**
-     * 处理重试逻辑
-     */
-    private static void handleRetry(int retryCount, IOException e, String url) throws IOException {
-        if (retryCount == MAX_RETRY) {
-            throw e;
-        }
-        
-        long sleepTime = (long) (RETRY_INTERVAL * Math.pow(2, retryCount - 1));
-        logger.log(Level.WARNING, String.format("Request failed for URL: %s, retry %d/%d after %dms",
-                url, retryCount, MAX_RETRY, sleepTime), e);
-                
-        try {
-            Thread.sleep(sleepTime);
-        } catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
-            throw new IOException("Request interrupted during retry", ie);
-        }
-    }
-
-    /**
-     * 记录请求日志
-     */
-    private static void logRequest(String method, String url, Map<String, String> headers, 
-                                 String body, int responseCode, long responseTime) {
-        logger.log(Level.INFO, String.format("HTTP %s %s - Response: %d, Time: %dms",
-                method, url, responseCode, responseTime));
-    }
-
-    /**
-     * 异步执行HTTP请求
-     */
-    public static CompletableFuture<HttpResponse> asyncRequest(String method, String url, 
-                                                             String body, Map<String, String> headers) {
-        return CompletableFuture.supplyAsync(() -> {
-            try {
-                return request(method, url, body, headers);
-            } catch (IOException e) {
-                throw new CompletionException(e);
-            }
-        }, executorService);
-    }
-
-    // 便捷方法
-    public static HttpResponse get(String url) throws IOException {
-        return request("GET", url, null, null);
-    }
-
-    public static HttpResponse get(String url, Map<String, String> headers) throws IOException {
-        return request("GET", url, null, headers);
-    }
-
-    public static HttpResponse post(String url, String body) throws IOException {
-        return request("POST", url, body, null);
-    }
-
-    public static HttpResponse post(String url, String body, Map<String, String> headers) throws IOException {
-        return request("POST", url, body, headers);
-    }
-
-    public static HttpResponse put(String url, String body) throws IOException {
-        return request("PUT", url, body, null);
-    }
-
-    public static HttpResponse delete(String url) throws IOException {
-        return request("DELETE", url, null, null);
-    }
-
-    public static HttpResponse patch(String url, String body) throws IOException {
-        return request("PATCH", url, body, null);
-    }
-
-    // 异步便捷方法
-    public static CompletableFuture<HttpResponse> asyncGet(String url) {
-        return asyncRequest("GET", url, null, null);
-    }
-
-    public static CompletableFuture<HttpResponse> asyncPost(String url, String body) {
-        return asyncRequest("POST", url, body, null);
-    }
-
-    /**
-     * 批量执行GET请求
-     */
-    public static List<HttpResponse> batchGet(List<String> urls) {
-        List<CompletableFuture<HttpResponse>> futures = urls.stream()
-                .map(HttpUtil::asyncGet)
-                .collect(Collectors.toList());
-
-        return futures.stream()
-                .map(CompletableFuture::join)
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * 关闭线程池
-     */
-    public static void shutdown() {
-        executorService.shutdown();
-        try {
-            if (!executorService.awaitTermination(60, TimeUnit.SECONDS)) {
-                executorService.shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            executorService.shutdownNow();
-            Thread.currentThread().interrupt();
-        }
+        return handler;
     }
 }
 
 ```
 
-## ListCompareUtil.java
+## TaskConfigMapper.java
 
 ```java
-package com.study.collect.business.testcase.utils;
+package com.study.collect.core.task.mapper;
 
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.mongodb.core.MongoOperations;
-import org.springframework.util.CollectionUtils;
+import com.study.collect.core.task.entity.TaskConfig;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
-import java.util.*;
-import java.util.function.Function;
-import java.util.stream.Collectors;
+import java.util.List;
 
-@Slf4j
-public class ListCompareUtil {
+
+@Mapper
+public interface TaskConfigMapper {
+    void insert(TaskConfig config);
+    void update(TaskConfig config);
+    TaskConfig selectById(Long id);
+    TaskConfig selectByCode(String taskCode);
+    List<TaskConfig> selectEnabled();
+    void updateStatus(@Param("taskCode") String taskCode, @Param("status") Integer status);
+    void deleteByCode(String taskCode);
+    List<TaskConfig> selectPage(@Param("taskName") String taskName,
+                                @Param("status") Integer status,
+                                @Param("offset") int offset,
+                                @Param("limit") int limit);
+    long countTotal(@Param("taskName") String taskName,
+                    @Param("status") Integer status);
+}
+```
+
+## TaskInstanceMapper.java
+
+```java
+package com.study.collect.core.task.mapper;
+
+import com.study.collect.core.task.entity.TaskInstance;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+import java.time.LocalDateTime;
+import java.util.List;
+
+@Mapper
+public interface TaskInstanceMapper {
+    void insert(TaskInstance instance);
+    void updateStatus(@Param("instanceId") String instanceId,
+                      @Param("status") Integer status,
+                      @Param("errorMsg") String errorMsg);
+    void updateEndTime(@Param("instanceId") String instanceId,
+                       @Param("endTime") LocalDateTime endTime);
+    TaskInstance selectById(Long id);
+    TaskInstance selectByInstanceId(String instanceId);
+    List<TaskInstance> selectRunning();
+    List<TaskInstance> selectByTaskCode(@Param("taskCode") String taskCode,
+                                        @Param("startTime") LocalDateTime startTime,
+                                        @Param("endTime") LocalDateTime endTime);
+    List<TaskInstance> selectTimeout(@Param("timeoutMinutes") int timeoutMinutes);
+    List<TaskInstance> selectByHostName(String hostName);
+    int countByStatus(@Param("taskCode") String taskCode,
+                      @Param("status") Integer status);
+    int cleanHistoryData(@Param("daysBefore") int daysBefore);
+}
+```
+
+## TaskLogMapper.java
+
+```java
+package com.study.collect.core.task.mapper;
+
+import com.study.collect.core.task.entity.TaskLog;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+import java.util.List;
+
+@Mapper
+public interface TaskLogMapper {
+    void insert(TaskLog log);
+    void batchInsert(@Param("logs") List<TaskLog> logs);
+    List<TaskLog> selectByInstanceId(String instanceId);
+    List<TaskLog> selectByTaskCode(@Param("taskCode") String taskCode,
+                                   @Param("logType") Integer logType,
+                                   @Param("limit") Integer limit);
+    List<TaskLog> selectLatestErrors(@Param("limit") int limit);
+    int countLogs(@Param("taskCode") String taskCode,
+                  @Param("logType") Integer logType);
+    int cleanHistoryLogs(@Param("daysBefore") int daysBefore);
+    void deleteByInstanceId(String instanceId);
+}
+```
+
+## package-info.java
+
+```java
+/**
+ * 任务模型层
+ */
+package com.study.collect.core.task.model;
+```
+
+## ShardingConfig.java
+
+```java
+package com.study.collect.core.task.model;
+
+import lombok.Data;
+import java.io.Serializable;
+
+@Data
+public class ShardingConfig implements Serializable {
+    /**
+     * 是否启用分片
+     */
+    private boolean enabled = false;
 
     /**
-     * 比较两个列表，找出在B中有但在A中没有的元素
+     * 分片总数
      */
-    public static <T> List<T> findMissingInA(List<T> listA, List<T> listB) {
-        if (CollectionUtils.isEmpty(listB)) {
-            return new ArrayList<>();
-        }
-        if (CollectionUtils.isEmpty(listA)) {
-            return new ArrayList<>(listB);
-        }
+    private Integer total = 1;
 
-        Set<T> setA = new HashSet<>(listA);
-        return listB.stream()
-                .filter(item -> !setA.contains(item))
-                .collect(Collectors.toList());
+    /**
+     * 分片策略
+     */
+    private String strategy;
+
+    /**
+     * 分片参数
+     */
+    private String parameter;
+
+    /**
+     * 是否允许分片并行执行
+     */
+    private boolean parallel = true;
+
+    /**
+     * 分片超时时间（秒）
+     */
+    private Integer timeout;
+
+    /**
+     * 分片失败处理策略
+     * CONTINUE: 继续执行其他分片
+     * STOP: 停止所有分片执行
+     */
+    private String failureStrategy = "CONTINUE";
+
+    /**
+     * 验证分片配置
+     */
+    public void validate() {
+        if (enabled) {
+            if (total == null || total < 1) {
+                throw new IllegalArgumentException("分片总数必须大于0");
+            }
+            if (timeout != null && timeout < 0) {
+                throw new IllegalArgumentException("分片超时时间不能小于0");
+            }
+        }
     }
 
     /**
-     * 根据指定字段比较两个列表，找出在B中有但在A中没有的元素
+     * 创建默认配置
      */
-    public static <T, R> List<T> findMissingInA(List<T> listA, List<T> listB,
-                                                Function<T, R> keyExtractor) {
-        if (CollectionUtils.isEmpty(listB)) {
-            return new ArrayList<>();
-        }
-        if (CollectionUtils.isEmpty(listA)) {
-            return new ArrayList<>(listB);
-        }
+    public static ShardingConfig createDefault() {
+        ShardingConfig config = new ShardingConfig();
+        config.setEnabled(false);
+        config.setTotal(1);
+        config.setStrategy("AVERAGE");
+        return config;
+    }
+}
+```
 
-        Set<R> keysA = listA.stream()
-                .map(keyExtractor)
-                .collect(Collectors.toSet());
+## TaskContext.java
 
-        return listB.stream()
-                .filter(item -> !keysA.contains(keyExtractor.apply(item)))
-                .collect(Collectors.toList());
+```java
+package com.study.collect.core.task.model;
+
+import lombok.Data;
+import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
+
+@Data
+public class TaskContext {
+    /**
+     * 任务ID
+     */
+    private String taskId;
+
+    /**
+     * 任务实例ID
+     */
+    private String instanceId;
+
+    /**
+     * 分片索引，从0开始
+     */
+    private Integer shardIndex;
+
+    /**
+     * 分片总数
+     */
+    private Integer shardTotal;
+
+    /**
+     * 分片参数，JSON格式
+     */
+    private String shardParam;
+
+    /**
+     * 执行开始时间
+     */
+    private LocalDateTime startTime;
+
+    /**
+     * 执行超时时间（秒）
+     */
+    private Integer timeout;
+
+    /**
+     * 执行机器
+     */
+    private String hostName;
+
+    /**
+     * 上下文参数，用于在执行过程中传递数据
+     */
+    private Map<String, Object> parameters;
+
+    public TaskContext() {
+        this.startTime = LocalDateTime.now();
+        this.parameters = new HashMap<>();
     }
 
     /**
-     * 找出两个列表的交集
+     * 设置上下文参数
      */
-    public static <T> List<T> findIntersection(List<T> listA, List<T> listB) {
-        if (CollectionUtils.isEmpty(listA) || CollectionUtils.isEmpty(listB)) {
-            return new ArrayList<>();
-        }
-
-        Set<T> setB = new HashSet<>(listB);
-        return listA.stream()
-                .filter(setB::contains)
-                .collect(Collectors.toList());
+    public void setParameter(String key, Object value) {
+        this.parameters.put(key, value);
     }
 
     /**
-     * 根据指定字段找出两个列表的交集
+     * 获取上下文参数
      */
-    public static <T, R> List<T> findIntersection(List<T> listA, List<T> listB,
-                                                  Function<T, R> keyExtractor) {
-        if (CollectionUtils.isEmpty(listA) || CollectionUtils.isEmpty(listB)) {
-            return new ArrayList<>();
-        }
-
-        Set<R> keysB = listB.stream()
-                .map(keyExtractor)
-                .collect(Collectors.toSet());
-
-        return listA.stream()
-                .filter(item -> keysB.contains(keyExtractor.apply(item)))
-                .collect(Collectors.toList());
+    @SuppressWarnings("unchecked")
+    public <T> T getParameter(String key) {
+        return (T) this.parameters.get(key);
     }
 
     /**
-     * 找出两个列表的差集（在A中但不在B中的元素）
+     * 移除上下文参数
      */
-    public static <T> List<T> findDifference(List<T> listA, List<T> listB) {
-        if (CollectionUtils.isEmpty(listA)) {
-            return new ArrayList<>();
-        }
-        if (CollectionUtils.isEmpty(listB)) {
-            return new ArrayList<>(listA);
-        }
-
-        Set<T> setB = new HashSet<>(listB);
-        return listA.stream()
-                .filter(item -> !setB.contains(item))
-                .collect(Collectors.toList());
+    public void removeParameter(String key) {
+        this.parameters.remove(key);
     }
 
     /**
-     * 根据指定字段找出两个列表的差集
+     * 清空所有上下文参数
      */
-    public static <T, R> List<T> findDifference(List<T> listA, List<T> listB,
-                                                Function<T, R> keyExtractor) {
-        if (CollectionUtils.isEmpty(listA)) {
-            return new ArrayList<>();
-        }
-        if (CollectionUtils.isEmpty(listB)) {
-            return new ArrayList<>(listA);
-        }
+    public void clearParameters() {
+        this.parameters.clear();
+    }
+}
+```
 
-        Set<R> keysB = listB.stream()
-                .map(keyExtractor)
-                .collect(Collectors.toSet());
+## TaskDefinition.java
 
-        return listA.stream()
-                .filter(item -> !keysB.contains(keyExtractor.apply(item)))
-                .collect(Collectors.toList());
+```java
+package com.study.collect.core.task.model;
+
+// 任务定义
+
+
+import lombok.Data;
+
+import java.util.Map;
+
+@Data
+public class TaskDefinition {
+    private String taskId;           // 任务ID
+    private String taskName;         // 任务名称
+    private String taskHandler;      // 任务处理器
+    private String cronExpression;   // 调度表达式
+    private ShardingConfig sharding; // 分片配置
+    private Map<String, Object> props;// 扩展属性
+}
+
+```
+
+## TaskResult.java
+
+```java
+package com.study.collect.core.task.model;
+
+// 任务结果
+
+import lombok.Data;
+
+import java.time.LocalDateTime;
+
+@Data
+public class TaskResult {
+    private String taskId;          // 任务ID
+    private Boolean success;        // 执行结果
+    private String errorMessage;    // 错误信息
+    private Object data;           // 结果数据
+    private LocalDateTime finishTime; // 完成时间
+
+    public static TaskResult success(String taskId, Object data) {
+        TaskResult result = new TaskResult();
+        result.setTaskId(taskId);
+        result.setSuccess(true);
+        result.setData(data);
+        result.setFinishTime(LocalDateTime.now());
+        return result;
     }
 
-    /**
-     * 分页处理列表
-     */
-    public static <T> List<List<T>> partition(List<T> list, int size) {
-        if (CollectionUtils.isEmpty(list)) {
-            return new ArrayList<>();
-        }
-
-        List<List<T>> result = new ArrayList<>();
-        for (int i = 0; i < list.size(); i += size) {
-            result.add(list.subList(i, Math.min(i + size, list.size())));
-        }
+    public static TaskResult failure(String taskId, String errorMessage) {
+        TaskResult result = new TaskResult();
+        result.setTaskId(taskId);
+        result.setSuccess(false);
+        result.setErrorMessage(errorMessage);
+        result.setFinishTime(LocalDateTime.now());
         return result;
     }
 }
@@ -3926,434 +3916,1013 @@ public class ListCompareUtil {
 
 ```
 
-## RateLimiter.java
+## TaskStatus.java
 
 ```java
-package com.study.collect.business.testcase.utils;
+package com.study.collect.core.task.model;
 
-import com.study.collect.business.testcase.constant.CollectionConstants;
+// 任务状态枚举
+public enum TaskStatus {
+    CREATED("已创建"),
+    WAITING("等待中"),
+    RUNNING("执行中"),
+    SUCCESS("执行成功"),
+    FAILED("执行失败"),
+    CANCELED("已取消"),
+    TIMEOUT("已超时");
+
+    private final String description;
+
+    TaskStatus(String description) {
+        this.description = description;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+}
+```
+
+## AbstractTaskScheduler.java
+
+```java
+package com.study.collect.core.task.scheduler;
+
+
+import com.study.collect.core.task.entity.TaskConfig;
+import com.study.collect.core.task.model.TaskDefinition;
+import com.study.collect.core.task.service.TaskConfigService;
+import com.study.collect.core.task.service.TaskExecuteService;
 import lombok.extern.slf4j.Slf4j;
+
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ScheduledFuture;
+
+@Slf4j
+public abstract class AbstractTaskScheduler implements TaskScheduler {
+
+    protected final TaskConfigService taskConfigService;
+    protected final TaskExecuteService taskExecuteService;
+    protected final Map<String, ScheduledFuture<?>> scheduledTasks = new ConcurrentHashMap<>();
+
+    protected AbstractTaskScheduler(TaskConfigService taskConfigService, TaskExecuteService taskExecuteService) {
+        this.taskConfigService = taskConfigService;
+        this.taskExecuteService = taskExecuteService;
+    }
+
+    @Override
+    public void start() {
+        log.info("Starting task scheduler...");
+        doStart();
+    }
+
+    @Override
+    public void stop() {
+        log.info("Stopping task scheduler...");
+        scheduledTasks.values().forEach(future -> future.cancel(true));
+        scheduledTasks.clear();
+        doStop();
+    }
+
+    @Override
+    public void addTask(TaskDefinition task) {
+        TaskConfig config = convertToConfig(task);
+        taskConfigService.saveTaskConfig(config);
+        doAddTask(task);
+    }
+
+    @Override
+    public void removeTask(String taskId) {
+        ScheduledFuture<?> future = scheduledTasks.remove(taskId);
+        if (future != null) {
+            future.cancel(true);
+        }
+        doRemoveTask(taskId);
+    }
+
+    protected abstract void doStart();
+    protected abstract void doStop();
+    protected abstract void doAddTask(TaskDefinition task);
+    protected abstract void doRemoveTask(String taskId);
+
+    // 提供任务配置转换方法
+    protected TaskConfig convertToConfig(TaskDefinition task) {
+        TaskConfig config = new TaskConfig();
+        config.setTaskCode(task.getTaskId());
+        config.setTaskName(task.getTaskName());
+        config.setTaskHandler(task.getTaskHandler());
+        config.setCronExpr(task.getCronExpression());
+        config.setShardTotal(task.getSharding() != null ? task.getSharding().getTotal() : 1);
+        return config;
+    }
+}
+```
+
+## DefaultTaskScheduler.java
+
+```java
+package com.study.collect.core.task.scheduler;
+
+import com.study.collect.core.task.entity.TaskConfig;
+import com.study.collect.core.task.entity.TaskInstance;
+import com.study.collect.core.task.model.TaskDefinition;
+import com.study.collect.core.task.service.TaskConfigService;
+import com.study.collect.core.task.service.TaskExecuteService;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.TaskScheduler;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.scheduling.support.CronTrigger;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.UUID;
+import java.util.concurrent.ScheduledFuture;
 
-/**
- * 限流器实现
- * 使用滑动窗口算法实现限流
- */
 @Slf4j
 @Component
-public class RateLimiter {
-    private final int permitsPerMinute;
-    private final ConcurrentLinkedQueue<Long> timestamps;
-    private final AtomicInteger currentPermits;
-    private final ScheduledExecutorService scheduler;
+public class DefaultTaskScheduler extends AbstractTaskScheduler {
 
-    public RateLimiter() {
-        this.permitsPerMinute = CollectionConstants.HTTP_MAX_REQUESTS_PER_MINUTE;
-        this.timestamps = new ConcurrentLinkedQueue<>();
-        this.currentPermits = new AtomicInteger(0);
-        this.scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
-            Thread thread = new Thread(r);
-            thread.setName("rate-limiter-cleaner");
-            thread.setDaemon(true);
-            return thread;
+    private final TaskScheduler scheduler;
+    private final TaskDispatcher taskDispatcher;
+    private volatile boolean running = false;
+
+    public DefaultTaskScheduler(TaskConfigService taskConfigService,
+                                TaskExecuteService taskExecuteService,
+                                TaskScheduler scheduler,
+                                TaskDispatcher taskDispatcher) {
+        super(taskConfigService, taskExecuteService);
+        this.scheduler = scheduler;
+        this.taskDispatcher = taskDispatcher;
+    }
+
+    @Override
+    protected void doStart() {
+        if (running) {
+            return;
+        }
+        running = true;
+
+        // 加载所有可用的任务配置并调度
+        taskConfigService.getEnabledTaskConfigs().forEach(config -> {
+            try {
+                TaskDefinition task = convertToDefinition(config);
+                scheduleTask(task);
+                log.info("Loaded task from config: {}", config.getTaskCode());
+            } catch (Exception e) {
+                log.error("Failed to load task: {}", config.getTaskCode(), e);
+            }
         });
 
-        // 定期清理过期的时间戳
-        scheduler.scheduleAtFixedRate(this::cleanup, 1, 1, TimeUnit.MINUTES);
+        // 启动定时任务状态检查
+        scheduler.scheduleWithFixedDelay(
+                this::checkRunningTasks,
+                Duration.ofMinutes(1)
+        );
+
+        log.info("Task scheduler started successfully");
     }
 
-    /**
-     * 获取许可
-     */
-    public void acquire() throws InterruptedException {
-        while (!tryAcquire()) {
-            Thread.sleep(100);  // 等待100ms后重试
+    @Override
+    protected void doStop() {
+        if (!running) {
+            return;
         }
-    }
+        running = false;
 
-    /**
-     * 尝试获取许可
-     */
-    public boolean tryAcquire() {
-        cleanup();  // 清理过期的时间戳
-
-        long now = System.currentTimeMillis();
-        int currentCount = currentPermits.get();
-
-        if (currentCount >= permitsPerMinute) {
-            return false;
-        }
-
-        if (currentPermits.incrementAndGet() <= permitsPerMinute) {
-            timestamps.offer(now);
-            return true;
-        } else {
-            currentPermits.decrementAndGet();
-            return false;
-        }
-    }
-
-    /**
-     * 清理过期的时间戳
-     */
-    private void cleanup() {
-        long now = System.currentTimeMillis();
-        long oneMinuteAgo = now - TimeUnit.MINUTES.toMillis(1);
-
-        // 移除一分钟前的时间戳
-        while (!timestamps.isEmpty() && timestamps.peek() < oneMinuteAgo) {
-            timestamps.poll();
-            currentPermits.decrementAndGet();
-        }
-    }
-
-    /**
-     * 获取当前速率
-     */
-    public int getCurrentRate() {
-        cleanup();
-        return currentPermits.get();
-    }
-
-    /**
-     * 关闭清理线程
-     */
-    public void shutdown() {
-        scheduler.shutdown();
-        try {
-            if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {
-                scheduler.shutdownNow();
+        // 停止所有运行中的任务
+        taskExecuteService.getRunningTasks().forEach(instance -> {
+            try {
+                taskExecuteService.completeTaskInstance(
+                        instance.getInstanceId(),
+                        false,
+                        "Scheduler stopped"
+                );
+                log.info("Stopped running task: {}", instance.getInstanceId());
+            } catch (Exception e) {
+                log.error("Failed to stop task: {}", instance.getInstanceId(), e);
             }
-        } catch (InterruptedException e) {
-            scheduler.shutdownNow();
-            Thread.currentThread().interrupt();
+        });
+
+        log.info("Task scheduler stopped successfully");
+    }
+
+    @Override
+    protected void doAddTask(TaskDefinition task) {
+        validateTask(task);
+        scheduleTask(task);
+        log.info("Added new task: {}", task.getTaskId());
+    }
+
+    @Override
+    protected void doRemoveTask(String taskId) {
+        taskConfigService.disableTask(taskId);
+        log.info("Removed task: {}", taskId);
+    }
+
+    @Override
+    public void pauseTask(String taskId) {
+        ScheduledFuture<?> future = scheduledTasks.get(taskId);
+        if (future != null) {
+            future.cancel(false);
+            taskConfigService.disableTask(taskId);
+            log.info("Paused task: {}", taskId);
+        }
+    }
+
+    @Override
+    public void resumeTask(String taskId) {
+        TaskConfig config = taskConfigService.getTaskConfig(taskId);
+        if (config != null) {
+            taskConfigService.enableTask(taskId);
+            scheduleTask(convertToDefinition(config));
+            log.info("Resumed task: {}", taskId);
+        }
+    }
+
+    private void scheduleTask(TaskDefinition task) {
+        // 验证cron表达式
+        if (!StringUtils.hasText(task.getCronExpression())) {
+            log.warn("Task {} has no cron expression, skipped scheduling", task.getTaskId());
+            return;
+        }
+
+        try {
+            ScheduledFuture<?> future = scheduler.schedule(
+                    () -> executeTask(task),
+                    new CronTrigger(task.getCronExpression())
+            );
+
+            // 如果任务已存在，取消旧的调度
+            ScheduledFuture<?> existing = scheduledTasks.put(task.getTaskId(), future);
+            if (existing != null) {
+                existing.cancel(true);
+                log.info("Replaced existing schedule for task: {}", task.getTaskId());
+            }
+
+            log.info("Scheduled task: {}, cron: {}", task.getTaskId(), task.getCronExpression());
+
+        } catch (Exception e) {
+            log.error("Failed to schedule task: {}", task.getTaskId(), e);
+            throw new RuntimeException("Failed to schedule task", e);
+        }
+    }
+
+    private void executeTask(TaskDefinition task) {
+        try {
+            log.info("Starting task execution: {}", task.getTaskId());
+
+            // 获取分片配置
+            int shardTotal = task.getSharding() != null ? task.getSharding().getTotal() : 1;
+
+            // 创建并分发分片任务
+            for (int shardIndex = 0; shardIndex < shardTotal; shardIndex++) {
+                String shardParam = createShardParam(shardIndex, shardTotal);
+                TaskInstance instance = taskExecuteService.createTaskInstance(
+                        task.getTaskId(),
+                        shardIndex,
+                        shardParam
+                );
+
+                taskDispatcher.dispatch(instance);
+                log.info("Dispatched task instance: {} - shard {}/{}",
+                        instance.getInstanceId(), shardIndex + 1, shardTotal);
+            }
+
+        } catch (Exception e) {
+            log.error("Task execution failed: {}", task.getTaskId(), e);
+        }
+    }
+
+    @Scheduled(fixedDelay = 60000)  // 每分钟检查一次
+    private void checkRunningTasks() {
+        if (!running) {
+            return;
+        }
+
+        try {
+            taskExecuteService.getRunningTasks().forEach(instance -> {
+                TaskConfig config = taskConfigService.getTaskConfig(instance.getTaskCode());
+                if (config != null && config.getTimeout() > 0) {
+                    checkTaskTimeout(instance, config.getTimeout());
+                }
+            });
+        } catch (Exception e) {
+            log.error("Failed to check running tasks", e);
+        }
+    }
+
+    private void checkTaskTimeout(TaskInstance instance, int timeoutSeconds) {
+        if (instance.getStartTime() == null) {
+            return;
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        if (instance.getStartTime().plusSeconds(timeoutSeconds).isBefore(now)) {
+            try {
+                taskExecuteService.completeTaskInstance(
+                        instance.getInstanceId(),
+                        false,
+                        "Task execution timed out after " + timeoutSeconds + " seconds"
+                );
+                log.warn("Task instance timed out: {}", instance.getInstanceId());
+            } catch (Exception e) {
+                log.error("Failed to handle task timeout: {}", instance.getInstanceId(), e);
+            }
+        }
+    }
+
+    private String createShardParam(int shardIndex, int shardTotal) {
+        return String.format("{\"shardIndex\":%d,\"shardTotal\":%d,\"uuid\":\"%s\"}",
+                shardIndex, shardTotal, UUID.randomUUID().toString());
+    }
+
+    private TaskDefinition convertToDefinition(TaskConfig config) {
+        TaskDefinition task = new TaskDefinition();
+        task.setTaskId(config.getTaskCode());
+        task.setTaskName(config.getTaskName());
+        task.setTaskHandler(config.getTaskHandler());
+        task.setCronExpression(config.getCronExpr());
+        // 设置其他属性...
+        return task;
+    }
+
+    private void validateTask(TaskDefinition task) {
+        if (!StringUtils.hasText(task.getTaskId())) {
+            throw new IllegalArgumentException("Task ID cannot be empty");
+        }
+        if (!StringUtils.hasText(task.getTaskHandler())) {
+            throw new IllegalArgumentException("Task handler cannot be empty");
+        }
+        if (StringUtils.hasText(task.getCronExpression())) {
+            try {
+                new CronTrigger(task.getCronExpression());
+            } catch (Exception e) {
+                throw new IllegalArgumentException("Invalid cron expression: " + task.getCronExpression());
+            }
         }
     }
 }
 ```
 
-## StreamProcessManager.java
+## package-info.java
 
 ```java
-package com.study.collect.business.testcase.utils;
-
-import com.study.collect.business.testcase.constant.CollectionConstants;
-import lombok.Builder;
-import lombok.Data;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.mongodb.core.MongoTemplate;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Consumer;
-import java.util.function.Function;
-
 /**
- * 通用流式处理管理器
- *
- * @param <T> 源数据类型
- * @param <R> 结果数据类型
+ * 调度层
  */
+package com.study.collect.core.task.scheduler;
+```
+
+## TaskDispatcher.java
+
+```java
+package com.study.collect.core.task.scheduler;
+
+import com.study.collect.core.task.enums.TaskStatusEnum;
+import com.study.collect.core.mq.message.TaskMessage;
+import com.study.collect.core.mq.producer.TaskProducer;
+import com.study.collect.core.task.entity.TaskInstance;
+import com.study.collect.core.task.mapper.TaskInstanceMapper;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
 @Slf4j
-public class StreamProcessManager<T, R> {
-    private final ProcessConfig<T, R> config;
-    private final ExecutorService processExecutor;
-    private final ExecutorService saveExecutor;
-    private final BlockingQueue<CompletableFuture<?>> processQueue;
-    private final AtomicInteger activeProcesses;
-    private final List<ProcessMetrics> metricsHistory;
-    private volatile boolean running = true;
+@Component
+public class TaskDispatcher {
 
-    /**
-     * 处理配置
-     */
-    @Data
-    @Builder
-    public static class ProcessConfig<T, R> {
-        // 基础配置
-        private String processName;
-        private int batchSize;
-        private int processThreads;
-        private int saveThreads;
-        private boolean useVirtualThreads;
+    private final TaskProducer taskProducer;
+    private final TaskInstanceMapper taskInstanceMapper;
 
-        // 数据处理函数
-        private Function<Integer, List<T>> dataFetcher;      // 数据获取函数
-        private Function<T, R> dataConverter;                // 数据转换函数
-        private Consumer<List<R>> dataSaver;                 // 数据保存函数
-        private Consumer<ProcessMetrics> progressCallback;    // 进度回调函数
-
-        // 监控配置
-        private long timeoutSeconds;
-        private int maxRetries;
-        private long retryDelayMs;
+    @Autowired
+    public TaskDispatcher(TaskProducer taskProducer, TaskInstanceMapper taskInstanceMapper) {
+        this.taskProducer = taskProducer;
+        this.taskInstanceMapper = taskInstanceMapper;
     }
 
-    /**
-     * 处理指标
-     */
-    @Data
-    @Builder
-    public static class ProcessMetrics {
-        private String processName;
-        private long totalItems;
-        private long processedItems;
-        private long failedItems;
-        private long startTime;
-        private long endTime;
-        private double progressPercentage;
-        private Map<String, Object> customMetrics;
-    }
-
-    public StreamProcessManager(ProcessConfig<T, R> config) {
-        this.config = config;
-        this.processExecutor = createExecutor(config.getProcessThreads(), config.isUseVirtualThreads());
-        this.saveExecutor = createExecutor(config.getSaveThreads(), config.isUseVirtualThreads());
-        this.processQueue = new ArrayBlockingQueue<>(1000);
-        this.activeProcesses = new AtomicInteger(0);
-        this.metricsHistory = new CopyOnWriteArrayList<>();
-
-        validateConfig(config);
-    }
-
-    /**
-     * 开始处理数据
-     */
-    public CompletableFuture<ProcessMetrics> processData(int offset, int limit) {
-        ProcessMetrics metrics = initializeMetrics();
-        CompletableFuture<ProcessMetrics> resultFuture = new CompletableFuture<>();
-
+    public void dispatch(TaskInstance instance) {
         try {
-            activeProcesses.incrementAndGet();
-            processDataBatches(offset, limit, metrics, resultFuture);
-        } catch (Exception e) {
-            activeProcesses.decrementAndGet();
-            resultFuture.completeExceptionally(e);
-        }
+            // 更新任务状态为执行中
+            updateTaskStatus(instance.getInstanceId(), TaskStatusEnum.RUNNING, null);
 
-        return resultFuture;
-    }
+            // 转换并发送消息
+            TaskMessage message = convertToMessage(instance);
+            taskProducer.sendTask(message);
 
-    private void processDataBatches(
-            int offset,
-            int limit,
-            ProcessMetrics metrics,
-            CompletableFuture<ProcessMetrics> resultFuture
-    ) {
-        CompletableFuture.runAsync(() -> {
-            try {
-                int processed = 0;
-                while (running && processed < limit) {
-                    // 获取一批数据
-                    List<T> batch = config.getDataFetcher().apply(offset + processed);
-                    if (batch.isEmpty()) {
-                        break;
-                    }
-
-                    // 处理这批数据
-                    processBatch(batch, metrics);
-                    processed += batch.size();
-
-                    // 更新进度
-                    updateProgress(metrics, processed, limit);
-                }
-
-                // 完成处理
-                completeProcessing(metrics, resultFuture);
-
-            } catch (Exception e) {
-                handleProcessingError(e, metrics, resultFuture);
-            }
-        }, processExecutor);
-    }
-
-    private void processBatch(List<T> batch, ProcessMetrics metrics) {
-        int retryCount = 0;
-        while (retryCount <= config.getMaxRetries()) {
-            try {
-                // 转换数据
-                List<R> convertedBatch = batch.stream()
-                        .map(config.getDataConverter()::apply)
-                        .collect(java.util.stream.Collectors.toList());
-
-                // 异步保存数据
-                CompletableFuture<Void> saveFuture = CompletableFuture.runAsync(() -> {
-                    config.getDataSaver().accept(convertedBatch);
-                }, saveExecutor);
-
-                // 添加到处理队列
-                processQueue.put(saveFuture);
-
-                // 检查和清理完成的任务
-                cleanupCompletedTasks();
-                break;
-
-            } catch (Exception e) {
-                if (++retryCount > config.getMaxRetries()) {
-                    log.error("Failed to process batch after {} retries", config.getMaxRetries(), e);
-                    metrics.setFailedItems(metrics.getFailedItems() + batch.size());
-                    throw new RuntimeException("Batch processing failed", e);
-                }
-                try {
-                    Thread.sleep(config.getRetryDelayMs() * (long) Math.pow(2, retryCount - 1));
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                    throw new RuntimeException("Processing interrupted", ie);
-                }
-            }
-        }
-    }
-
-    private void cleanupCompletedTasks() {
-        processQueue.removeIf(future -> {
-            if (future.isDone()) {
-                try {
-                    future.get(0, TimeUnit.MILLISECONDS);
-                    return true;
-                } catch (Exception e) {
-                    log.error("Task completed with error", e);
-                    return true;
-                }
-            }
-            return false;
-        });
-    }
-
-    private ProcessMetrics initializeMetrics() {
-        return ProcessMetrics.builder()
-                .processName(config.getProcessName())
-                .startTime(System.currentTimeMillis())
-                .totalItems(0)
-                .processedItems(0)
-                .failedItems(0)
-                .progressPercentage(0.0)
-                .build();
-    }
-
-    private void updateProgress(ProcessMetrics metrics, long processed, long total) {
-        metrics.setProcessedItems(processed);
-        metrics.setTotalItems(total);
-        metrics.setProgressPercentage((double) processed / total * 100);
-
-        if (config.getProgressCallback() != null) {
-            config.getProgressCallback().accept(metrics);
-        }
-    }
-
-    private void completeProcessing(
-            ProcessMetrics metrics,
-            CompletableFuture<ProcessMetrics> resultFuture
-    ) {
-        metrics.setEndTime(System.currentTimeMillis());
-        metricsHistory.add(metrics);
-        activeProcesses.decrementAndGet();
-        resultFuture.complete(metrics);
-    }
-
-    private void handleProcessingError(
-            Exception e,
-            ProcessMetrics metrics,
-            CompletableFuture<ProcessMetrics> resultFuture
-    ) {
-        log.error("Error processing data", e);
-        metrics.setEndTime(System.currentTimeMillis());
-        metricsHistory.add(metrics);
-        activeProcesses.decrementAndGet();
-        resultFuture.completeExceptionally(e);
-    }
-
-    private ExecutorService createExecutor(int threads, boolean useVirtualThreads) {
-        if (useVirtualThreads) {
-            return Executors.newVirtualThreadPerTaskExecutor();
-        } else {
-            return new ThreadPoolExecutor(
-                    threads,
-                    threads,
-                    60L,
-                    TimeUnit.SECONDS,
-                    new LinkedBlockingQueue<>(1000),
-                    new ThreadFactory() {
-                        private final AtomicInteger count = new AtomicInteger(0);
-
-                        @Override
-                        public Thread newThread(Runnable r) {
-                            Thread thread = new Thread(r);
-                            thread.setName("stream-processor-" + count.incrementAndGet());
-                            thread.setDaemon(true);
-                            return thread;
-                        }
-                    },
-                    new ThreadPoolExecutor.CallerRunsPolicy()
+            log.info("Task dispatched successfully: instanceId={}, taskCode={}, shard={}/{}",
+                    instance.getInstanceId(),
+                    instance.getTaskCode(),
+                    instance.getShardIndex() + 1,
+                    instance.getShardTotal()
             );
+
+        } catch (Exception e) {
+            log.error("Failed to dispatch task: " + instance.getInstanceId(), e);
+
+            // 更新任务状态为失败
+            updateTaskStatus(instance.getInstanceId(), TaskStatusEnum.FAILED, e.getMessage());
+            throw new RuntimeException("Task dispatch failed", e);
         }
     }
 
-    private void validateConfig(ProcessConfig<T, R> config) {
-        if (config.getDataFetcher() == null) {
-            throw new IllegalArgumentException("DataFetcher cannot be null");
-        }
-        if (config.getDataConverter() == null) {
-            throw new IllegalArgumentException("DataConverter cannot be null");
-        }
-        if (config.getDataSaver() == null) {
-            throw new IllegalArgumentException("DataSaver cannot be null");
-        }
+    private void updateTaskStatus(String instanceId, TaskStatusEnum status, String errorMsg) {
+        taskInstanceMapper.updateStatus(instanceId, status.getCode(), errorMsg);
     }
 
-    /**
-     * 停止处理
-     */
-    public void shutdown() {
-        running = false;
-        processExecutor.shutdown();
-        saveExecutor.shutdown();
-        try {
-            if (!processExecutor.awaitTermination(30, TimeUnit.SECONDS)) {
-                processExecutor.shutdownNow();
-            }
-            if (!saveExecutor.awaitTermination(30, TimeUnit.SECONDS)) {
-                saveExecutor.shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            processExecutor.shutdownNow();
-            saveExecutor.shutdownNow();
-        }
-    }
-
-    /**
-     * 获取处理指标历史
-     */
-    public List<ProcessMetrics> getMetricsHistory() {
-        return new ArrayList<>(metricsHistory);
-    }
-
-    /**
-     * 获取当前活动处理数
-     */
-    public int getActiveProcessCount() {
-        return activeProcesses.get();
-    }
-
-    /**
-     * 获取处理队列大小
-     */
-    public int getQueueSize() {
-        return processQueue.size();
+    private TaskMessage convertToMessage(TaskInstance instance) {
+        TaskMessage message = new TaskMessage();
+        message.setTaskId(instance.getTaskCode());
+        message.setInstanceId(instance.getInstanceId());
+        message.setShardIndex(instance.getShardIndex());
+        message.setShardTotal(instance.getShardTotal());
+        message.setShardParam(instance.getShardParam());
+        message.setHostName(instance.getHostName());
+        return message;
     }
 }
 ```
 
-## spring.factories
+## TaskScheduler.java
+
+```java
+package com.study.collect.core.task.scheduler;
+
+// 调度器接口
+
+
+import com.study.collect.core.task.model.TaskDefinition;
+
+public interface TaskScheduler {
+    /**
+     * 启动调度器
+     */
+    void start();
+
+    /**
+     * 停止调度器
+     */
+    void stop();
+
+    /**
+     * 添加任务
+     */
+    void addTask(TaskDefinition task);
+
+    /**
+     * 移除任务
+     */
+    void removeTask(String taskId);
+
+    /**
+     * 暂停任务
+     */
+    void pauseTask(String taskId);
+
+    /**
+     * 恢复任务
+     */
+    void resumeTask(String taskId);
+}
 
 ```
-org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
-com.study.collect.business.testcase.config.TestCaseAutoConfiguration
+
+## TaskConfigService.java
+
+```java
+package com.study.collect.core.task.service;
+
+import com.study.collect.core.task.enums.TaskStatusEnum;
+import com.study.collect.core.task.entity.TaskConfig;
+import com.study.collect.core.task.mapper.TaskConfigMapper;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+
+/**
+ * TaskConfigService
+ */
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class TaskConfigService {
+
+    private final TaskConfigMapper taskConfigMapper;
+
+    @Transactional(rollbackFor = Exception.class)
+    public void saveTaskConfig(TaskConfig config) {
+        TaskConfig existConfig = taskConfigMapper.selectByCode(config.getTaskCode());
+        if (existConfig == null) {
+            log.info("新增任务配置: {}", config.getTaskCode());
+            taskConfigMapper.insert(config);
+        } else {
+            log.info("更新任务配置: {}", config.getTaskCode());
+            taskConfigMapper.update(config);
+        }
+    }
+
+    public TaskConfig getTaskConfig(String taskCode) {
+        return taskConfigMapper.selectByCode(taskCode);
+    }
+
+    public List<TaskConfig> getEnabledTaskConfigs() {
+        return taskConfigMapper.selectEnabled();
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void enableTask(String taskCode) {
+        taskConfigMapper.updateStatus(taskCode, TaskStatusEnum.RUNNING.getCode());
+        log.info("启用任务: {}", taskCode);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void disableTask(String taskCode) {
+        taskConfigMapper.updateStatus(taskCode, TaskStatusEnum.INIT.getCode());
+        log.info("禁用任务: {}", taskCode);
+    }
+
+    public void validateTaskConfig(TaskConfig config) {
+        if (config.getShardTotal() == null || config.getShardTotal() < 1) {
+            config.setShardTotal(1);
+        }
+        if (config.getRetryTimes() == null) {
+            config.setRetryTimes(0);
+        }
+        if (config.getRetryInterval() == null) {
+            config.setRetryInterval(0);
+        }
+        if (config.getTimeout() == null) {
+            config.setTimeout(0);
+        }
+        if (config.getStatus() == null) {
+            config.setStatus(TaskStatusEnum.INIT.getCode());
+        }
+    }
+}
+```
+
+## TaskExecuteService.java
+
+```java
+package com.study.collect.core.task.service;
+
+import com.study.collect.core.task.enums.LogTypeEnum;
+import com.study.collect.core.task.enums.TaskStatusEnum;
+import com.study.collect.core.task.utils.InstanceIdGenerator;
+import com.study.collect.core.task.entity.TaskConfig;
+import com.study.collect.core.task.entity.TaskInstance;
+import com.study.collect.core.task.entity.TaskLog;
+import com.study.collect.core.task.mapper.TaskInstanceMapper;
+import com.study.collect.core.task.mapper.TaskLogMapper;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.net.InetAddress;
+import java.time.LocalDateTime;
+import java.util.List;
+
+/**
+ * TaskConfigService
+ */
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class TaskExecuteService {
+
+    private final TaskInstanceMapper taskInstanceMapper;
+    private final TaskLogMapper taskLogMapper;
+    private final TaskConfigService taskConfigService;
+
+    @Transactional(rollbackFor = Exception.class)
+    public TaskInstance createTaskInstance(String taskCode, Integer shardIndex, String shardParam) {
+        TaskConfig config = taskConfigService.getTaskConfig(taskCode);
+        if (config == null) {
+            throw new IllegalArgumentException("任务配置不存在: " + taskCode);
+        }
+
+        String instanceId = InstanceIdGenerator.generateInstanceId(taskCode);
+        TaskInstance instance = new TaskInstance();
+        instance.setInstanceId(instanceId);
+        instance.setTaskCode(taskCode);
+        instance.setShardIndex(shardIndex);
+        instance.setShardTotal(config.getShardTotal());
+        instance.setShardParam(shardParam);
+        instance.setStatus(TaskStatusEnum.INIT.getCode());
+        instance.setHostName(getHostName());
+        instance.setStartTime(LocalDateTime.now());
+
+        taskInstanceMapper.insert(instance);
+        recordTaskLog(instanceId, taskCode, LogTypeEnum.START, "任务开始执行");
+
+        return instance;
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void completeTaskInstance(String instanceId, boolean success, String errorMsg) {
+        TaskInstance instance = taskInstanceMapper.selectByInstanceId(instanceId);
+        if (instance == null) {
+            throw new IllegalArgumentException("任务实例不存在: " + instanceId);
+        }
+
+        LocalDateTime endTime = LocalDateTime.now();
+        TaskStatusEnum status = success ? TaskStatusEnum.SUCCESS : TaskStatusEnum.FAILED;
+
+        taskInstanceMapper.updateStatus(instanceId, status.getCode(), errorMsg);
+        taskInstanceMapper.updateEndTime(instanceId, endTime);
+
+        LogTypeEnum logType = success ? LogTypeEnum.RESULT : LogTypeEnum.ERROR;
+        String logContent = success ? "任务执行成功" : "任务执行失败: " + errorMsg;
+        recordTaskLog(instanceId, instance.getTaskCode(), logType, logContent);
+    }
+
+    public void recordTaskProgress(String instanceId, String progressInfo) {
+        TaskInstance instance = taskInstanceMapper.selectByInstanceId(instanceId);
+        if (instance != null) {
+            recordTaskLog(instanceId, instance.getTaskCode(), LogTypeEnum.PROGRESS, progressInfo);
+        }
+    }
+
+    private void recordTaskLog(String instanceId, String taskCode, LogTypeEnum logType, String content) {
+        TaskLog log = new TaskLog(instanceId, taskCode, logType.getCode(), content);
+        taskLogMapper.insert(log);
+    }
+
+    public List<TaskInstance> getRunningTasks() {
+        return taskInstanceMapper.selectRunning();
+    }
+
+    public List<TaskLog> getTaskLogs(String instanceId) {
+        return taskLogMapper.selectByInstanceId(instanceId);
+    }
+
+    private String getHostName() {
+        try {
+            return InetAddress.getLocalHost().getHostName();
+        } catch (Exception e) {
+            return "unknown";
+        }
+    }
+}
+```
+
+## InstanceIdGenerator.java
+
+```java
+package com.study.collect.core.task.utils;
+
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.concurrent.atomic.AtomicInteger;
+
+public class InstanceIdGenerator {
+    private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+    private static final AtomicInteger SEQUENCE = new AtomicInteger(0);
+
+    public static String generateInstanceId(String taskCode) {
+        // 重置序号,避免无限增长
+        if (SEQUENCE.get() > 9999) {
+            SEQUENCE.set(0);
+        }
+
+        // 格式：taskCode_yyyyMMddHHmmss_XXXX
+        return String.format("%s_%s_%04d",
+                taskCode,
+                LocalDateTime.now().format(FORMATTER),
+                SEQUENCE.getAndIncrement());
+    }
+}
+```
+
+## TaskConfigMapper.xml
+
+```xml
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.study.collect.core.task.mapper.TaskConfigMapper">
+
+    <!-- 结果映射 -->
+    <resultMap id="taskConfigMap" type="com.study.collect.core.task.entity.TaskConfig">
+        <id column="id" property="id"/>
+        <result column="task_code" property="taskCode"/>
+        <result column="task_name" property="taskName"/>
+        <result column="task_handler" property="taskHandler"/>
+        <result column="task_param" property="taskParam"/>
+        <result column="cron_expr" property="cronExpr"/>
+        <result column="shard_total" property="shardTotal"/>
+        <result column="retry_times" property="retryTimes"/>
+        <result column="retry_interval" property="retryInterval"/>
+        <result column="timeout" property="timeout"/>
+        <result column="status" property="status"/>
+        <result column="remark" property="remark"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <!-- 修改所有select的resultType为resultMap -->
+<!--    <select id="selectById" resultMap="taskConfigMap">-->
+
+
+    <select id="selectPage" resultMap="taskConfigMap">
+        SELECT * FROM task_config
+        <where>
+            <if test="taskName != null and taskName != ''">
+                AND task_name LIKE CONCAT('%', #{taskName}, '%')
+            </if>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+        </where>
+        ORDER BY create_time DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <!-- 插入配置 -->
+    <insert id="insert" parameterType="TaskConfig" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO task_config (task_code, task_name, task_handler, task_param,
+                                 cron_expr, shard_total, retry_times, retry_interval,
+                                 timeout, status, remark)
+        VALUES (#{taskCode}, #{taskName}, #{taskHandler}, #{taskParam},
+                #{cronExpr}, #{shardTotal}, #{retryTimes}, #{retryInterval},
+                #{timeout}, #{status}, #{remark})
+    </insert>
+
+    <!-- 更新配置 -->
+    <update id="update" parameterType="TaskConfig">
+        UPDATE task_config
+        <set>
+            <if test="taskName != null">task_name = #{taskName},</if>
+            <if test="taskHandler != null">task_handler = #{taskHandler},</if>
+            <if test="taskParam != null">task_param = #{taskParam},</if>
+            <if test="cronExpr != null">cron_expr = #{cronExpr},</if>
+            <if test="shardTotal != null">shard_total = #{shardTotal},</if>
+            <if test="retryTimes != null">retry_times = #{retryTimes},</if>
+            <if test="retryInterval != null">retry_interval = #{retryInterval},</if>
+            <if test="timeout != null">timeout = #{timeout},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            update_time = CURRENT_TIMESTAMP
+        </set>
+        WHERE task_code = #{taskCode}
+    </update>
+
+    <!-- 根据ID查询 -->
+    <select id="selectById" resultMap="taskConfigMap">
+        SELECT *
+        FROM task_config
+        WHERE id = #{id}
+    </select>
+
+    <!-- 根据编码查询 -->
+    <select id="selectByCode" resultMap="taskConfigMap">
+        SELECT *
+        FROM task_config
+        WHERE task_code = #{taskCode}
+    </select>
+
+    <!-- 查询所有启用的配置 -->
+    <select id="selectEnabled" resultMap="taskConfigMap">
+        SELECT *
+        FROM task_config
+        WHERE status = 1
+    </select>
+
+    <!-- 更新状态 -->
+    <update id="updateStatus">
+        UPDATE task_config
+        SET status      = #{status},
+            update_time = CURRENT_TIMESTAMP
+        WHERE task_code = #{taskCode}
+    </update>
+
+    <!-- 删除配置 -->
+    <delete id="deleteByCode">
+        DELETE
+        FROM task_config
+        WHERE task_code = #{taskCode}
+    </delete>
+
+
+    <!-- 统计总数 -->
+    <select id="countTotal" resultType="long">
+        SELECT COUNT(*) FROM task_config
+        <where>
+            <if test="taskName != null and taskName != ''">
+                AND task_name LIKE CONCAT('%', #{taskName}, '%')
+            </if>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+        </where>
+    </select>
+</mapper>
+```
+
+## TaskInstanceMapper.xml
+
+```xml
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.study.collect.core.task.mapper.TaskInstanceMapper">
+
+    <!-- 结果映射 -->
+    <resultMap id="taskInstanceMap" type="com.study.collect.core.task.entity.TaskInstance">
+        <id column="id" property="id"/>
+        <result column="instance_id" property="instanceId"/>
+        <result column="task_code" property="taskCode"/>
+        <result column="shard_index" property="shardIndex"/>
+        <result column="shard_total" property="shardTotal"/>
+        <result column="shard_param" property="shardParam"/>
+        <result column="status" property="status"/>
+        <result column="error_msg" property="errorMsg"/>
+        <result column="host_name" property="hostName"/>
+        <result column="start_time" property="startTime"/>
+        <result column="end_time" property="endTime"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <!-- 插入实例 -->
+    <insert id="insert" parameterType="TaskInstance" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO task_instance (
+            instance_id, task_code, shard_index, shard_total,
+            shard_param, status, host_name, start_time,
+            error_msg
+        ) VALUES (
+                     #{instanceId}, #{taskCode}, #{shardIndex}, #{shardTotal},
+                     #{shardParam}, #{status}, #{hostName}, #{startTime},
+                     #{errorMsg}
+                 )
+    </insert>
+
+    <!-- 更新状态 -->
+    <update id="updateStatus">
+        UPDATE task_instance
+        SET status = #{status},
+        <if test="errorMsg != null">error_msg = #{errorMsg},</if>
+        update_time = CURRENT_TIMESTAMP
+        WHERE instance_id = #{instanceId}
+    </update>
+
+    <!-- 更新结束时间 -->
+    <update id="updateEndTime">
+        UPDATE task_instance
+        SET end_time = #{endTime},
+            update_time = CURRENT_TIMESTAMP
+        WHERE instance_id = #{instanceId}
+    </update>
+
+    <!-- 根据ID查询 -->
+    <select id="selectById" resultMap="taskInstanceMap">
+        SELECT * FROM task_instance WHERE id = #{id}
+    </select>
+
+    <!-- 根据实例ID查询 -->
+    <select id="selectByInstanceId" resultMap="taskInstanceMap">
+        SELECT * FROM task_instance WHERE instance_id = #{instanceId}
+    </select>
+
+    <!-- 查询运行中的任务 -->
+    <select id="selectRunning" resultMap="taskInstanceMap">
+        SELECT * FROM task_instance
+        WHERE status = 1
+        ORDER BY start_time ASC
+    </select>
+
+    <!-- 根据任务编码和时间范围查询 -->
+    <select id="selectByTaskCode" resultMap="taskInstanceMap">
+        SELECT * FROM task_instance
+        WHERE task_code = #{taskCode}
+        <if test="startTime != null">
+            AND create_time >= #{startTime}
+        </if>
+        <if test="endTime != null">
+            AND create_time &lt;= #{endTime}
+        </if>
+        ORDER BY create_time DESC
+    </select>
+
+    <!-- 查询超时任务 -->
+    <select id="selectTimeout" resultMap="taskInstanceMap">
+        SELECT * FROM task_instance
+        WHERE status = 1
+          AND start_time &lt; DATE_SUB(NOW(), INTERVAL #{timeoutMinutes} MINUTE)
+    </select>
+
+    <!-- 根据主机名查询任务 -->
+    <select id="selectByHostName" resultMap="taskInstanceMap">
+        SELECT * FROM task_instance
+        WHERE host_name = #{hostName}
+          AND status = 1
+    </select>
+
+    <!-- 根据状态统计任务数 -->
+    <select id="countByStatus" resultType="int">
+        SELECT COUNT(*) FROM task_instance
+        WHERE task_code = #{taskCode}
+          AND status = #{status}
+    </select>
+
+    <!-- 清理历史数据 -->
+    <delete id="cleanHistoryData">
+        DELETE FROM task_instance
+        WHERE create_time &lt; DATE_SUB(NOW(), INTERVAL #{daysBefore} DAY)
+          AND status IN (2, 3, 4, 5)
+    </delete>
+</mapper>
+```
+
+## TaskLogMapper.xml
+
+```xml
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.study.collect.core.task.mapper.TaskLogMapper">
+
+    <!-- 结果映射 -->
+    <resultMap id="taskLogMap" type="com.study.collect.core.task.entity.TaskLog">
+        <id column="id" property="id"/>
+        <result column="instance_id" property="instanceId"/>
+        <result column="task_code" property="taskCode"/>
+        <result column="log_type" property="logType"/>
+        <result column="log_content" property="logContent"/>
+        <result column="create_time" property="createTime"/>
+    </resultMap>
+
+    <!-- 插入日志 -->
+    <insert id="insert" parameterType="TaskLog">
+        INSERT INTO task_log (
+            instance_id, task_code, log_type, log_content
+        ) VALUES (
+                     #{instanceId}, #{taskCode}, #{logType}, #{logContent}
+                 )
+    </insert>
+
+    <!-- 批量插入 -->
+    <insert id="batchInsert">
+        INSERT INTO task_log (
+        instance_id, task_code, log_type, log_content
+        ) VALUES
+        <foreach collection="logs" item="log" separator=",">
+            (#{log.instanceId}, #{log.taskCode}, #{log.logType}, #{log.logContent})
+        </foreach>
+    </insert>
+
+    <!-- 根据实例ID查询 -->
+    <select id="selectByInstanceId" resultMap="taskLogMap">
+        SELECT * FROM task_log
+        WHERE instance_id = #{instanceId}
+        ORDER BY create_time ASC
+    </select>
+
+    <!-- 根据任务编码和日志类型查询 -->
+    <select id="selectByTaskCode" resultMap="taskLogMap">
+        SELECT * FROM task_log
+        WHERE task_code = #{taskCode}
+        <if test="logType != null">
+            AND log_type = #{logType}
+        </if>
+        ORDER BY create_time DESC
+        <if test="limit != null">
+            LIMIT #{limit}
+        </if>
+    </select>
+
+    <!-- 查询最新的错误日志 -->
+    <select id="selectLatestErrors" resultMap="taskLogMap">
+        SELECT * FROM task_log
+        WHERE log_type = 5
+        ORDER BY create_time DESC
+            LIMIT #{limit}
+    </select>
+
+    <!-- 统计日志数量 -->
+    <select id="countLogs" resultType="int">
+        SELECT COUNT(*) FROM task_log
+        WHERE task_code = #{taskCode}
+        <if test="logType != null">
+            AND log_type = #{logType}
+        </if>
+    </select>
+
+    <!-- 清理历史日志 -->
+    <delete id="cleanHistoryLogs">
+        DELETE FROM task_log
+        WHERE create_time &lt; DATE_SUB(NOW(), INTERVAL #{daysBefore} DAY)
+    </delete>
+
+    <!-- 根据实例ID删除日志 -->
+    <delete id="deleteByInstanceId">
+        DELETE FROM task_log
+        WHERE instance_id = #{instanceId}
+    </delete>
+</mapper>
 ```
 

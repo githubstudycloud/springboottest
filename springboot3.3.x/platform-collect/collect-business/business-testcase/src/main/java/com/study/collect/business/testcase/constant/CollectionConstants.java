@@ -13,7 +13,7 @@ public class CollectionConstants {
     public static final int MIN_BATCH_SIZE = 50;
 
     // HTTP请求相关
-    public static final int HTTP_MAX_REQUESTS_PER_MINUTE = 500;
+    public static final int HTTP_MAX_REQUESTS_PER_MINUTE = 200;
     public static final int HTTP_CONNECT_TIMEOUT = 5000;
     public static final int HTTP_READ_TIMEOUT = 15000;
     public static final int HTTP_MAX_RETRY = 3;

@@ -13,6 +13,7 @@ import com.study.collect.business.testcase.model.response.TaskResponse;
 import com.study.collect.business.testcase.repository.UriRepository;
 import com.study.collect.business.testcase.service.UriCollectService;
 import com.study.collect.business.testcase.service.http.UriHttpService;
+import com.study.collect.business.testcase.utils.HashUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.pool2.ObjectPool;
@@ -43,7 +44,7 @@ public class UriCollectServiceImpl implements UriCollectService {
         TaskResponse task = taskManager.createTask(
                 "COLLECT",
                 Map.of("rootNode", param.getRootNode(),
-                        "serverUri", param.getServerUri(),
+                        "serverUri", param.getServerUrl(),
                         "version", param.getVersion()),
                 param.getPriority()
         );
@@ -429,14 +430,21 @@ private List<String> filterVersions(List<String> allVersions, String versionFilt
         }
         return total;
     }
-
-    private void fillEntity(UriEntity entity, String rootNode, String version, Map<String, Object> detail) {
-        entity.setUri((String) detail.get("uri"));
+    private void fillEntity(
+            UriEntity entity,
+            String rootNode,
+            String version,
+            Map<String, Object> detail
+    ) {
+        String uri = (String) detail.get("uri");
+        entity.setUri(uri);
+        entity.setUriHash(HashUtil.hash(uri));  // 重要：设置完 uri 后立即生成 uriHash
         entity.setRootNode(rootNode);
         entity.setVersionType(getVersionType(version));
         entity.setUriVersion(version);
         entity.setDetails(detail);
     }
+
 
     private String getVersionType(String version) {
         return version.toLowerCase().contains("branch") ? "BRANCH" : "TRUNK";

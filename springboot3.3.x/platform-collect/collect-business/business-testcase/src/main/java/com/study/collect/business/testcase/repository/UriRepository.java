@@ -4,6 +4,7 @@ import com.mongodb.bulk.BulkWriteResult;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoCursor;
 import com.mongodb.client.model.*;
+import com.study.collect.business.testcase.config.DynamicCollectionIndexConfiguration;
 import com.study.collect.business.testcase.constant.CollectionConstants;
 import com.study.collect.business.testcase.entity.UriEntity;
 import com.study.collect.business.testcase.model.PageResult;
@@ -33,12 +34,15 @@ public class UriRepository {
     private final MongoTemplate mongoTemplate;
 
     private final MongoOperations mongoOperations;
+    private final DynamicCollectionIndexConfiguration indexConfiguration;
 
     public UriRepository(MongoTemplate mongoTemplate,
-                   MongoOperations mongoOperations
+                   MongoOperations mongoOperations,
+                         DynamicCollectionIndexConfiguration indexConfiguration
     ) {
         this.mongoTemplate = mongoTemplate;
         this.mongoOperations = mongoOperations;
+        this.indexConfiguration= indexConfiguration;
     }
 
     /**
@@ -56,7 +60,18 @@ public class UriRepository {
             return null;
         }
 
+
+        // 验证所有实体的 uriHash
+        entities.forEach(entity -> {
+            if (entity.getUriHash() == null && entity.getUri() != null) {
+                entity.setUriHash(HashUtil.hash(entity.getUri()));
+            }
+        });
+
         String collectionName = getCollectionName(rootNode);
+
+        // 确保索引存在
+        ensureIndexes(rootNode,collectionName);
         MongoCollection<Document> collection = mongoTemplate.getCollection(collectionName);
 
         List<WriteModel<Document>> operations = new ArrayList<>();
@@ -78,6 +93,81 @@ public class UriRepository {
         } catch (Exception e) {
             log.error("Failed to batch upsert to collection {}", collectionName, e);
             throw new RuntimeException("Batch upsert failed", e);
+        }
+    }
+
+
+    /**
+     * 批量插入或更新
+     */
+    public BulkWriteResult batchUpsertSync(String rootNode, List<UriEntity> entities) {
+        if (CollectionUtils.isEmpty(entities)) {
+            return null;
+        }
+
+
+        // 验证所有实体的 uriHash
+        entities.forEach(entity -> {
+            if (entity.getUriHash() == null && entity.getUri() != null) {
+                entity.setUriHash(HashUtil.hash(entity.getUri()));
+            }
+        });
+
+        String collectionName = getCollectionName(rootNode);
+
+        // 确保索引存在
+        ensureIndexes(rootNode,collectionName);
+        MongoCollection<Document> collection = mongoTemplate.getCollection(collectionName);
+
+        List<WriteModel<Document>> operations = new ArrayList<>();
+        for (UriEntity entity : entities) {
+            Document query = new Document("uri_hash", entity.getUriHash());
+            Document doc = convertEntityToDocument(entity);
+            operations.add(new UpdateOneModel<>(
+                    query,
+                    new Document("$set", doc),
+                    new UpdateOptions().upsert(true)
+            ));
+        }
+
+        try {
+            BulkWriteOptions options = new BulkWriteOptions()
+//                    .ordered(false)
+                    .ordered(true)  // 改为有序执行
+                    .bypassDocumentValidation(true);
+
+//            // 记录指标
+//            recordMetrics("upsert", timer, entities.size(), result.getModifiedCount());
+            // 确保数据已写入
+            collection.find(new Document("uri_hash",
+                    new Document("$in",
+                            entities.stream()
+                                    .map(UriEntity::getUriHash)
+                                    .collect(Collectors.toList())
+                    )
+            )).first();
+            return collection.bulkWrite(operations, options);
+        } catch (Exception e) {
+            log.error("Failed to batch upsert to collection {}", collectionName, e);
+            throw new RuntimeException("Batch upsert failed", e);
+        }
+    }
+
+
+    /**
+     * 确保集合索引存在
+     */
+    private void ensureIndexes(String rootNode,String collectionName) {
+        try {
+            // 如果集合不存在或索引不完整，创建索引
+            if (!mongoTemplate.collectionExists(collectionName)) {
+                indexConfiguration.createIndexesForCollection(rootNode);
+            } else {
+                // 检查索引是否完整
+                indexConfiguration.checkIndexes(collectionName);
+            }
+        } catch (Exception e) {
+            log.error("Failed to ensure indexes for rootNode: {}", rootNode, e);
         }
     }
 
@@ -242,6 +332,10 @@ public class UriRepository {
     }
 
     private Document convertEntityToDocument(UriEntity entity) {
+        // 确保 uriHash 存在
+        if (entity.getUriHash() == null && entity.getUri() != null) {
+            entity.setUriHash(HashUtil.hash(entity.getUri()));
+        }
         Document doc = new Document();
         doc.put("uri", entity.getUri());
         doc.put("uri_hash", entity.getUriHash());
@@ -284,26 +378,26 @@ public class UriRepository {
         // 构建查询条件
         Document query = new Document();
         if (rootNode != null) {
-            query.append("rootNode", rootNode);
+            query.append("root_node", rootNode);
         }
         if (version != null) {
-            query.append("uriVersion", version);
+            query.append("uri_version", version);
         }
         if (versionType != null) {
-            query.append("versionType", versionType);
+            query.append("version_type", versionType);
         }
 
         // 构建聚合管道
         List<Document> pipeline = Arrays.asList(
                 new Document("$match", query),
-                new Document("$project", new Document("uriHash", 1).append("_id", 0)),
+                new Document("$project", new Document("uri_hash", 1).append("_id", 0)),
                 new Document("$skip", (long) (page - 1) * size),
                 new Document("$limit", size)
         );
 
         try {
             return collection.aggregate(pipeline)
-                    .map(doc -> doc.getString("uriHash"))
+                    .map(doc -> doc.getString("uri_hash"))
                     .into(new ArrayList<>());
         } catch (Exception e) {
             log.error("Failed to execute native query in collection {}", collectionName, e);
@@ -320,13 +414,13 @@ public class UriRepository {
 
         Document query = new Document();
         if (rootNode != null) {
-            query.append("rootNode", rootNode);
+            query.append("root_node", rootNode);
         }
         if (version != null) {
-            query.append("uriVersion", version);
+            query.append("uri_version", version);
         }
         if (versionType != null) {
-            query.append("versionType", versionType);
+            query.append("version_type", versionType);
         }
 
         try {
@@ -377,20 +471,20 @@ public class UriRepository {
             query.append("rootNode", rootNode);
         }
         if (version != null) {
-            query.append("uriVersion", version);
+            query.append("uri_version", version);
         }
         if (versionType != null) {
-            query.append("versionType", versionType);
+            query.append("version_type", versionType);
         }
 
         List<Document> pipeline = Arrays.asList(
                 new Document("$match", query),
-                new Document("$project", new Document("uriHash", 1).append("_id", 0))
+                new Document("$project", new Document("uri_hash", 1).append("_id", 0))
         );
 
         try (MongoCursor<Document> cursor = collection.aggregate(pipeline).iterator()) {
             while (cursor.hasNext()) {
-                consumer.accept(cursor.next().getString("uriHash"));
+                consumer.accept(cursor.next().getString("uri_hash"));
             }
         } catch (Exception e) {
             log.error("Failed to stream documents from collection {}", collectionName, e);

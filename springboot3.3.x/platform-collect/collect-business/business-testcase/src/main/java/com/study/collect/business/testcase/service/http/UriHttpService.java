@@ -41,7 +41,7 @@ public class UriHttpService {
      */
     public CompletableFuture<PageResponse<VersionResponse>> getVersionsAsync(
             CollectParam param, PageParam pageParam) {
-        String serverUri = param.getServerUri();
+        String serverUri = param.getServerUrl();
         String rootNode = param.getRootNode();
         return CompletableFuture.supplyAsync(() -> {
             try {
@@ -67,7 +67,7 @@ public class UriHttpService {
      */
     public CompletableFuture<PageResponse<String>> getUriListAsync(
             CollectParam param, String version, PageParam pageParam) {
-        String serverUri = param.getServerUri();
+        String serverUri = param.getServerUrl();
         return CompletableFuture.supplyAsync(() -> {
             try {
                 rateLimiter.acquire();
@@ -93,7 +93,7 @@ public class UriHttpService {
      */
     public CompletableFuture<List<Map<String, Object>>> getUriDetailsAsync(
             CollectParam param, List<String> uris) {
-        String serverUri = param.getServerUri();
+        String serverUri = param.getServerUrl();
         if (uris == null || uris.isEmpty()) {
             return CompletableFuture.completedFuture(Collections.emptyList());
         }

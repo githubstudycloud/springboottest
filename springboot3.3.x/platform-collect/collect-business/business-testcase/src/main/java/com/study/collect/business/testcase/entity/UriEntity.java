@@ -1,16 +1,22 @@
 package com.study.collect.business.testcase.entity;
 
 import com.study.collect.business.testcase.utils.HashUtil;
+import jakarta.annotation.PostConstruct;
 import jakarta.persistence.PrePersist;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.index.CompoundIndexes;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 @Document(collection = "#{@collectionStrategy.getCollectionName('uri_collect')}")
@@ -37,6 +43,7 @@ import java.util.Map;
         )
 })
 public class UriEntity extends VersionEntity {
+    private static final Logger log = LoggerFactory.getLogger(UriEntity.class);
 
     @Indexed(unique = true, background = true)
     @Field("uri_hash")
@@ -80,9 +87,11 @@ public class UriEntity extends VersionEntity {
         }
     }
 
+
     public void reset() {
+//        super.reset(); // 调用父类的 reset TODO
         this.uri = null;
-        this.uriHash = null;
+        this.uriHash = null;  // 继续清空 uriHash
         this.rootNode = null;
         this.versionType = null;
         this.uriVersion = null;

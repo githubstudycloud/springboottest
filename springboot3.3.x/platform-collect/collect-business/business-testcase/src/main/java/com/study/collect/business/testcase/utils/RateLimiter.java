@@ -39,7 +39,7 @@ public class RateLimiter {
      */
     public void acquire() throws InterruptedException {
         while (!tryAcquire()) {
-            Thread.sleep(100);  // 等待100ms后重试
+            Thread.sleep(5000);  // 等待100ms后重试
         }
     }
 

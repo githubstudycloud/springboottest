@@ -19,7 +19,7 @@ import org.springframework.context.annotation.Import;
 })
 @Import({
         // 数据存储配置
-        MongoConfig.class,          // MongoDB
+//        MongoConfig.class,          // MongoDB
         MyBatisConfig.class,        // MyBatis
         CacheAutoConfiguration.class,// Redis
 

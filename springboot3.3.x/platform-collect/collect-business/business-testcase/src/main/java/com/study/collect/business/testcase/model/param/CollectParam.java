@@ -17,8 +17,8 @@ public class CollectParam {
 
     private String version;
 
-    @NotBlank(message = "serverUri cannot be empty")
-    private String serverUri;
+    @NotBlank(message = "serverUrl cannot be empty")
+    private String serverUrl;
 
     private Boolean incremental = false;
 
