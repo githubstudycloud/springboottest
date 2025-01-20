@@ -15,6 +15,7 @@ import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -40,7 +41,8 @@ import java.util.Map;
                 name = "query_idx",
                 def = "{'root_node': 1, 'version_type': 1, 'uri_version': 1, 'is_deleted': 1}",
                 background = true
-        )
+        ),
+        @CompoundIndex(name = "idx_update_time", def = "{'third_party_update_time': -1}", background = true)
 })
 public class UriEntity extends VersionEntity {
     private static final Logger log = LoggerFactory.getLogger(UriEntity.class);
@@ -61,6 +63,13 @@ public class UriEntity extends VersionEntity {
     @Field("uri_version")
     private String uriVersion;
 
+
+    @Field("third_party_update_time")
+    private LocalDateTime thirdPartyUpdateTime;
+    @Field("real_uri")
+    private String realUri;
+    private String number;
+    private String name;
     private Map<String, Object> details;
 
     public UriEntity(String uri, String rootNode) {

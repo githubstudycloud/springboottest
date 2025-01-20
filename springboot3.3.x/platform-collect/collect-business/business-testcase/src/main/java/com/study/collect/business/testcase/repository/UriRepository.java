@@ -1,262 +1,213 @@
 package com.study.collect.business.testcase.repository;
 
+import com.google.common.collect.Lists;
 import com.mongodb.bulk.BulkWriteResult;
 import com.mongodb.client.MongoCollection;
-import com.mongodb.client.MongoCursor;
-import com.mongodb.client.model.*;
+import com.mongodb.client.model.BulkWriteOptions;
+import com.mongodb.client.model.UpdateOneModel;
+import com.mongodb.client.model.UpdateOptions;
+import com.mongodb.client.model.WriteModel;
+import com.mongodb.client.result.DeleteResult;
+import com.mongodb.client.result.UpdateResult;
 import com.study.collect.business.testcase.config.DynamicCollectionIndexConfiguration;
 import com.study.collect.business.testcase.constant.CollectionConstants;
 import com.study.collect.business.testcase.entity.UriEntity;
-import com.study.collect.business.testcase.model.PageResult;
+import com.study.collect.business.testcase.model.UriQueryCondition;
 import com.study.collect.business.testcase.utils.HashUtil;
+import com.study.collect.business.testcase.utils.RateLimiter;
 import lombok.extern.slf4j.Slf4j;
 import org.bson.Document;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.mongodb.core.MongoOperations;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Repository;
 import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Slf4j
 @Repository
 public class UriRepository {
     private final MongoTemplate mongoTemplate;
-
-    private final MongoOperations mongoOperations;
     private final DynamicCollectionIndexConfiguration indexConfiguration;
+    private final RateLimiter mongoRateLimiter;
 
     public UriRepository(MongoTemplate mongoTemplate,
-                   MongoOperations mongoOperations,
-                         DynamicCollectionIndexConfiguration indexConfiguration
-    ) {
+                         DynamicCollectionIndexConfiguration indexConfiguration,
+                         RateLimiter mongoRateLimiter) {
         this.mongoTemplate = mongoTemplate;
-        this.mongoOperations = mongoOperations;
-        this.indexConfiguration= indexConfiguration;
+        this.indexConfiguration = indexConfiguration;
+        this.mongoRateLimiter = mongoRateLimiter;
     }
 
     /**
-     * 生成集合名称
-     */
-    private String getCollectionName(String rootNode) {
-        return String.format("%s_%s", CollectionConstants.URI_COLLECTION_PREFIX, rootNode);
-    }
-
-    /**
-     * 批量插入或更新
+     * 批量更新或插入
      */
     public BulkWriteResult batchUpsert(String rootNode, List<UriEntity> entities) {
         if (CollectionUtils.isEmpty(entities)) {
             return null;
         }
 
-
-        // 验证所有实体的 uriHash
-        entities.forEach(entity -> {
-            if (entity.getUriHash() == null && entity.getUri() != null) {
-                entity.setUriHash(HashUtil.hash(entity.getUri()));
-            }
-        });
-
-        String collectionName = getCollectionName(rootNode);
-
-        // 确保索引存在
-        ensureIndexes(rootNode,collectionName);
-        MongoCollection<Document> collection = mongoTemplate.getCollection(collectionName);
-
-        List<WriteModel<Document>> operations = new ArrayList<>();
-        for (UriEntity entity : entities) {
-            Document query = new Document("uri_hash", entity.getUriHash());
-            Document doc = convertEntityToDocument(entity);
-            operations.add(new UpdateOneModel<>(
-                    query,
-                    new Document("$set", doc),
-                    new UpdateOptions().upsert(true)
-            ));
-        }
-
         try {
+            mongoRateLimiter.acquire();
+            String collectionName = getCollectionName(rootNode);
+
+            // 确保表和索引存在
+            ensureCollectionAndIndexes(rootNode, collectionName);
+
+            List<WriteModel<Document>> operations = new ArrayList<>();
+            for (UriEntity entity : entities) {
+                // 确保 uriHash 存在
+                if (entity.getUriHash() == null && entity.getUri() != null) {
+                    entity.setUriHash(HashUtil.hash(entity.getUri()));
+                }
+
+                Document query = new Document("uri_hash", entity.getUriHash());
+                Document doc = convertEntityToDocument(entity);
+
+                UpdateOneModel<Document> updateOne = new UpdateOneModel<>(
+                        query,
+                        new Document("$set", doc),
+                        new UpdateOptions().upsert(true)
+                );
+                operations.add(updateOne);
+            }
+
             BulkWriteOptions options = new BulkWriteOptions()
                     .ordered(false)
                     .bypassDocumentValidation(true);
-            return collection.bulkWrite(operations, options);
+
+            return mongoTemplate.getCollection(collectionName)
+                    .bulkWrite(operations, options);
+
         } catch (Exception e) {
-            log.error("Failed to batch upsert to collection {}", collectionName, e);
+            log.error("Failed to batch upsert entities for rootNode: {}", rootNode, e);
             throw new RuntimeException("Batch upsert failed", e);
         }
     }
-
-
     /**
-     * 批量插入或更新
+     * 分页批量软删除
      */
-    public BulkWriteResult batchUpsertSync(String rootNode, List<UriEntity> entities) {
-        if (CollectionUtils.isEmpty(entities)) {
-            return null;
-        }
-
-
-        // 验证所有实体的 uriHash
-        entities.forEach(entity -> {
-            if (entity.getUriHash() == null && entity.getUri() != null) {
-                entity.setUriHash(HashUtil.hash(entity.getUri()));
-            }
-        });
-
-        String collectionName = getCollectionName(rootNode);
-
-        // 确保索引存在
-        ensureIndexes(rootNode,collectionName);
-        MongoCollection<Document> collection = mongoTemplate.getCollection(collectionName);
-
-        List<WriteModel<Document>> operations = new ArrayList<>();
-        for (UriEntity entity : entities) {
-            Document query = new Document("uri_hash", entity.getUriHash());
-            Document doc = convertEntityToDocument(entity);
-            operations.add(new UpdateOneModel<>(
-                    query,
-                    new Document("$set", doc),
-                    new UpdateOptions().upsert(true)
-            ));
-        }
-
-        try {
-            BulkWriteOptions options = new BulkWriteOptions()
-//                    .ordered(false)
-                    .ordered(true)  // 改为有序执行
-                    .bypassDocumentValidation(true);
-
-//            // 记录指标
-//            recordMetrics("upsert", timer, entities.size(), result.getModifiedCount());
-            // 确保数据已写入
-            collection.find(new Document("uri_hash",
-                    new Document("$in",
-                            entities.stream()
-                                    .map(UriEntity::getUriHash)
-                                    .collect(Collectors.toList())
-                    )
-            )).first();
-            return collection.bulkWrite(operations, options);
-        } catch (Exception e) {
-            log.error("Failed to batch upsert to collection {}", collectionName, e);
-            throw new RuntimeException("Batch upsert failed", e);
-        }
-    }
-
-
-    /**
-     * 确保集合索引存在
-     */
-    private void ensureIndexes(String rootNode,String collectionName) {
-        try {
-            // 如果集合不存在或索引不完整，创建索引
-            if (!mongoTemplate.collectionExists(collectionName)) {
-                indexConfiguration.createIndexesForCollection(rootNode);
-            } else {
-                // 检查索引是否完整
-                indexConfiguration.checkIndexes(collectionName);
-            }
-        } catch (Exception e) {
-            log.error("Failed to ensure indexes for rootNode: {}", rootNode, e);
-        }
-    }
-
-    /**
-     * 批量软删除
-     */
-    public long batchSoftDelete(String rootNode, List<String> uris) {
+    public long batchSoftDelete(String rootNode, List<String> uris, int batchSize) {
         if (CollectionUtils.isEmpty(uris)) {
             return 0L;
         }
 
-        List<String> uriHashes = uris.stream()
-                .map(HashUtil::hash)
-                .collect(Collectors.toList());
+        long totalDeleted = 0;
+        List<List<String>> batches = Lists.partition(uris, batchSize);
 
-        Query query = new Query(Criteria.where("uri_hash").in(uriHashes));
-        Update update = new Update()
-                .set("is_deleted", true)
-                .set("update_time", LocalDateTime.now());
+        for (List<String> batch : batches) {
+            try {
+                mongoRateLimiter.acquire();
 
-        try {
-            return mongoTemplate.updateMulti(
-                    query,
-                    update,
-                    getCollectionName(rootNode)
-            ).getModifiedCount();
-        } catch (Exception e) {
-            log.error("Failed to batch soft delete in collection {}", rootNode, e);
-            throw new RuntimeException("Batch soft delete failed", e);
+                List<String> uriHashes = batch.stream()
+                        .map(HashUtil::hash)
+                        .collect(Collectors.toList());
+
+                Query query = new Query(Criteria.where("uri_hash").in(uriHashes));
+                Update update = new Update()
+                        .set("is_deleted", true)
+                        .set("update_time", LocalDateTime.now());
+
+                UpdateResult result = mongoTemplate.updateMulti(
+                        query, update, getCollectionName(rootNode)
+                );
+
+                totalDeleted += result.getModifiedCount();
+
+            } catch (Exception e) {
+                log.error("Failed to batch soft delete uris for batch size: {}", batch.size(), e);
+                throw new RuntimeException("Batch soft delete failed", e);
+            }
         }
+
+        return totalDeleted;
     }
 
     /**
-     * 批量硬删除
+     * 分页批量硬删除
      */
-    public long batchHardDelete(String rootNode, List<String> uris) {
+    public long batchHardDelete(String rootNode, List<String> uris, int batchSize) {
         if (CollectionUtils.isEmpty(uris)) {
             return 0L;
         }
 
-        List<String> uriHashes = uris.stream()
-                .map(HashUtil::hash)
-                .collect(Collectors.toList());
+        long totalDeleted = 0;
+        List<List<String>> batches = Lists.partition(uris, batchSize);
 
-        Query query = new Query(Criteria.where("uri_hash").in(uriHashes));
+        for (List<String> batch : batches) {
+            try {
+                mongoRateLimiter.acquire();
 
-        try {
-            return mongoTemplate.remove(
-                    query,
-                    UriEntity.class,
-                    getCollectionName(rootNode)
-            ).getDeletedCount();
-        } catch (Exception e) {
-            log.error("Failed to batch hard delete in collection {}", rootNode, e);
-            throw new RuntimeException("Batch hard delete failed", e);
+                List<String> uriHashes = batch.stream()
+                        .map(HashUtil::hash)
+                        .collect(Collectors.toList());
+
+                Query query = new Query(Criteria.where("uri_hash").in(uriHashes));
+                DeleteResult result = mongoTemplate.remove(
+                        query,
+                        UriEntity.class,
+                        getCollectionName(rootNode)
+                );
+
+                totalDeleted += result.getDeletedCount();
+
+            } catch (Exception e) {
+                log.error("Failed to batch hard delete uris for batch size: {}", batch.size(), e);
+                throw new RuntimeException("Batch hard delete failed", e);
+            }
         }
+
+        return totalDeleted;
     }
 
     /**
-     * 分页查询
+     * 条件查询
      */
-    public Page<UriEntity> findByCondition(
-            String rootNode,
-            String version,
-            String versionType,
-            Boolean includeDeleted,
-            Pageable pageable
-    ) {
-        Criteria criteria = new Criteria();
-
-        if (version != null) {
-            criteria.and("uri_version").is(version);
-        }
-        if (versionType != null) {
-            criteria.and("version_type").is(versionType);
-        }
-        if (!includeDeleted) {
-            criteria.and("is_deleted").is(false);
-        }
-
-        Query query = new Query(criteria).with(pageable);
-        String collectionName = getCollectionName(rootNode);
-
+    public Page<UriEntity> findByConditions(UriQueryCondition condition) {
         try {
-            long total = mongoTemplate.count(query, UriEntity.class, collectionName);
-            List<UriEntity> content = mongoTemplate.find(query, UriEntity.class, collectionName);
-            return new PageImpl<>(content, pageable, total);
+            mongoRateLimiter.acquire();
+
+            Criteria criteria = new Criteria();
+            if (StringUtils.hasText(condition.getRootNode())) {
+                criteria.and("root_node").is(condition.getRootNode());
+            }
+            if (StringUtils.hasText(condition.getVersion())) {
+                criteria.and("uri_version").is(condition.getVersion());
+            }
+            if (condition.getThirdPartyUpdateTimeStart() != null) {
+                criteria.and("third_party_update_time")
+                        .gte(condition.getThirdPartyUpdateTimeStart());
+            }
+            if (condition.getThirdPartyUpdateTimeEnd() != null) {
+                criteria.and("third_party_update_time")
+                        .lte(condition.getThirdPartyUpdateTimeEnd());
+            }
+            if (condition.getIsDeleted() != null) {
+                criteria.and("is_deleted").is(condition.getIsDeleted());
+            }
+
+            Query query = new Query(criteria).with(condition.getPageable());
+            if (condition.isOnlyDetail()) {
+                query.fields().include("details");
+            }
+
+            long total = mongoTemplate.count(query, UriEntity.class,
+                    getCollectionName(condition.getRootNode()));
+            List<UriEntity> content = mongoTemplate.find(query, UriEntity.class,
+                    getCollectionName(condition.getRootNode()));
+
+            return new PageImpl<>(content, condition.getPageable(), total);
+
         } catch (Exception e) {
-            log.error("Failed to query collection {}", collectionName, e);
+            log.error("Failed to query URIs with condition: {}", condition, e);
             throw new RuntimeException("Query failed", e);
         }
     }
@@ -264,90 +215,141 @@ public class UriRepository {
     /**
      * 批量查询
      */
-    public List<UriEntity> batchQuery(
-            List<String> uris,
-            Function<String, String> rootNodeResolver,
-            Boolean includeDeleted
-    ) {
+    public List<UriEntity> batchQuery(List<String> uris, Boolean includeDeleted, Boolean onlyDetail) {
         if (CollectionUtils.isEmpty(uris)) {
-            return new ArrayList<>();
+            return Collections.emptyList();
         }
 
-        // 按rootNode分组
-        Map<String, List<String>> groupedUris = uris.stream()
-                .collect(Collectors.groupingBy(rootNodeResolver));
+        try {
+            mongoRateLimiter.acquire();
 
-        List<UriEntity> results = new ArrayList<>();
-
-        for (Map.Entry<String, List<String>> entry : groupedUris.entrySet()) {
-            String rootNode = entry.getKey();
-            List<String> uriGroup = entry.getValue();
-
-            List<String> uriHashes = uriGroup.stream()
+            List<String> uriHashes = uris.stream()
                     .map(HashUtil::hash)
                     .collect(Collectors.toList());
 
             Criteria criteria = Criteria.where("uri_hash").in(uriHashes);
-            if (!includeDeleted) {
+            if (!Boolean.TRUE.equals(includeDeleted)) {
                 criteria.and("is_deleted").is(false);
             }
 
             Query query = new Query(criteria);
-            String collectionName = getCollectionName(rootNode);
-
-            try {
-                List<UriEntity> groupResults = mongoTemplate.find(
-                        query,
-                        UriEntity.class,
-                        collectionName
-                );
-                results.addAll(groupResults);
-            } catch (Exception e) {
-                log.error("Failed to query collection {}", collectionName, e);
-                // 继续处理其他分组
+            if (Boolean.TRUE.equals(onlyDetail)) {
+                query.fields().include("details");
             }
-        }
 
-        return results;
+            return mongoTemplate.find(query, UriEntity.class);
+
+        } catch (Exception e) {
+            log.error("Failed to batch query URIs", e);
+            throw new RuntimeException("Batch query failed", e);
+        }
     }
 
     /**
-     * 删除不存在的URI
+     * 根据更新时间范围查询
      */
-    public void deleteNotInUris(String rootNode, Set<String> uriHashes) {
-        Query query = new Query(
-                Criteria.where("uri_hash").nin(uriHashes)
-        );
-
+    public Page<UriEntity> findByUpdateTimeRange(String rootNode,
+                                                 LocalDateTime startTime,
+                                                 LocalDateTime endTime,
+                                                 Pageable pageable) {
         try {
-            mongoTemplate.remove(
-                    query,
+            mongoRateLimiter.acquire();
+
+            Criteria criteria = Criteria.where("root_node").is(rootNode)
+                    .and("third_party_update_time").gte(startTime);
+
+            if (endTime != null) {
+                criteria.and("third_party_update_time").lte(endTime);
+            }
+
+            Query query = new Query(criteria).with(pageable);
+
+            long total = mongoTemplate.count(query, UriEntity.class, getCollectionName(rootNode));
+            List<UriEntity> content = mongoTemplate.find(query, UriEntity.class,
+                    getCollectionName(rootNode));
+
+            return new PageImpl<>(content, pageable, total);
+
+        } catch (Exception e) {
+            log.error("Failed to query URIs by update time range for rootNode: {}", rootNode, e);
+            throw new RuntimeException("Query by update time failed", e);
+        }
+    }
+
+    /**
+     * 统计根节点下的URI数量
+     */
+    public long countByRootNode(String rootNode) {
+        try {
+            mongoRateLimiter.acquire();
+            return mongoTemplate.count(
+                    Query.query(Criteria.where("root_node").is(rootNode)
+                            .and("is_deleted").is(false)),
                     UriEntity.class,
                     getCollectionName(rootNode)
             );
         } catch (Exception e) {
-            log.error("Failed to delete non-existing URIs in collection {}", rootNode, e);
-            throw new RuntimeException("Delete non-existing URIs failed", e);
+            log.error("Failed to count URIs for rootNode: {}", rootNode, e);
+            throw new RuntimeException("Count failed", e);
+        }
+    }
+
+    /**
+     * 获取URI的更新时间
+     */
+    public Map<String, LocalDateTime> findUpdateTimesByUris(List<String> uris) {
+        if (CollectionUtils.isEmpty(uris)) {
+            return Collections.emptyMap();
+        }
+
+        try {
+            mongoRateLimiter.acquire();
+
+            List<String> uriHashes = uris.stream()
+                    .map(HashUtil::hash)
+                    .collect(Collectors.toList());
+
+            Query query = Query.query(Criteria.where("uri_hash").in(uriHashes));
+            query.fields().include("uri", "third_party_update_time");
+
+            List<UriEntity> entities = mongoTemplate.find(query, UriEntity.class);
+            return entities.stream()
+                    .collect(Collectors.toMap(
+                            UriEntity::getUri,
+                            UriEntity::getThirdPartyUpdateTime,
+                            (existing, replacement) -> existing
+                    ));
+
+        } catch (Exception e) {
+            log.error("Failed to find update times for URIs", e);
+            throw new RuntimeException("Find update times failed", e);
+        }
+    }
+
+    private String getCollectionName(String rootNode) {
+        return String.format("%s_%s", CollectionConstants.URI_COLLECTION_PREFIX, rootNode);
+    }
+
+    private void ensureCollectionAndIndexes(String rootNode, String collectionName) {
+        if (!mongoTemplate.collectionExists(collectionName)) {
+            indexConfiguration.createIndexesForCollection(rootNode);
         }
     }
 
     private Document convertEntityToDocument(UriEntity entity) {
-        // 确保 uriHash 存在
-        if (entity.getUriHash() == null && entity.getUri() != null) {
-            entity.setUriHash(HashUtil.hash(entity.getUri()));
-        }
         Document doc = new Document();
         doc.put("uri", entity.getUri());
         doc.put("uri_hash", entity.getUriHash());
         doc.put("root_node", entity.getRootNode());
         doc.put("version_type", entity.getVersionType());
         doc.put("uri_version", entity.getUriVersion());
+        doc.put("real_uri", entity.getRealUri());
+        doc.put("number", entity.getNumber());
+        doc.put("name", entity.getName());
+        doc.put("third_party_update_time", entity.getThirdPartyUpdateTime());
         doc.put("details", entity.getDetails());
-        doc.put("version", entity.getVersion());
-        doc.put("version_code", entity.getVersionCode());
-        doc.put("version_time", entity.getVersionTime());
-        doc.put("update_time", LocalDateTime.now());
         doc.put("is_deleted", false);
+        doc.put("update_time", LocalDateTime.now());
 
         if (entity.getCreateTime() == null) {
             doc.put("create_time", LocalDateTime.now());
@@ -355,140 +357,86 @@ public class UriRepository {
 
         return doc;
     }
-
-
-
     /**
-     * 使用原生命令条件分页查询uriHash
+     * 使用原生命令分页查询uri_hash
      * @param rootNode 根节点
-     * @param version 版本
+     * @param version 版本号
      * @param versionType 版本类型
      * @param page 页码（从1开始）
      * @param size 每页大小
-     * @return uriHash列表
+     * @return uri_hash列表
      */
     public List<String> findUriHashesNativeWithPage(String rootNode,
                                                     String version,
                                                     String versionType,
                                                     int page,
                                                     int size) {
-        String collectionName = getCollectionName(rootNode);
-        MongoCollection<Document> collection = mongoTemplate.getCollection(collectionName);
-
-        // 构建查询条件
-        Document query = new Document();
-        if (rootNode != null) {
-            query.append("root_node", rootNode);
-        }
-        if (version != null) {
-            query.append("uri_version", version);
-        }
-        if (versionType != null) {
-            query.append("version_type", versionType);
-        }
-
-        // 构建聚合管道
-        List<Document> pipeline = Arrays.asList(
-                new Document("$match", query),
-                new Document("$project", new Document("uri_hash", 1).append("_id", 0)),
-                new Document("$skip", (long) (page - 1) * size),
-                new Document("$limit", size)
-        );
-
         try {
-            return collection.aggregate(pipeline)
+            mongoRateLimiter.acquire();
+
+            String collectionName = getCollectionName(rootNode);
+            MongoCollection<Document> collection = mongoTemplate.getCollection(collectionName);
+
+            // 构建查询条件
+            Document query = new Document();
+            if (StringUtils.hasText(rootNode)) {
+                query.append("root_node", rootNode);
+            }
+            if (StringUtils.hasText(version)) {
+                query.append("uri_version", version);
+            }
+            if (StringUtils.hasText(versionType)) {
+                query.append("version_type", versionType);
+            }
+
+            // 构建聚合管道
+            List<Document> pipeline = Arrays.asList(
+                    new Document("$match", query),
+                    new Document("$project", new Document("uri_hash", 1).append("_id", 0)),
+                    new Document("$skip", (long) (page - 1) * size),
+                    new Document("$limit", size)
+            );
+
+            List<String> results = new ArrayList<>();
+            collection.aggregate(pipeline)
                     .map(doc -> doc.getString("uri_hash"))
-                    .into(new ArrayList<>());
+                    .into(results);
+
+            return results;
         } catch (Exception e) {
-            log.error("Failed to execute native query in collection {}", collectionName, e);
+            log.error("Failed to execute native query for rootNode: {}, version: {}", rootNode, version, e);
             throw new RuntimeException("Query execution failed", e);
         }
     }
 
     /**
-     * 获取满足条件的总数
+     * 统计满足条件的记录总数
      */
-    public long countUriHashesNative(String rootNode, String version, String versionType) {
-        String collectionName = getCollectionName(rootNode);
-        MongoCollection<Document> collection = mongoTemplate.getCollection(collectionName);
-
-        Document query = new Document();
-        if (rootNode != null) {
-            query.append("root_node", rootNode);
-        }
-        if (version != null) {
-            query.append("uri_version", version);
-        }
-        if (versionType != null) {
-            query.append("version_type", versionType);
-        }
-
+    public long countUriHashesNative(String rootNode,
+                                     String version,
+                                     Boolean isDeleted) {
         try {
+            mongoRateLimiter.acquire();
+
+            String collectionName = getCollectionName(rootNode);
+            MongoCollection<Document> collection = mongoTemplate.getCollection(collectionName);
+
+            // 构建查询条件
+            Document query = new Document();
+            if (StringUtils.hasText(rootNode)) {
+                query.append("root_node", rootNode);
+            }
+            if (StringUtils.hasText(version)) {
+                query.append("uri_version", version);
+            }
+            if (isDeleted != null) {
+                query.append("is_deleted", isDeleted);
+            }
+
             return collection.countDocuments(query);
         } catch (Exception e) {
-            log.error("Failed to count documents in collection {}", collectionName, e);
+            log.error("Failed to count documents for rootNode: {}, version: {}", rootNode, version, e);
             throw new RuntimeException("Count documents failed", e);
-        }
-    }
-
-    /**
-     * 查询并返回分页结果
-     */
-    public PageResult<String> findUriHashesPage(String rootNode,
-                                                String version,
-                                                String versionType,
-                                                int page,
-                                                int size) {
-        try {
-            long total = countUriHashesNative(rootNode, version, versionType);
-            List<String> items = findUriHashesNativeWithPage(rootNode, version, versionType, page, size);
-
-            return PageResult.<String>builder()
-                    .total(total)
-                    .page(page)
-                    .size(size)
-                    .totalPages((int) Math.ceil((double) total / size))
-                    .items(items)
-                    .build();
-        } catch (Exception e) {
-            log.error("Failed to get paged results for rootNode {}", rootNode, e);
-            throw new RuntimeException("Failed to get paged results", e);
-        }
-    }
-
-    /**
-     * 如果数据量很大，使用流式处理
-     */
-    public void streamUriHashesNative(String rootNode,
-                                      String version,
-                                      String versionType,
-                                      Consumer<String> consumer) {
-        String collectionName = getCollectionName(rootNode);
-        MongoCollection<Document> collection = mongoTemplate.getCollection(collectionName);
-
-        Document query = new Document();
-        if (rootNode != null) {
-            query.append("rootNode", rootNode);
-        }
-        if (version != null) {
-            query.append("uri_version", version);
-        }
-        if (versionType != null) {
-            query.append("version_type", versionType);
-        }
-
-        List<Document> pipeline = Arrays.asList(
-                new Document("$match", query),
-                new Document("$project", new Document("uri_hash", 1).append("_id", 0))
-        );
-
-        try (MongoCursor<Document> cursor = collection.aggregate(pipeline).iterator()) {
-            while (cursor.hasNext()) {
-                consumer.accept(cursor.next().getString("uri_hash"));
-            }
-        } catch (Exception e) {
-            log.error("Failed to stream documents from collection {}", collectionName, e);
-            throw new RuntimeException("Streaming documents failed", e);
         }
     }
 }

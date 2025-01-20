@@ -4,13 +4,10 @@ import com.study.collect.business.testcase.constant.CollectionConstants;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import javax.annotation.PreDestroy;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
-/**
- * 限流器实现
- * 使用滑动窗口算法实现限流
- */
 @Slf4j
 @Component
 public class RateLimiter {
@@ -31,7 +28,12 @@ public class RateLimiter {
         });
 
         // 定期清理过期的时间戳
-        scheduler.scheduleAtFixedRate(this::cleanup, 1, 1, TimeUnit.MINUTES);
+        scheduler.scheduleAtFixedRate(
+                this::cleanup,
+                1,
+                1,
+                TimeUnit.MINUTES
+        );
     }
 
     /**
@@ -39,7 +41,7 @@ public class RateLimiter {
      */
     public void acquire() throws InterruptedException {
         while (!tryAcquire()) {
-            Thread.sleep(5000);  // 等待100ms后重试
+            Thread.sleep(100); // 等待100ms后重试
         }
     }
 
@@ -47,7 +49,7 @@ public class RateLimiter {
      * 尝试获取许可
      */
     public boolean tryAcquire() {
-        cleanup();  // 清理过期的时间戳
+        cleanup(); // 清理过期的时间戳
 
         long now = System.currentTimeMillis();
         int currentCount = currentPermits.get();
@@ -88,8 +90,23 @@ public class RateLimiter {
     }
 
     /**
-     * 关闭清理线程
+     * 获取剩余许可数
      */
+    public int getAvailablePermits() {
+        cleanup();
+        return permitsPerMinute - currentPermits.get();
+    }
+
+    /**
+     * 等待直到有可用许可
+     */
+    public void waitForPermit() throws InterruptedException {
+        while (getCurrentRate() >= permitsPerMinute) {
+            Thread.sleep(100);
+        }
+    }
+
+    @PreDestroy
     public void shutdown() {
         scheduler.shutdown();
         try {

@@ -1,34 +1,50 @@
 package com.study.collect.business.testcase.entity;
 
-import com.study.collect.business.testcase.constant.CollectionConstants;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
+import org.springframework.data.mongodb.core.index.CompoundIndexes;
+import org.springframework.data.mongodb.core.index.Indexed;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
+@Document(collection = "versions")
 @Data
 @EqualsAndHashCode(callSuper = true)
 @NoArgsConstructor
-public abstract class VersionEntity extends BaseEntity {
+@CompoundIndexes({
+        @CompoundIndex(name = "idx_root_version",
+                def = "{'root_node': 1, 'version': 1}", unique = true)
+})
+public class VersionEntity extends BaseEntity {
+
+    @Field("version")
+    private String version;
+
+    @Field("root_node")
+    private String rootNode;
+
+    @Field("version_type")
+    private String versionType;
+
+    private String name;
+
+    private String description;
 
     @Field("version_code")
-    protected String versionCode;
+    private String versionCode;
 
     @Field("version_time")
-    protected LocalDateTime versionTime;
+    private LocalDateTime versionTime;
 
-    protected VersionEntity(String id) {
-        super(id);
-        initVersion();
-    }
+    private Integer sort;
 
     public void initVersion() {
-        this.version = 0L;
+        this.version = String.valueOf(0L);
         this.versionCode = generateVersionCode();
         this.versionTime = LocalDateTime.now();
     }
@@ -39,27 +55,11 @@ public abstract class VersionEntity extends BaseEntity {
         this.versionTime = LocalDateTime.now();
     }
 
-    protected String generateVersionCode() {
+    private String generateVersionCode() {
         return String.format("%s%s%s%d",
-                CollectionConstants.VERSION_PREFIX,
+                "V",
                 LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")),
-                CollectionConstants.VERSION_SEPARATOR,
+                "_",
                 this.version);
-    }
-
-    @PrePersist
-    @Override
-    public void prePersist() {
-        super.prePersist();
-        if (this.versionCode == null) {
-            initVersion();
-        }
-    }
-
-    @PreUpdate
-    @Override
-    public void preUpdate() {
-        super.preUpdate();
-        upgradeVersion();
     }
 }
