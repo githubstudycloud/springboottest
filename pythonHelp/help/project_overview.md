@@ -35,7 +35,7 @@ business-testcase/
                                         UriCollectController.java
                                     entity/
                                         BaseEntity.java
-                                        CollectResultEntity.java
+                                        CollectTaskEntity.java
                                         UriEntity.java
                                         VersionEntity.java
                                     manager/
@@ -43,6 +43,7 @@ business-testcase/
                                         QueueManager.java
                                     model/
                                         PageResult.java
+                                        UriQueryCondition.java
                                         param/
                                             CollectParam.java
                                             DeleteParam.java
@@ -53,19 +54,21 @@ business-testcase/
                                             BaseResponse.java
                                             PageResponse.java
                                             TaskResponse.java
+                                            UriDetail.java
+                                            VersionInfo.java
                                             VersionResponse.java
                                             parse/
-                                                CommonResponseParser.java
                                                 HttpResponseParser.java
                                                 UriCountResponseParser.java
                                                 UriDetailResponseParser.java
                                                 UriListResponseParser.java
                                                 VersionResponseParser.java
                                     repository/
-                                        CollectResultRepository.java
+                                        CollectTaskRepository.java
                                         UriRepository.java
+                                        VersionRepository.java
                                     service/
-                                        TableSchemaManager.java
+                                        CollectScheduler.java
                                         UriCollectService.java
                                         http/
                                             UriHttpService.java
@@ -1162,6 +1165,7 @@ import com.study.collect.business.testcase.model.param.CollectParam;
 import com.study.collect.business.testcase.model.param.DeleteParam;
 import com.study.collect.business.testcase.model.param.QueryParam;
 import com.study.collect.business.testcase.model.response.AsyncResponse;
+import com.study.collect.business.testcase.model.response.TaskResponse;
 import com.study.collect.business.testcase.service.UriCollectService;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
@@ -1169,6 +1173,7 @@ import io.swagger.annotations.ApiParam;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -1176,7 +1181,9 @@ import org.springframework.web.bind.annotation.*;
 import javax.validation.Valid;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Validated
@@ -1189,10 +1196,27 @@ public class UriCollectController {
 
     @PostMapping("/sync")
     @ApiOperation("Start data collection")
-    public ResponseEntity<AsyncResponse<String>> syncData(
+    public ResponseEntity<AsyncResponse<String>> collectData(
             @RequestBody @Valid CollectParam param) {
         log.info("Received collect request for rootNode: {}", param.getRootNode());
         return ResponseEntity.ok(collectService.collectData(param));
+    }
+
+    @GetMapping("/versions/{rootNode}")
+    @ApiOperation("Get versions by rootNode")
+    public ResponseEntity<Page<String>> getVersions(
+            @PathVariable @NotNull String rootNode,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size) {
+        return ResponseEntity.ok(collectService.getVersions(rootNode, page, size));
+    }
+
+    @GetMapping("/count/{rootNode}/{version}")
+    @ApiOperation("Get URI count for version")
+    public ResponseEntity<Long> getUriCount(
+            @PathVariable @NotNull String rootNode,
+            @PathVariable @NotNull String version) {
+        return ResponseEntity.ok(collectService.getUriCount(rootNode, version));
     }
 
     @PostMapping("/delete")
@@ -1204,7 +1228,7 @@ public class UriCollectController {
     }
 
     @GetMapping("/query")
-    @ApiOperation("Query URI data")
+    @ApiOperation("Query URI data with conditions")
     public ResponseEntity<Page<UriEntity>> queryUri(
             @Valid QueryParam param) {
         return ResponseEntity.ok(collectService.queryUri(param));
@@ -1214,8 +1238,20 @@ public class UriCollectController {
     @ApiOperation("Batch query URIs")
     public ResponseEntity<List<UriEntity>> batchQueryUri(
             @RequestBody @NotEmpty(message = "URIs cannot be empty") List<String> uris,
-            @RequestParam(required = false, defaultValue = "false") Boolean includeDeleted) {
-        return ResponseEntity.ok(collectService.batchQueryUri(uris, includeDeleted));
+            @RequestParam(required = false) Boolean includeDeleted,
+            @RequestParam(required = false) Boolean onlyDetail) {
+        return ResponseEntity.ok(collectService.batchQueryUri(uris, includeDeleted, onlyDetail));
+    }
+
+    @GetMapping("/incremental/{rootNode}")
+    @ApiOperation("Query URIs by update time range")
+    public ResponseEntity<Page<UriEntity>> queryByUpdateTime(
+            @PathVariable @NotNull String rootNode,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endTime,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size) {
+        return ResponseEntity.ok(collectService.queryByUpdateTime(rootNode, startTime, endTime, page, size));
     }
 
     @GetMapping("/task/{taskId}")
@@ -1241,9 +1277,16 @@ public class UriCollectController {
     }
 
     @GetMapping("/tasks")
-    @ApiOperation("Get active tasks")
-    public ResponseEntity<List<AsyncResponse<Void>>> getActiveTasks() {
+    @ApiOperation("Get all active tasks")
+    public ResponseEntity<List<TaskResponse>> getActiveTasks() {
         return ResponseEntity.ok(collectService.getActiveTasks());
+    }
+
+    @GetMapping("/stats/{rootNode}")
+    @ApiOperation("Get collection statistics")
+    public ResponseEntity<Map<String, Object>> getCollectionStats(
+            @PathVariable @NotNull String rootNode) {
+        return ResponseEntity.ok(collectService.getCollectionStats(rootNode));
     }
 
     @ExceptionHandler(Exception.class)
@@ -1331,17 +1374,18 @@ public abstract class BaseEntity implements Serializable {
 }
 ```
 
-## CollectResultEntity.java
+## CollectTaskEntity.java
 
 ```java
 package com.study.collect.business.testcase.entity;
 
 import lombok.Data;
 import lombok.EqualsAndHashCode;
-import org.springframework.data.mongodb.core.index.CompoundIndex;
-import org.springframework.data.mongodb.core.index.CompoundIndexes;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
+import org.springframework.data.mongodb.core.index.CompoundIndexes;
+import org.springframework.data.mongodb.core.index.Indexed;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -1349,56 +1393,55 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-@Document(collection = "collect_result")
+@Document(collection = "collect_tasks")
 @Data
 @EqualsAndHashCode(callSuper = true)
 @CompoundIndexes({
-        @CompoundIndex(
-                name = "rootnode_version_idx",
-                def = "{'root_node': 1, 'uri_version': 1}",
-                unique = true
-        )
+        @CompoundIndex(name = "idx_root_version",
+                def = "{'root_node': 1, 'version': 1}", unique = true)
 })
-public class CollectResultEntity extends BaseEntity {
+public class CollectTaskEntity extends BaseEntity {
+
+    @Indexed(unique = true)
+    @Field("task_id")
+    private String taskId;
 
     @Field("root_node")
     private String rootNode;
 
-    @Field("uri_version")
-    private String uriVersion;
+    private String version;
 
-    @Field("total_uri_count")
-    private Long totalUriCount;
+    private String status; // CREATED, PROCESSING, COMPLETED, FAILED, CANCELLED
 
-    @Field("success_count")
-    private Long successCount;
+    private Integer priority;
 
-    @Field("failed_count")
-    private Long failedCount;
+    private String message;
 
-    @Field("collect_start_time")
-    private LocalDateTime collectStartTime;
+    @Field("start_time")
+    private LocalDateTime startTime;
 
-    @Field("collect_end_time")
-    private LocalDateTime collectEndTime;
+    @Field("end_time")
+    private LocalDateTime endTime;
 
-    @Field("collect_status")
-    private String collectStatus; // PROCESSING, SUCCESS, FAILED
+    @Field("total_uris")
+    private Long totalUris = 0L;
+
+    @Field("processed_uris")
+    private Long processedUris = 0L;
 
     @Field("failed_uris")
-    private List<String> failedUris;
+    private Long failedUris = 0L;
+
+    @Field("failed_uri_list")
+    private List<String> failedUriList = new ArrayList<>();
 
     @Field("error_details")
-    private Map<String, Object> errorDetails;
+    private Map<String, String> errorDetails = new HashMap<>();
 
-    @Field("retry_count")
-    private Integer retryCount;
+    private Double progress = 0.0;
 
-    @Field("last_retry_time")
-    private LocalDateTime lastRetryTime;
-
-    @Field("collect_type")
-    private String collectType; // FULL, INCREMENT
+    @Field("is_incremental")
+    private Boolean isIncremental = false;
 
     @Field("increment_start_time")
     private LocalDateTime incrementStartTime;
@@ -1406,46 +1449,44 @@ public class CollectResultEntity extends BaseEntity {
     @Field("increment_end_time")
     private LocalDateTime incrementEndTime;
 
-    public void addFailedUri(String uri) {
-        if (this.failedUris == null) {
-            this.failedUris = new ArrayList<>();
+    @Field("retry_count")
+    private Integer retryCount = 0;
+
+    @Field("last_retry_time")
+    private LocalDateTime lastRetryTime;
+
+    public void addFailedUri(String uri, String error) {
+        if (failedUriList == null) {
+            failedUriList = new ArrayList<>();
         }
-        this.failedUris.add(uri);
-        this.failedCount++;
+        failedUriList.add(uri);
+
+        if (errorDetails == null) {
+            errorDetails = new HashMap<>();
+        }
+        errorDetails.put(uri, error);
+
+        failedUris = (failedUris == null ? 0L : failedUris) + 1;
     }
 
-    public void incrementSuccess() {
-        if (this.successCount == null) {
-            this.successCount = 0L;
-        }
-        this.successCount++;
+    public void incrementProcessedCount() {
+        processedUris = (processedUris == null ? 0L : processedUris) + 1;
+        updateProgress();
     }
 
-    public void markAsCompleted() {
-        this.collectEndTime = LocalDateTime.now();
-        this.collectStatus = "SUCCESS";
-    }
-
-    public void markAsFailed(String errorMessage) {
-        this.collectEndTime = LocalDateTime.now();
-        this.collectStatus = "FAILED";
-        if (this.errorDetails == null) {
-            this.errorDetails = new HashMap<>();
+    public void updateProgress() {
+        if (totalUris != null && totalUris > 0) {
+            progress = (double) processedUris / totalUris * 100;
         }
-        this.errorDetails.put("lastError", errorMessage);
-        this.errorDetails.put("errorTime", LocalDateTime.now());
     }
 
     public boolean canRetry() {
-        return this.retryCount == null || this.retryCount < 3;
+        return retryCount < 3;
     }
 
-    public void incrementRetry() {
-        if (this.retryCount == null) {
-            this.retryCount = 0;
-        }
-        this.retryCount++;
-        this.lastRetryTime = LocalDateTime.now();
+    public void incrementRetryCount() {
+        retryCount = (retryCount == null ? 0 : retryCount) + 1;
+        lastRetryTime = LocalDateTime.now();
     }
 }
 ```
@@ -1470,6 +1511,7 @@ import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -1495,7 +1537,8 @@ import java.util.Map;
                 name = "query_idx",
                 def = "{'root_node': 1, 'version_type': 1, 'uri_version': 1, 'is_deleted': 1}",
                 background = true
-        )
+        ),
+        @CompoundIndex(name = "idx_update_time", def = "{'third_party_update_time': -1}", background = true)
 })
 public class UriEntity extends VersionEntity {
     private static final Logger log = LoggerFactory.getLogger(UriEntity.class);
@@ -1516,6 +1559,13 @@ public class UriEntity extends VersionEntity {
     @Field("uri_version")
     private String uriVersion;
 
+
+    @Field("third_party_update_time")
+    private LocalDateTime thirdPartyUpdateTime;
+    @Field("real_uri")
+    private String realUri;
+    private String number;
+    private String name;
     private Map<String, Object> details;
 
     public UriEntity(String uri, String rootNode) {
@@ -1564,35 +1614,51 @@ public class UriEntity extends VersionEntity {
 ```java
 package com.study.collect.business.testcase.entity;
 
-import com.study.collect.business.testcase.constant.CollectionConstants;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
+import org.springframework.data.mongodb.core.index.CompoundIndexes;
+import org.springframework.data.mongodb.core.index.Indexed;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
+@Document(collection = "versions")
 @Data
 @EqualsAndHashCode(callSuper = true)
 @NoArgsConstructor
-public abstract class VersionEntity extends BaseEntity {
+@CompoundIndexes({
+        @CompoundIndex(name = "idx_root_version",
+                def = "{'root_node': 1, 'version': 1}", unique = true)
+})
+public class VersionEntity extends BaseEntity {
+
+    @Field("version")
+    private String version;
+
+    @Field("root_node")
+    private String rootNode;
+
+    @Field("version_type")
+    private String versionType;
+
+    private String name;
+
+    private String description;
 
     @Field("version_code")
-    protected String versionCode;
+    private String versionCode;
 
     @Field("version_time")
-    protected LocalDateTime versionTime;
+    private LocalDateTime versionTime;
 
-    protected VersionEntity(String id) {
-        super(id);
-        initVersion();
-    }
+    private Integer sort;
 
     public void initVersion() {
-        this.version = 0L;
+        this.version = String.valueOf(0L);
         this.versionCode = generateVersionCode();
         this.versionTime = LocalDateTime.now();
     }
@@ -1603,28 +1669,12 @@ public abstract class VersionEntity extends BaseEntity {
         this.versionTime = LocalDateTime.now();
     }
 
-    protected String generateVersionCode() {
+    private String generateVersionCode() {
         return String.format("%s%s%s%d",
-                CollectionConstants.VERSION_PREFIX,
+                "V",
                 LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")),
-                CollectionConstants.VERSION_SEPARATOR,
+                "_",
                 this.version);
-    }
-
-    @PrePersist
-    @Override
-    public void prePersist() {
-        super.prePersist();
-        if (this.versionCode == null) {
-            initVersion();
-        }
-    }
-
-    @PreUpdate
-    @Override
-    public void preUpdate() {
-        super.preUpdate();
-        upgradeVersion();
     }
 }
 ```
@@ -1980,13 +2030,54 @@ public class PageResult<T> {
 }
 ```
 
+## UriQueryCondition.java
+
+```java
+package com.study.collect.business.testcase.model;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+
+import java.time.LocalDateTime;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class UriQueryCondition {
+    private String rootNode;
+    private String version;
+    private LocalDateTime thirdPartyUpdateTimeStart;
+    private LocalDateTime thirdPartyUpdateTimeEnd;
+    private Boolean isDeleted;
+    private boolean onlyDetail;
+
+    @Builder.Default
+    private int page = 1;
+
+    @Builder.Default
+    private int size = 20;
+
+    public Pageable getPageable() {
+        return PageRequest.of(page - 1, size);
+    }
+}
+```
+
 ## CollectParam.java
 
 ```java
 package com.study.collect.business.testcase.model.param;
 
 import com.study.collect.business.testcase.constant.CollectionConstants;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 
 import javax.validation.constraints.Max;
@@ -1995,8 +2086,12 @@ import javax.validation.constraints.NotBlank;
 import java.time.LocalDateTime;
 
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 @Validated
 public class CollectParam {
+
     @NotBlank(message = "rootNode cannot be empty")
     private String rootNode;
 
@@ -2005,27 +2100,73 @@ public class CollectParam {
     @NotBlank(message = "serverUrl cannot be empty")
     private String serverUrl;
 
+    @Builder.Default
     private Boolean incremental = false;
 
     private LocalDateTime startTime;
 
     private LocalDateTime endTime;
 
-    @Min(value = 50, message = "batchSize must be greater than 50")
-    @Max(value = 1000, message = "batchSize must be less than 1000")
+    @Min(value = 50, message = "batchSize must be greater than or equal to 50")
+    @Max(value = 1000, message = "batchSize must be less than or equal to 1000")
+    @Builder.Default
     private Integer batchSize = CollectionConstants.DEFAULT_BATCH_SIZE;
 
+    @Builder.Default
     private Integer priority = 0;
 
+    @Builder.Default
     private Boolean allowDuplicate = false;
 
+    @Builder.Default
     private Integer maxRetries = CollectionConstants.HTTP_MAX_RETRY;
 
+    @Builder.Default
     private Integer timeout = 3600;
 
-    private Boolean forceUpdate = false;
+    @Builder.Default
+    private Boolean hardDelete = false;
 
     private String taskId;
+
+    @Builder.Default
+    private Boolean forceUpdate = false;
+
+    // 验证增量采集参数
+    public void validateIncrementalParams() {
+        if (Boolean.TRUE.equals(incremental) && startTime == null) {
+            throw new IllegalArgumentException("startTime is required for incremental collection");
+        }
+        if (startTime != null && endTime != null && !startTime.isBefore(endTime)) {
+            throw new IllegalArgumentException("startTime must be before endTime");
+        }
+    }
+
+    // 验证版本号格式
+    public void validateVersion() {
+        if (version != null && !version.matches("^[\\w.-]+$")) {
+            throw new IllegalArgumentException("Invalid version format");
+        }
+    }
+
+    // 构建复制
+    public CollectParam copy() {
+        return CollectParam.builder()
+                .rootNode(this.rootNode)
+                .version(this.version)
+                .serverUrl(this.serverUrl)
+                .incremental(this.incremental)
+                .startTime(this.startTime)
+                .endTime(this.endTime)
+                .batchSize(this.batchSize)
+                .priority(this.priority)
+                .allowDuplicate(this.allowDuplicate)
+                .maxRetries(this.maxRetries)
+                .timeout(this.timeout)
+                .hardDelete(this.hardDelete)
+                .forceUpdate(this.forceUpdate)
+                .build();
+    }
 }
 ```
 
@@ -2129,16 +2270,16 @@ package com.study.collect.business.testcase.model.response;
 
 import lombok.Builder;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 import java.time.LocalDateTime;
 
 @Data
 @Builder
-public class AsyncResponse<T> {
+@EqualsAndHashCode(callSuper = false)
+public class AsyncResponse<T> extends BaseResponse {
     private String taskId;
-    private String status;
     private Double progress;
-    private String message;
     private LocalDateTime startTime;
     private LocalDateTime endTime;
     private T result;
@@ -2182,43 +2323,17 @@ package com.study.collect.business.testcase.model.response;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.experimental.SuperBuilder;
 
-// BaseResponse.java
 @Data
+@SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
 public class BaseResponse {
     private String code;
     private String message;
-
-    public static BaseResponseBuilder builder() {
-        return new BaseResponseBuilder();
-    }
-
-    public static class BaseResponseBuilder {
-        private String code;
-        private String message;
-
-        BaseResponseBuilder() {
-        }
-
-        public BaseResponseBuilder code(String code) {
-            this.code = code;
-            return this;
-        }
-
-        public BaseResponseBuilder message(String message) {
-            this.message = message;
-            return this;
-        }
-
-        public BaseResponse build() {
-            return new BaseResponse(code, message);
-        }
-    }
+    private String status;
 }
-
-
 ```
 
 ## PageResponse.java
@@ -2226,20 +2341,25 @@ public class BaseResponse {
 ```java
 package com.study.collect.business.testcase.model.response;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
-//
-//
-// PageResponse.java
+
 @Data
+@Builder
 @NoArgsConstructor
+@AllArgsConstructor
 public class PageResponse<T> {
     private String code;
     private String message;
     private Long total;
     private List<T> items;
+    private int page;
+    private int size;
+    private int totalPages;
 
     public static <T> PageResponseBuilder<T> builder() {
         return new PageResponseBuilder<>();
@@ -2250,6 +2370,9 @@ public class PageResponse<T> {
         private String message;
         private Long total;
         private List<T> items;
+        private int page;
+        private int size;
+        private int totalPages;
 
         PageResponseBuilder() {
         }
@@ -2274,13 +2397,23 @@ public class PageResponse<T> {
             return this;
         }
 
+        public PageResponseBuilder<T> page(int page) {
+            this.page = page;
+            return this;
+        }
+
+        public PageResponseBuilder<T> size(int size) {
+            this.size = size;
+            return this;
+        }
+
+        public PageResponseBuilder<T> totalPages(int totalPages) {
+            this.totalPages = totalPages;
+            return this;
+        }
+
         public PageResponse<T> build() {
-            PageResponse<T> response = new PageResponse<>();
-            response.setCode(code);
-            response.setMessage(message);
-            response.setTotal(total);
-            response.setItems(items);
-            return response;
+            return new PageResponse<>(code, message, total, items, page, size, totalPages);
         }
     }
 }
@@ -2331,6 +2464,61 @@ public class TaskResponse {
         this.totalCount = total;
         this.progress = total > 0 ? (processed * 100.0) / total : 0.0;
     }
+}
+```
+
+## UriDetail.java
+
+```java
+package com.study.collect.business.testcase.model.response;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
+import java.util.Map;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class UriDetail {
+    private String uri;
+    private String realUri;
+    private String number;
+    private String name;
+    private String version;
+    private LocalDateTime updateTime;
+    private Map<String, Object> details;
+}
+```
+
+## VersionInfo.java
+
+```java
+package com.study.collect.business.testcase.model.response;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class VersionInfo {
+    private String version;
+    private String name;
+    private String type;  // TRUNK/BRANCH
+    private String description;
+    private LocalDateTime updateTime;
+    private Integer sort;
+    private String status;
 }
 ```
 
@@ -2458,66 +2646,6 @@ public class VersionResponse {
 }
 ```
 
-## CommonResponseParser.java
-
-```java
-package com.study.collect.business.testcase.model.response.parse;
-
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-
-import java.io.IOException;
-import java.util.function.Function;
-
-@Slf4j
-@Component
-@RequiredArgsConstructor
-public class CommonResponseParser<T> implements HttpResponseParser<T> {
-    private final ObjectMapper objectMapper;
-    private final Function<JsonNode, T> valueParser;
-    private final String parserName;
-
-    @Override
-    public T parse(String response) throws IOException {
-        try {
-            JsonNode root = objectMapper.readTree(response);
-            JsonNode valueNode = root.path("result").path("value");
-
-            validateResponse(valueNode);
-
-            return valueParser.apply(valueNode);
-        } catch (Exception e) {
-            log.error("Failed to parse {} response: {}", parserName, response, e);
-            throw new IOException("Failed to parse " + parserName + " response", e);
-        }
-    }
-
-    private void validateResponse(JsonNode valueNode) throws IOException {
-        if (valueNode.isMissingNode() || valueNode.isNull()) {
-            throw new IOException("Invalid response format: missing or null value");
-        }
-    }
-
-    @Override
-    public String parseError(String errorResponse) {
-        try {
-            JsonNode root = objectMapper.readTree(errorResponse);
-            return root.path("message").asText("Unknown error");
-        } catch (Exception e) {
-            log.error("Failed to parse error response: {}", errorResponse, e);
-            return "Failed to parse error response";
-        }
-    }
-
-    public static <T> CommonResponseParser<T> create(
-            ObjectMapper objectMapper,
-            Function<JsonNode, T> valueParser,
-            String parserName) {
-```
-
 ## HttpResponseParser.java
 
 ```java
@@ -2527,9 +2655,9 @@ import java.io.IOException;
 
 /**
  * HTTP响应解析器接口
- * @param <T> 解析结果类型
  */
 public interface HttpResponseParser<T> {
+
     /**
      * 解析HTTP响应
      * @param response 响应字符串
@@ -2570,37 +2698,17 @@ import java.io.IOException;
 @Component
 @RequiredArgsConstructor
 public class UriCountResponseParser implements HttpResponseParser<Integer> {
+
     private final ObjectMapper objectMapper;
 
     @Override
     public Integer parse(String response) throws IOException {
         try {
             JsonNode root = objectMapper.readTree(response);
-            JsonNode valueNode = root.path("result").path("value");
-
-            validateResponse(valueNode);
-
-            return valueNode.asInt();
+            return root.path("result").path("value").asInt();
         } catch (Exception e) {
             log.error("Failed to parse URI count response: {}", response, e);
             throw new IOException("Failed to parse URI count response", e);
-        }
-    }
-
-    private void validateResponse(JsonNode valueNode) throws IOException {
-        if (!valueNode.isNumber()) {
-            throw new IOException("Invalid response format: value must be a number");
-        }
-    }
-
-    @Override
-    public String parseError(String errorResponse) {
-        try {
-            JsonNode root = objectMapper.readTree(errorResponse);
-            return root.path("message").asText("Unknown error");
-        } catch (Exception e) {
-            log.error("Failed to parse error response: {}", errorResponse, e);
-            return "Failed to parse error response";
         }
     }
 }
@@ -2613,42 +2721,38 @@ package com.study.collect.business.testcase.model.response.parse;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.study.collect.business.testcase.model.response.UriDetail;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class UriDetailResponseParser implements HttpResponseParser<List<Map<String, Object>>> {
+public class UriDetailResponseParser implements HttpResponseParser<List<UriDetail>> {
+
     private final ObjectMapper objectMapper;
 
     @Override
-    public List<Map<String, Object>> parse(String response) throws IOException {
+    public List<UriDetail> parse(String response) throws IOException {
         try {
             JsonNode root = objectMapper.readTree(response);
-            validateResponse(root);
+            List<UriDetail> details = new ArrayList<>();
 
-            List<Map<String, Object>> details = new ArrayList<>();
-            JsonNode items = root.path("items");
-            if (items.isArray()) {
-                items.forEach(item -> {
-                    try {
-                        Map<String, Object> detail = convertToMap(item);
-                        if (detail != null && !detail.isEmpty()) {
-                            details.add(detail);
-                        }
-                    } catch (Exception e) {
-                        log.error("Failed to parse URI detail item: {}", item, e);
-                    }
-                });
-            }
+            root.path("result").path("value").forEach(detail -> {
+                details.add(UriDetail.builder()
+                        .uri(detail.path("uri").asText())
+                        .realUri(detail.path("realUri").asText())
+                        .number(detail.path("number").asText())
+                        .name(detail.path("name").asText())
+                        .updateTime(parseDateTime(detail.path("updateTime").asText()))
+                        .build());
+            });
 
             return details;
         } catch (Exception e) {
@@ -2657,58 +2761,12 @@ public class UriDetailResponseParser implements HttpResponseParser<List<Map<Stri
         }
     }
 
-    private Map<String, Object> convertToMap(JsonNode node) {
-        Map<String, Object> result = new LinkedHashMap<>();
-        node.fields().forEachRemaining(entry -> {
-            String key = entry.getKey();
-            JsonNode valueNode = entry.getValue();
-            Object value = convertJsonNode(valueNode);
-            if (value != null) {
-                result.put(key, value);
-            }
-        });
-        return result;
-    }
-
-    private Object convertJsonNode(JsonNode node) {
-        if (node.isNull()) {
-            return null;
-        } else if (node.isTextual()) {
-            return node.asText();
-        } else if (node.isNumber()) {
-            return node.numberValue();
-        } else if (node.isBoolean()) {
-            return node.asBoolean();
-        } else if (node.isArray()) {
-            List<Object> list = new ArrayList<>();
-            node.forEach(item -> {
-                Object value = convertJsonNode(item);
-                if (value != null) {
-                    list.add(value);
-                }
-            });
-            return list;
-        } else if (node.isObject()) {
-            return convertToMap(node);
-        } else {
-            return node.toString();
-        }
-    }
-
-    private void validateResponse(JsonNode root) throws IOException {
-        if (!root.has("items")) {
-            throw new IOException("Invalid response format: missing items field");
-        }
-    }
-
-    @Override
-    public String parseError(String errorResponse) {
+    private LocalDateTime parseDateTime(String dateTimeStr) {
         try {
-            JsonNode root = objectMapper.readTree(errorResponse);
-            return root.path("message").asText("Unknown error");
+            return LocalDateTime.parse(dateTimeStr);
         } catch (Exception e) {
-            log.error("Failed to parse error response: {}", errorResponse, e);
-            return "Failed to parse error response";
+            log.warn("Failed to parse datetime: {}", dateTimeStr);
+            return null;
         }
     }
 }
@@ -2721,7 +2779,6 @@ package com.study.collect.business.testcase.model.response.parse;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.study.collect.business.testcase.model.response.PageResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -2733,53 +2790,24 @@ import java.util.List;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class UriListResponseParser implements HttpResponseParser<PageResponse<String>> {
+public class UriListResponseParser implements HttpResponseParser<List<String>> {
+
     private final ObjectMapper objectMapper;
 
     @Override
-    public PageResponse<String> parse(String response) throws IOException {
+    public List<String> parse(String response) throws IOException {
         try {
             JsonNode root = objectMapper.readTree(response);
-            validateResponse(root);
-
-            PageResponse<String> pageResponse = new PageResponse<>();
-            pageResponse.setCode(root.path("code").asText());
-            pageResponse.setMessage(root.path("message").asText());
-            pageResponse.setTotal(root.path("total").asLong());
-
             List<String> uris = new ArrayList<>();
-            JsonNode items = root.path("items");
-            if (items.isArray()) {
-                items.forEach(item -> {
-                    String uri = item.path("uri").asText();
-                    if (uri != null && !uri.isEmpty()) {
-                        uris.add(uri);
-                    }
-                });
-            }
 
-            pageResponse.setItems(uris);
-            return pageResponse;
+            root.path("result").path("value").forEach(uri ->
+                    uris.add(uri.asText())
+            );
+
+            return uris;
         } catch (Exception e) {
             log.error("Failed to parse URI list response: {}", response, e);
             throw new IOException("Failed to parse URI list response", e);
-        }
-    }
-
-    private void validateResponse(JsonNode root) throws IOException {
-        if (!root.has("code") || !root.has("total") || !root.has("items")) {
-            throw new IOException("Invalid response format: missing required fields");
-        }
-    }
-
-    @Override
-    public String parseError(String errorResponse) {
-        try {
-            JsonNode root = objectMapper.readTree(errorResponse);
-            return root.path("message").asText("Unknown error");
-        } catch (Exception e) {
-            log.error("Failed to parse error response: {}", errorResponse, e);
-            return "Failed to parse error response";
         }
     }
 }
@@ -2793,7 +2821,7 @@ package com.study.collect.business.testcase.model.response.parse;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.study.collect.business.testcase.model.response.PageResponse;
-import com.study.collect.business.testcase.model.response.VersionResponse;
+import com.study.collect.business.testcase.model.response.VersionInfo;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -2806,52 +2834,41 @@ import java.util.List;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class VersionResponseParser implements HttpResponseParser<PageResponse<VersionResponse>> {
+public class VersionResponseParser implements HttpResponseParser<PageResponse<VersionInfo>> {
+
     private final ObjectMapper objectMapper;
 
     @Override
-    public PageResponse<VersionResponse> parse(String response) throws IOException {
+    public PageResponse<VersionInfo> parse(String response) throws IOException {
         try {
             JsonNode root = objectMapper.readTree(response);
-            validateResponse(root);
+            JsonNode value = root.path("result").path("value");
 
-            PageResponse<VersionResponse> pageResponse = new PageResponse<>();
-            pageResponse.setCode(root.path("code").asText());
-            pageResponse.setMessage(root.path("message").asText());
-            pageResponse.setTotal(root.path("total").asLong());
+            List<VersionInfo> versions = new ArrayList<>();
+            // 解析嵌套的children结构
+            value.path("children").forEach(child -> {
+                if ("children".equals(child.path("elementName").asText())) {
+                    child.path("children").forEach(version -> {
+                        versions.add(parseVersionInfo(version));
+                    });
+                }
+            });
 
-            List<VersionResponse> versions = new ArrayList<>();
-            JsonNode items = root.path("items");
-            if (items.isArray()) {
-                items.forEach(item -> {
-                    try {
-                        VersionResponse version = parseVersionItem(item);
-                        if (version != null) {
-                            versions.add(version);
-                        }
-                    } catch (Exception e) {
-                        log.error("Failed to parse version item: {}", item, e);
-                    }
-                });
-            }
-
-            pageResponse.setItems(versions);
-            return pageResponse;
+            return PageResponse.<VersionInfo>builder()
+                    .items(versions)
+                    .build();
         } catch (Exception e) {
             log.error("Failed to parse version response: {}", response, e);
             throw new IOException("Failed to parse version response", e);
         }
     }
 
-    private VersionResponse parseVersionItem(JsonNode item) {
-        return VersionResponse.builder()
-                .version(item.path("version").asText())
-                .versionType(item.path("versionType").asText())
-                .description(item.path("description").asText())
-                .createTime(parseDateTime(item.path("createTime").asText()))
-                .updateTime(parseDateTime(item.path("updateTime").asText()))
-                .status(item.path("status").asText())
-                .sort(item.path("sort").asInt())
+    private VersionInfo parseVersionInfo(JsonNode node) {
+        return VersionInfo.builder()
+                .version(node.path("version").asText())
+                .name(node.path("name").asText())
+                .type(node.path("type").asText())
+                .updateTime(parseDateTime(node.path("updateTime").asText()))
                 .build();
     }
 
@@ -2859,47 +2876,25 @@ public class VersionResponseParser implements HttpResponseParser<PageResponse<Ve
         try {
             return LocalDateTime.parse(dateTimeStr);
         } catch (Exception e) {
-            log.debug("Failed to parse datetime: {}", dateTimeStr);
+            log.warn("Failed to parse datetime: {}", dateTimeStr);
             return null;
-        }
-    }
-
-    private void validateResponse(JsonNode root) throws IOException {
-        if (!root.has("code") || !root.has("total") || !root.has("items")) {
-            throw new IOException("Invalid response format: missing required fields");
-        }
-    }
-
-    @Override
-    public String parseError(String errorResponse) {
-        try {
-            JsonNode root = objectMapper.readTree(errorResponse);
-            return root.path("message").asText("Unknown error");
-        } catch (Exception e) {
-            log.error("Failed to parse error response: {}", errorResponse, e);
-            return "Failed to parse error response";
         }
     }
 }
 ```
 
-## CollectResultRepository.java
+## CollectTaskRepository.java
 
 ```java
 package com.study.collect.business.testcase.repository;
 
-import com.study.collect.business.testcase.entity.CollectResultEntity;
-import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.Timer;
-import lombok.RequiredArgsConstructor;
+import com.study.collect.business.testcase.entity.CollectTaskEntity;
+import com.study.collect.business.testcase.utils.RateLimiter;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
-import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
@@ -2907,182 +2902,133 @@ import java.util.List;
 
 @Slf4j
 @Repository
-@RequiredArgsConstructor
-public class CollectResultRepository {
+public class CollectTaskRepository {
 
     private final MongoTemplate mongoTemplate;
-    private final MeterRegistry meterRegistry;
+    private final RateLimiter mongoRateLimiter;
+    private static final String COLLECTION_NAME = "collect_tasks";
 
-    public CollectResultEntity save(CollectResultEntity entity) {
-        Timer.Sample timer = Timer.start(meterRegistry);
+    public CollectTaskRepository(MongoTemplate mongoTemplate, RateLimiter mongoRateLimiter) {
+        this.mongoTemplate = mongoTemplate;
+        this.mongoRateLimiter = mongoRateLimiter;
+    }
+
+    /**
+     * 保存任务
+     */
+    public CollectTaskEntity save(CollectTaskEntity task) {
         try {
-            CollectResultEntity result = mongoTemplate.save(entity);
-            recordMetrics("save", timer);
-            return result;
+            mongoRateLimiter.acquire();
+            return mongoTemplate.save(task, COLLECTION_NAME);
         } catch (Exception e) {
-            recordError("save");
-            log.error("Failed to save collect result", e);
-            throw new RuntimeException("Failed to save collect result", e);
+            log.error("Failed to save task: {}", task.getTaskId(), e);
+            throw new RuntimeException("Failed to save task", e);
         }
     }
 
-    public CollectResultEntity findByRootNodeAndVersion(String rootNode, String version) {
-        Timer.Sample timer = Timer.start(meterRegistry);
+    /**
+     * 根据任务ID查询
+     */
+    public CollectTaskEntity findByTaskId(String taskId) {
         try {
-            Query query = new Query(Criteria.where("root_node").is(rootNode)
-                    .and("uri_version").is(version));
-            CollectResultEntity result = mongoTemplate.findOne(query, CollectResultEntity.class);
-            recordMetrics("find", timer);
-            return result;
+            mongoRateLimiter.acquire();
+            Query query = Query.query(Criteria.where("task_id").is(taskId));
+            return mongoTemplate.findOne(query, CollectTaskEntity.class, COLLECTION_NAME);
         } catch (Exception e) {
-            recordError("find");
-            log.error("Failed to find collect result", e);
-            throw new RuntimeException("Failed to find collect result", e);
+            log.error("Failed to find task: {}", taskId, e);
+            throw new RuntimeException("Failed to find task", e);
         }
     }
 
-    public Page<CollectResultEntity> findByRootNode(String rootNode, Pageable pageable) {
-        Timer.Sample timer = Timer.start(meterRegistry);
+    /**
+     * 查询活跃任务
+     */
+    public List<CollectTaskEntity> findActiveTasks() {
         try {
-            Query query = new Query(Criteria.where("root_node").is(rootNode))
-                    .with(pageable);
-
-            long total = mongoTemplate.count(query, CollectResultEntity.class);
-            List<CollectResultEntity> content = mongoTemplate.find(query, CollectResultEntity.class);
-
-            recordMetrics("find_page", timer);
-            return new PageImpl<>(content, pageable, total);
+            mongoRateLimiter.acquire();
+            Query query = Query.query(
+                    Criteria.where("status").in("CREATED", "PROCESSING")
+            );
+            return mongoTemplate.find(query, CollectTaskEntity.class, COLLECTION_NAME);
         } catch (Exception e) {
-            recordError("find_page");
-            log.error("Failed to find collect results", e);
-            throw new RuntimeException("Failed to find collect results", e);
+            log.error("Failed to find active tasks", e);
+            throw new RuntimeException("Failed to find active tasks", e);
         }
     }
 
-    public List<CollectResultEntity> findFailedCollects(LocalDateTime before) {
-        Timer.Sample timer = Timer.start(meterRegistry);
+    /**
+     * 查询根节点的最后采集时间
+     */
+    public LocalDateTime findLastCollectTime(String rootNode) {
         try {
-            Query query = new Query(Criteria.where("collect_status").is("FAILED")
-                    .and("collect_end_time").lt(before));
+            mongoRateLimiter.acquire();
+            Query query = Query.query(
+                            Criteria.where("root_node").is(rootNode)
+                                    .and("status").is("COMPLETED")
+                    )
+                    .with(Sort.by(Sort.Direction.DESC, "end_time"))
+                    .limit(1);
 
-            List<CollectResultEntity> results = mongoTemplate.find(query, CollectResultEntity.class);
-            recordMetrics("find_failed", timer);
-            return results;
+            CollectTaskEntity task = mongoTemplate.findOne(query, CollectTaskEntity.class, COLLECTION_NAME);
+            return task != null ? task.getEndTime() : null;
         } catch (Exception e) {
-            recordError("find_failed");
-            log.error("Failed to find failed collects", e);
-            throw new RuntimeException("Failed to find failed collects", e);
+            log.error("Failed to find last collect time for rootNode: {}", rootNode, e);
+            throw new RuntimeException("Failed to find last collect time", e);
         }
     }
 
-    public List<CollectResultEntity> findIncompleteCollects(LocalDateTime before) {
-        Timer.Sample timer = Timer.start(meterRegistry);
+    /**
+     * 查询失败的任务
+     */
+    public List<CollectTaskEntity> findFailedTasks(LocalDateTime before) {
         try {
-            Query query = new Query(Criteria.where("collect_status").is("PROCESSING")
-                    .and("collect_start_time").lt(before));
-
-            List<CollectResultEntity> results = mongoTemplate.find(query, CollectResultEntity.class);
-            recordMetrics("find_incomplete", timer);
-            return results;
+            mongoRateLimiter.acquire();
+            Query query = Query.query(
+                    Criteria.where("status").is("FAILED")
+                            .and("end_time").lt(before)
+                            .and("retry_count").lt(3)
+            );
+            return mongoTemplate.find(query, CollectTaskEntity.class, COLLECTION_NAME);
         } catch (Exception e) {
-            recordError("find_incomplete");
-            log.error("Failed to find incomplete collects", e);
-            throw new RuntimeException("Failed to find incomplete collects", e);
+            log.error("Failed to find failed tasks before: {}", before, e);
+            throw new RuntimeException("Failed to find failed tasks", e);
         }
     }
 
-    public void updateCollectProgress(String rootNode, String version,
-                                      long processedCount, String status) {
-        Timer.Sample timer = Timer.start(meterRegistry);
+    /**
+     * 查询超时任务
+     */
+    public List<CollectTaskEntity> findTimeoutTasks(LocalDateTime timeoutThreshold) {
         try {
-            Query query = new Query(Criteria.where("root_node").is(rootNode)
-                    .and("uri_version").is(version));
-            Update update = new Update()
-                    .set("success_count", processedCount)
-                    .set("collect_status", status)
-                    .set("update_time", LocalDateTime.now());
-
-            mongoTemplate.updateFirst(query, update, CollectResultEntity.class);
-            recordMetrics("update_progress", timer);
+            mongoRateLimiter.acquire();
+            Query query = Query.query(
+                    Criteria.where("status").is("PROCESSING")
+                            .and("start_time").lt(timeoutThreshold)
+            );
+            return mongoTemplate.find(query, CollectTaskEntity.class, COLLECTION_NAME);
         } catch (Exception e) {
-            recordError("update_progress");
-            log.error("Failed to update collect progress", e);
-            throw new RuntimeException("Failed to update collect progress", e);
+            log.error("Failed to find timeout tasks before: {}", timeoutThreshold, e);
+            throw new RuntimeException("Failed to find timeout tasks", e);
         }
     }
 
-    public void addFailedUri(String rootNode, String version, String uri) {
-        Timer.Sample timer = Timer.start(meterRegistry);
+    /**
+     * 清理历史任务
+     */
+    public void deleteHistoryTasks(LocalDateTime before) {
         try {
-            Query query = new Query(Criteria.where("root_node").is(rootNode)
-                    .and("uri_version").is(version));
-            Update update = new Update()
-                    .addToSet("failed_uris", uri)
-                    .inc("failed_count", 1)
-                    .set("update_time", LocalDateTime.now());
-
-            mongoTemplate.updateFirst(query, update, CollectResultEntity.class);
-            recordMetrics("add_failed", timer);
+            mongoRateLimiter.acquire();
+            Query query = Query.query(
+                    Criteria.where("end_time").lt(before)
+                            .and("status").in("COMPLETED", "FAILED", "CANCELLED")
+            );
+            mongoTemplate.remove(query, CollectTaskEntity.class, COLLECTION_NAME);
         } catch (Exception e) {
-            recordError("add_failed");
-            log.error("Failed to add failed URI", e);
-            throw new RuntimeException("Failed to add failed URI", e);
+            log.error("Failed to delete history tasks before: {}", before, e);
+            throw new RuntimeException("Failed to delete history tasks", e);
         }
-    }
-
-    public void markAsCompleted(String rootNode, String version,
-                                long totalCount, long successCount) {
-        Timer.Sample timer = Timer.start(meterRegistry);
-        try {
-            Query query = new Query(Criteria.where("root_node").is(rootNode)
-                    .and("uri_version").is(version));
-            Update update = new Update()
-                    .set("collect_status", "SUCCESS")
-                    .set("total_uri_count", totalCount)
-                    .set("success_count", successCount)
-                    .set("collect_end_time", LocalDateTime.now())
-                    .set("update_time", LocalDateTime.now());
-
-            mongoTemplate.updateFirst(query, update, CollectResultEntity.class);
-            recordMetrics("mark_completed", timer);
-        } catch (Exception e) {
-            recordError("mark_completed");
-            log.error("Failed to mark collect as completed", e);
-            throw new RuntimeException("Failed to mark collect as completed", e);
-        }
-    }
-
-    public void markAsFailed(String rootNode, String version, String error) {
-        Timer.Sample timer = Timer.start(meterRegistry);
-        try {
-            Query query = new Query(Criteria.where("root_node").is(rootNode)
-                    .and("uri_version").is(version));
-            Update update = new Update()
-                    .set("collect_status", "FAILED")
-                    .set("error_details.lastError", error)
-                    .set("error_details.errorTime", LocalDateTime.now())
-                    .set("collect_end_time", LocalDateTime.now())
-                    .set("update_time", LocalDateTime.now());
-
-            mongoTemplate.updateFirst(query, update, CollectResultEntity.class);
-            recordMetrics("mark_failed", timer);
-        } catch (Exception e) {
-            recordError("mark_failed");
-            log.error("Failed to mark collect as failed", e);
-            throw new RuntimeException("Failed to mark collect as failed", e);
-        }
-    }
-
-    private void recordMetrics(String operation, Timer.Sample timer) {
-        timer.stop(meterRegistry.timer("mongodb.operation", "type", operation));
-        meterRegistry.counter("mongodb.operation.total", "type", operation).increment();
-    }
-
-    private void recordError(String operation) {
-        meterRegistry.counter("mongodb.operation.error", "type", operation).increment();
     }
 }
-
 ```
 
 ## UriRepository.java
@@ -3090,263 +3036,214 @@ public class CollectResultRepository {
 ```java
 package com.study.collect.business.testcase.repository;
 
+import com.google.common.collect.Lists;
 import com.mongodb.bulk.BulkWriteResult;
 import com.mongodb.client.MongoCollection;
-import com.mongodb.client.MongoCursor;
-import com.mongodb.client.model.*;
+import com.mongodb.client.model.BulkWriteOptions;
+import com.mongodb.client.model.UpdateOneModel;
+import com.mongodb.client.model.UpdateOptions;
+import com.mongodb.client.model.WriteModel;
+import com.mongodb.client.result.DeleteResult;
+import com.mongodb.client.result.UpdateResult;
 import com.study.collect.business.testcase.config.DynamicCollectionIndexConfiguration;
 import com.study.collect.business.testcase.constant.CollectionConstants;
 import com.study.collect.business.testcase.entity.UriEntity;
-import com.study.collect.business.testcase.model.PageResult;
+import com.study.collect.business.testcase.model.UriQueryCondition;
 import com.study.collect.business.testcase.utils.HashUtil;
+import com.study.collect.business.testcase.utils.RateLimiter;
 import lombok.extern.slf4j.Slf4j;
 import org.bson.Document;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.mongodb.core.MongoOperations;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Repository;
 import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Slf4j
 @Repository
 public class UriRepository {
     private final MongoTemplate mongoTemplate;
-
-    private final MongoOperations mongoOperations;
     private final DynamicCollectionIndexConfiguration indexConfiguration;
+    private final RateLimiter mongoRateLimiter;
 
     public UriRepository(MongoTemplate mongoTemplate,
-                   MongoOperations mongoOperations,
-                         DynamicCollectionIndexConfiguration indexConfiguration
-    ) {
+                         DynamicCollectionIndexConfiguration indexConfiguration,
+                         RateLimiter mongoRateLimiter) {
         this.mongoTemplate = mongoTemplate;
-        this.mongoOperations = mongoOperations;
-        this.indexConfiguration= indexConfiguration;
+        this.indexConfiguration = indexConfiguration;
+        this.mongoRateLimiter = mongoRateLimiter;
     }
 
     /**
-     * 生成集合名称
-     */
-    private String getCollectionName(String rootNode) {
-        return String.format("%s_%s", CollectionConstants.URI_COLLECTION_PREFIX, rootNode);
-    }
-
-    /**
-     * 批量插入或更新
+     * 批量更新或插入
      */
     public BulkWriteResult batchUpsert(String rootNode, List<UriEntity> entities) {
         if (CollectionUtils.isEmpty(entities)) {
             return null;
         }
 
-
-        // 验证所有实体的 uriHash
-        entities.forEach(entity -> {
-            if (entity.getUriHash() == null && entity.getUri() != null) {
-                entity.setUriHash(HashUtil.hash(entity.getUri()));
-            }
-        });
-
-        String collectionName = getCollectionName(rootNode);
-
-        // 确保索引存在
-        ensureIndexes(rootNode,collectionName);
-        MongoCollection<Document> collection = mongoTemplate.getCollection(collectionName);
-
-        List<WriteModel<Document>> operations = new ArrayList<>();
-        for (UriEntity entity : entities) {
-            Document query = new Document("uri_hash", entity.getUriHash());
-            Document doc = convertEntityToDocument(entity);
-            operations.add(new UpdateOneModel<>(
-                    query,
-                    new Document("$set", doc),
-                    new UpdateOptions().upsert(true)
-            ));
-        }
-
         try {
+            mongoRateLimiter.acquire();
+            String collectionName = getCollectionName(rootNode);
+
+            // 确保表和索引存在
+            ensureCollectionAndIndexes(rootNode, collectionName);
+
+            List<WriteModel<Document>> operations = new ArrayList<>();
+            for (UriEntity entity : entities) {
+                // 确保 uriHash 存在
+                if (entity.getUriHash() == null && entity.getUri() != null) {
+                    entity.setUriHash(HashUtil.hash(entity.getUri()));
+                }
+
+                Document query = new Document("uri_hash", entity.getUriHash());
+                Document doc = convertEntityToDocument(entity);
+
+                UpdateOneModel<Document> updateOne = new UpdateOneModel<>(
+                        query,
+                        new Document("$set", doc),
+                        new UpdateOptions().upsert(true)
+                );
+                operations.add(updateOne);
+            }
+
             BulkWriteOptions options = new BulkWriteOptions()
                     .ordered(false)
                     .bypassDocumentValidation(true);
-            return collection.bulkWrite(operations, options);
+
+            return mongoTemplate.getCollection(collectionName)
+                    .bulkWrite(operations, options);
+
         } catch (Exception e) {
-            log.error("Failed to batch upsert to collection {}", collectionName, e);
+            log.error("Failed to batch upsert entities for rootNode: {}", rootNode, e);
             throw new RuntimeException("Batch upsert failed", e);
         }
     }
-
-
     /**
-     * 批量插入或更新
+     * 分页批量软删除
      */
-    public BulkWriteResult batchUpsertSync(String rootNode, List<UriEntity> entities) {
-        if (CollectionUtils.isEmpty(entities)) {
-            return null;
-        }
-
-
-        // 验证所有实体的 uriHash
-        entities.forEach(entity -> {
-            if (entity.getUriHash() == null && entity.getUri() != null) {
-                entity.setUriHash(HashUtil.hash(entity.getUri()));
-            }
-        });
-
-        String collectionName = getCollectionName(rootNode);
-
-        // 确保索引存在
-        ensureIndexes(rootNode,collectionName);
-        MongoCollection<Document> collection = mongoTemplate.getCollection(collectionName);
-
-        List<WriteModel<Document>> operations = new ArrayList<>();
-        for (UriEntity entity : entities) {
-            Document query = new Document("uri_hash", entity.getUriHash());
-            Document doc = convertEntityToDocument(entity);
-            operations.add(new UpdateOneModel<>(
-                    query,
-                    new Document("$set", doc),
-                    new UpdateOptions().upsert(true)
-            ));
-        }
-
-        try {
-            BulkWriteOptions options = new BulkWriteOptions()
-//                    .ordered(false)
-                    .ordered(true)  // 改为有序执行
-                    .bypassDocumentValidation(true);
-
-//            // 记录指标
-//            recordMetrics("upsert", timer, entities.size(), result.getModifiedCount());
-            // 确保数据已写入
-            collection.find(new Document("uri_hash",
-                    new Document("$in",
-                            entities.stream()
-                                    .map(UriEntity::getUriHash)
-                                    .collect(Collectors.toList())
-                    )
-            )).first();
-            return collection.bulkWrite(operations, options);
-        } catch (Exception e) {
-            log.error("Failed to batch upsert to collection {}", collectionName, e);
-            throw new RuntimeException("Batch upsert failed", e);
-        }
-    }
-
-
-    /**
-     * 确保集合索引存在
-     */
-    private void ensureIndexes(String rootNode,String collectionName) {
-        try {
-            // 如果集合不存在或索引不完整，创建索引
-            if (!mongoTemplate.collectionExists(collectionName)) {
-                indexConfiguration.createIndexesForCollection(rootNode);
-            } else {
-                // 检查索引是否完整
-                indexConfiguration.checkIndexes(collectionName);
-            }
-        } catch (Exception e) {
-            log.error("Failed to ensure indexes for rootNode: {}", rootNode, e);
-        }
-    }
-
-    /**
-     * 批量软删除
-     */
-    public long batchSoftDelete(String rootNode, List<String> uris) {
+    public long batchSoftDelete(String rootNode, List<String> uris, int batchSize) {
         if (CollectionUtils.isEmpty(uris)) {
             return 0L;
         }
 
-        List<String> uriHashes = uris.stream()
-                .map(HashUtil::hash)
-                .collect(Collectors.toList());
+        long totalDeleted = 0;
+        List<List<String>> batches = Lists.partition(uris, batchSize);
 
-        Query query = new Query(Criteria.where("uri_hash").in(uriHashes));
-        Update update = new Update()
-                .set("is_deleted", true)
-                .set("update_time", LocalDateTime.now());
+        for (List<String> batch : batches) {
+            try {
+                mongoRateLimiter.acquire();
 
-        try {
-            return mongoTemplate.updateMulti(
-                    query,
-                    update,
-                    getCollectionName(rootNode)
-            ).getModifiedCount();
-        } catch (Exception e) {
-            log.error("Failed to batch soft delete in collection {}", rootNode, e);
-            throw new RuntimeException("Batch soft delete failed", e);
+                List<String> uriHashes = batch.stream()
+                        .map(HashUtil::hash)
+                        .collect(Collectors.toList());
+
+                Query query = new Query(Criteria.where("uri_hash").in(uriHashes));
+                Update update = new Update()
+                        .set("is_deleted", true)
+                        .set("update_time", LocalDateTime.now());
+
+                UpdateResult result = mongoTemplate.updateMulti(
+                        query, update, getCollectionName(rootNode)
+                );
+
+                totalDeleted += result.getModifiedCount();
+
+            } catch (Exception e) {
+                log.error("Failed to batch soft delete uris for batch size: {}", batch.size(), e);
+                throw new RuntimeException("Batch soft delete failed", e);
+            }
         }
+
+        return totalDeleted;
     }
 
     /**
-     * 批量硬删除
+     * 分页批量硬删除
      */
-    public long batchHardDelete(String rootNode, List<String> uris) {
+    public long batchHardDelete(String rootNode, List<String> uris, int batchSize) {
         if (CollectionUtils.isEmpty(uris)) {
             return 0L;
         }
 
-        List<String> uriHashes = uris.stream()
-                .map(HashUtil::hash)
-                .collect(Collectors.toList());
+        long totalDeleted = 0;
+        List<List<String>> batches = Lists.partition(uris, batchSize);
 
-        Query query = new Query(Criteria.where("uri_hash").in(uriHashes));
+        for (List<String> batch : batches) {
+            try {
+                mongoRateLimiter.acquire();
 
-        try {
-            return mongoTemplate.remove(
-                    query,
-                    UriEntity.class,
-                    getCollectionName(rootNode)
-            ).getDeletedCount();
-        } catch (Exception e) {
-            log.error("Failed to batch hard delete in collection {}", rootNode, e);
-            throw new RuntimeException("Batch hard delete failed", e);
+                List<String> uriHashes = batch.stream()
+                        .map(HashUtil::hash)
+                        .collect(Collectors.toList());
+
+                Query query = new Query(Criteria.where("uri_hash").in(uriHashes));
+                DeleteResult result = mongoTemplate.remove(
+                        query,
+                        UriEntity.class,
+                        getCollectionName(rootNode)
+                );
+
+                totalDeleted += result.getDeletedCount();
+
+            } catch (Exception e) {
+                log.error("Failed to batch hard delete uris for batch size: {}", batch.size(), e);
+                throw new RuntimeException("Batch hard delete failed", e);
+            }
         }
+
+        return totalDeleted;
     }
 
     /**
-     * 分页查询
+     * 条件查询
      */
-    public Page<UriEntity> findByCondition(
-            String rootNode,
-            String version,
-            String versionType,
-            Boolean includeDeleted,
-            Pageable pageable
-    ) {
-        Criteria criteria = new Criteria();
-
-        if (version != null) {
-            criteria.and("uri_version").is(version);
-        }
-        if (versionType != null) {
-            criteria.and("version_type").is(versionType);
-        }
-        if (!includeDeleted) {
-            criteria.and("is_deleted").is(false);
-        }
-
-        Query query = new Query(criteria).with(pageable);
-        String collectionName = getCollectionName(rootNode);
-
+    public Page<UriEntity> findByConditions(UriQueryCondition condition) {
         try {
-            long total = mongoTemplate.count(query, UriEntity.class, collectionName);
-            List<UriEntity> content = mongoTemplate.find(query, UriEntity.class, collectionName);
-            return new PageImpl<>(content, pageable, total);
+            mongoRateLimiter.acquire();
+
+            Criteria criteria = new Criteria();
+            if (StringUtils.hasText(condition.getRootNode())) {
+                criteria.and("root_node").is(condition.getRootNode());
+            }
+            if (StringUtils.hasText(condition.getVersion())) {
+                criteria.and("uri_version").is(condition.getVersion());
+            }
+            if (condition.getThirdPartyUpdateTimeStart() != null) {
+                criteria.and("third_party_update_time")
+                        .gte(condition.getThirdPartyUpdateTimeStart());
+            }
+            if (condition.getThirdPartyUpdateTimeEnd() != null) {
+                criteria.and("third_party_update_time")
+                        .lte(condition.getThirdPartyUpdateTimeEnd());
+            }
+            if (condition.getIsDeleted() != null) {
+                criteria.and("is_deleted").is(condition.getIsDeleted());
+            }
+
+            Query query = new Query(criteria).with(condition.getPageable());
+            if (condition.isOnlyDetail()) {
+                query.fields().include("details");
+            }
+
+            long total = mongoTemplate.count(query, UriEntity.class,
+                    getCollectionName(condition.getRootNode()));
+            List<UriEntity> content = mongoTemplate.find(query, UriEntity.class,
+                    getCollectionName(condition.getRootNode()));
+
+            return new PageImpl<>(content, condition.getPageable(), total);
+
         } catch (Exception e) {
-            log.error("Failed to query collection {}", collectionName, e);
+            log.error("Failed to query URIs with condition: {}", condition, e);
             throw new RuntimeException("Query failed", e);
         }
     }
@@ -3354,90 +3251,141 @@ public class UriRepository {
     /**
      * 批量查询
      */
-    public List<UriEntity> batchQuery(
-            List<String> uris,
-            Function<String, String> rootNodeResolver,
-            Boolean includeDeleted
-    ) {
+    public List<UriEntity> batchQuery(List<String> uris, Boolean includeDeleted, Boolean onlyDetail) {
         if (CollectionUtils.isEmpty(uris)) {
-            return new ArrayList<>();
+            return Collections.emptyList();
         }
 
-        // 按rootNode分组
-        Map<String, List<String>> groupedUris = uris.stream()
-                .collect(Collectors.groupingBy(rootNodeResolver));
+        try {
+            mongoRateLimiter.acquire();
 
-        List<UriEntity> results = new ArrayList<>();
-
-        for (Map.Entry<String, List<String>> entry : groupedUris.entrySet()) {
-            String rootNode = entry.getKey();
-            List<String> uriGroup = entry.getValue();
-
-            List<String> uriHashes = uriGroup.stream()
+            List<String> uriHashes = uris.stream()
                     .map(HashUtil::hash)
                     .collect(Collectors.toList());
 
             Criteria criteria = Criteria.where("uri_hash").in(uriHashes);
-            if (!includeDeleted) {
+            if (!Boolean.TRUE.equals(includeDeleted)) {
                 criteria.and("is_deleted").is(false);
             }
 
             Query query = new Query(criteria);
-            String collectionName = getCollectionName(rootNode);
-
-            try {
-                List<UriEntity> groupResults = mongoTemplate.find(
-                        query,
-                        UriEntity.class,
-                        collectionName
-                );
-                results.addAll(groupResults);
-            } catch (Exception e) {
-                log.error("Failed to query collection {}", collectionName, e);
-                // 继续处理其他分组
+            if (Boolean.TRUE.equals(onlyDetail)) {
+                query.fields().include("details");
             }
-        }
 
-        return results;
+            return mongoTemplate.find(query, UriEntity.class);
+
+        } catch (Exception e) {
+            log.error("Failed to batch query URIs", e);
+            throw new RuntimeException("Batch query failed", e);
+        }
     }
 
     /**
-     * 删除不存在的URI
+     * 根据更新时间范围查询
      */
-    public void deleteNotInUris(String rootNode, Set<String> uriHashes) {
-        Query query = new Query(
-                Criteria.where("uri_hash").nin(uriHashes)
-        );
-
+    public Page<UriEntity> findByUpdateTimeRange(String rootNode,
+                                                 LocalDateTime startTime,
+                                                 LocalDateTime endTime,
+                                                 Pageable pageable) {
         try {
-            mongoTemplate.remove(
-                    query,
+            mongoRateLimiter.acquire();
+
+            Criteria criteria = Criteria.where("root_node").is(rootNode)
+                    .and("third_party_update_time").gte(startTime);
+
+            if (endTime != null) {
+                criteria.and("third_party_update_time").lte(endTime);
+            }
+
+            Query query = new Query(criteria).with(pageable);
+
+            long total = mongoTemplate.count(query, UriEntity.class, getCollectionName(rootNode));
+            List<UriEntity> content = mongoTemplate.find(query, UriEntity.class,
+                    getCollectionName(rootNode));
+
+            return new PageImpl<>(content, pageable, total);
+
+        } catch (Exception e) {
+            log.error("Failed to query URIs by update time range for rootNode: {}", rootNode, e);
+            throw new RuntimeException("Query by update time failed", e);
+        }
+    }
+
+    /**
+     * 统计根节点下的URI数量
+     */
+    public long countByRootNode(String rootNode) {
+        try {
+            mongoRateLimiter.acquire();
+            return mongoTemplate.count(
+                    Query.query(Criteria.where("root_node").is(rootNode)
+                            .and("is_deleted").is(false)),
                     UriEntity.class,
                     getCollectionName(rootNode)
             );
         } catch (Exception e) {
-            log.error("Failed to delete non-existing URIs in collection {}", rootNode, e);
-            throw new RuntimeException("Delete non-existing URIs failed", e);
+            log.error("Failed to count URIs for rootNode: {}", rootNode, e);
+            throw new RuntimeException("Count failed", e);
+        }
+    }
+
+    /**
+     * 获取URI的更新时间
+     */
+    public Map<String, LocalDateTime> findUpdateTimesByUris(List<String> uris) {
+        if (CollectionUtils.isEmpty(uris)) {
+            return Collections.emptyMap();
+        }
+
+        try {
+            mongoRateLimiter.acquire();
+
+            List<String> uriHashes = uris.stream()
+                    .map(HashUtil::hash)
+                    .collect(Collectors.toList());
+
+            Query query = Query.query(Criteria.where("uri_hash").in(uriHashes));
+            query.fields().include("uri", "third_party_update_time");
+
+            List<UriEntity> entities = mongoTemplate.find(query, UriEntity.class);
+            return entities.stream()
+                    .collect(Collectors.toMap(
+                            UriEntity::getUri,
+                            UriEntity::getThirdPartyUpdateTime,
+                            (existing, replacement) -> existing
+                    ));
+
+        } catch (Exception e) {
+            log.error("Failed to find update times for URIs", e);
+            throw new RuntimeException("Find update times failed", e);
+        }
+    }
+
+    private String getCollectionName(String rootNode) {
+        return String.format("%s_%s", CollectionConstants.URI_COLLECTION_PREFIX, rootNode);
+    }
+
+    private void ensureCollectionAndIndexes(String rootNode, String collectionName) {
+        if (!mongoTemplate.collectionExists(collectionName)) {
+            indexConfiguration.createIndexesForCollection(rootNode);
         }
     }
 
     private Document convertEntityToDocument(UriEntity entity) {
-        // 确保 uriHash 存在
-        if (entity.getUriHash() == null && entity.getUri() != null) {
-            entity.setUriHash(HashUtil.hash(entity.getUri()));
-        }
         Document doc = new Document();
         doc.put("uri", entity.getUri());
         doc.put("uri_hash", entity.getUriHash());
         doc.put("root_node", entity.getRootNode());
         doc.put("version_type", entity.getVersionType());
         doc.put("uri_version", entity.getUriVersion());
+        doc.put("real_uri", entity.getRealUri());
+        doc.put("number", entity.getNumber());
+        doc.put("name", entity.getName());
+        doc.put("third_party_update_time", entity.getThirdPartyUpdateTime());
         doc.put("details", entity.getDetails());
-        doc.put("version", entity.getVersion());
-        doc.put("version_code", entity.getVersionCode());
-        doc.put("version_time", entity.getVersionTime());
-        doc.put("update_time", LocalDateTime.now());
         doc.put("is_deleted", false);
+        doc.put("update_time", LocalDateTime.now());
 
         if (entity.getCreateTime() == null) {
             doc.put("create_time", LocalDateTime.now());
@@ -3445,316 +3393,308 @@ public class UriRepository {
 
         return doc;
     }
-
-
-
     /**
-     * 使用原生命令条件分页查询uriHash
+     * 使用原生命令分页查询uri_hash
      * @param rootNode 根节点
-     * @param version 版本
+     * @param version 版本号
      * @param versionType 版本类型
      * @param page 页码（从1开始）
      * @param size 每页大小
-     * @return uriHash列表
+     * @return uri_hash列表
      */
     public List<String> findUriHashesNativeWithPage(String rootNode,
                                                     String version,
                                                     String versionType,
                                                     int page,
                                                     int size) {
-        String collectionName = getCollectionName(rootNode);
-        MongoCollection<Document> collection = mongoTemplate.getCollection(collectionName);
-
-        // 构建查询条件
-        Document query = new Document();
-        if (rootNode != null) {
-            query.append("root_node", rootNode);
-        }
-        if (version != null) {
-            query.append("uri_version", version);
-        }
-        if (versionType != null) {
-            query.append("version_type", versionType);
-        }
-
-        // 构建聚合管道
-        List<Document> pipeline = Arrays.asList(
-                new Document("$match", query),
-                new Document("$project", new Document("uri_hash", 1).append("_id", 0)),
-                new Document("$skip", (long) (page - 1) * size),
-                new Document("$limit", size)
-        );
-
         try {
-            return collection.aggregate(pipeline)
+            mongoRateLimiter.acquire();
+
+            String collectionName = getCollectionName(rootNode);
+            MongoCollection<Document> collection = mongoTemplate.getCollection(collectionName);
+
+            // 构建查询条件
+            Document query = new Document();
+            if (StringUtils.hasText(rootNode)) {
+                query.append("root_node", rootNode);
+            }
+            if (StringUtils.hasText(version)) {
+                query.append("uri_version", version);
+            }
+            if (StringUtils.hasText(versionType)) {
+                query.append("version_type", versionType);
+            }
+
+            // 构建聚合管道
+            List<Document> pipeline = Arrays.asList(
+                    new Document("$match", query),
+                    new Document("$project", new Document("uri_hash", 1).append("_id", 0)),
+                    new Document("$skip", (long) (page - 1) * size),
+                    new Document("$limit", size)
+            );
+
+            List<String> results = new ArrayList<>();
+            collection.aggregate(pipeline)
                     .map(doc -> doc.getString("uri_hash"))
-                    .into(new ArrayList<>());
+                    .into(results);
+
+            return results;
         } catch (Exception e) {
-            log.error("Failed to execute native query in collection {}", collectionName, e);
+            log.error("Failed to execute native query for rootNode: {}, version: {}", rootNode, version, e);
             throw new RuntimeException("Query execution failed", e);
         }
     }
 
     /**
-     * 获取满足条件的总数
+     * 统计满足条件的记录总数
      */
-    public long countUriHashesNative(String rootNode, String version, String versionType) {
-        String collectionName = getCollectionName(rootNode);
-        MongoCollection<Document> collection = mongoTemplate.getCollection(collectionName);
-
-        Document query = new Document();
-        if (rootNode != null) {
-            query.append("root_node", rootNode);
-        }
-        if (version != null) {
-            query.append("uri_version", version);
-        }
-        if (versionType != null) {
-            query.append("version_type", versionType);
-        }
-
+    public long countUriHashesNative(String rootNode,
+                                     String version,
+                                     Boolean isDeleted) {
         try {
+            mongoRateLimiter.acquire();
+
+            String collectionName = getCollectionName(rootNode);
+            MongoCollection<Document> collection = mongoTemplate.getCollection(collectionName);
+
+            // 构建查询条件
+            Document query = new Document();
+            if (StringUtils.hasText(rootNode)) {
+                query.append("root_node", rootNode);
+            }
+            if (StringUtils.hasText(version)) {
+                query.append("uri_version", version);
+            }
+            if (isDeleted != null) {
+                query.append("is_deleted", isDeleted);
+            }
+
             return collection.countDocuments(query);
         } catch (Exception e) {
-            log.error("Failed to count documents in collection {}", collectionName, e);
+            log.error("Failed to count documents for rootNode: {}, version: {}", rootNode, version, e);
             throw new RuntimeException("Count documents failed", e);
-        }
-    }
-
-    /**
-     * 查询并返回分页结果
-     */
-    public PageResult<String> findUriHashesPage(String rootNode,
-                                                String version,
-                                                String versionType,
-                                                int page,
-                                                int size) {
-        try {
-            long total = countUriHashesNative(rootNode, version, versionType);
-            List<String> items = findUriHashesNativeWithPage(rootNode, version, versionType, page, size);
-
-            return PageResult.<String>builder()
-                    .total(total)
-                    .page(page)
-                    .size(size)
-                    .totalPages((int) Math.ceil((double) total / size))
-                    .items(items)
-                    .build();
-        } catch (Exception e) {
-            log.error("Failed to get paged results for rootNode {}", rootNode, e);
-            throw new RuntimeException("Failed to get paged results", e);
-        }
-    }
-
-    /**
-     * 如果数据量很大，使用流式处理
-     */
-    public void streamUriHashesNative(String rootNode,
-                                      String version,
-                                      String versionType,
-                                      Consumer<String> consumer) {
-        String collectionName = getCollectionName(rootNode);
-        MongoCollection<Document> collection = mongoTemplate.getCollection(collectionName);
-
-        Document query = new Document();
-        if (rootNode != null) {
-            query.append("rootNode", rootNode);
-        }
-        if (version != null) {
-            query.append("uri_version", version);
-        }
-        if (versionType != null) {
-            query.append("version_type", versionType);
-        }
-
-        List<Document> pipeline = Arrays.asList(
-                new Document("$match", query),
-                new Document("$project", new Document("uri_hash", 1).append("_id", 0))
-        );
-
-        try (MongoCursor<Document> cursor = collection.aggregate(pipeline).iterator()) {
-            while (cursor.hasNext()) {
-                consumer.accept(cursor.next().getString("uri_hash"));
-            }
-        } catch (Exception e) {
-            log.error("Failed to stream documents from collection {}", collectionName, e);
-            throw new RuntimeException("Streaming documents failed", e);
         }
     }
 }
 ```
 
-## TableSchemaManager.java
+## VersionRepository.java
+
+```java
+package com.study.collect.business.testcase.repository;
+
+import com.study.collect.business.testcase.entity.VersionEntity;
+import com.study.collect.business.testcase.utils.RateLimiter;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.stereotype.Repository;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+@Slf4j
+@Repository
+public class VersionRepository {
+
+    private final MongoTemplate mongoTemplate;
+    private final RateLimiter mongoRateLimiter;
+    private static final String COLLECTION_NAME = "versions";
+
+    public VersionRepository(MongoTemplate mongoTemplate, RateLimiter mongoRateLimiter) {
+        this.mongoTemplate = mongoTemplate;
+        this.mongoRateLimiter = mongoRateLimiter;
+    }
+
+    /**
+     * 保存版本信息
+     */
+    public VersionEntity save(VersionEntity entity) {
+        try {
+            mongoRateLimiter.acquire();
+            return mongoTemplate.save(entity, COLLECTION_NAME);
+        } catch (Exception e) {
+            log.error("Failed to save version: {}", entity, e);
+            throw new RuntimeException("Failed to save version", e);
+        }
+    }
+
+    /**
+     * 批量保存版本信息
+     */
+    /**
+     * 批量保存版本信息
+     */
+    public List<VersionEntity> saveAll(List<VersionEntity> entities) {
+        try {
+            mongoRateLimiter.acquire();
+            // 使用 insertAll 改为 save，因为可能有更新的情况
+            for (VersionEntity entity : entities) {
+                mongoTemplate.save(entity, COLLECTION_NAME);
+            }
+            return entities;
+        } catch (Exception e) {
+            log.error("Failed to save versions, size: {}", entities.size(), e);
+            throw new RuntimeException("Failed to save versions", e);
+        }
+    }
+
+    /**
+     * 根据根节点查询版本列表
+     */
+    public Page<String> findVersionsByRootNode(String rootNode, Pageable pageable) {
+        try {
+            mongoRateLimiter.acquire();
+            Query query = Query.query(Criteria.where("root_node").is(rootNode))
+                    .with(pageable);
+
+            long total = mongoTemplate.count(query, VersionEntity.class, COLLECTION_NAME);
+            List<VersionEntity> versions = mongoTemplate.find(query, VersionEntity.class, COLLECTION_NAME);
+
+            return new PageImpl<>(
+                    versions.stream().map(VersionEntity::getVersion).toList(),
+                    pageable,
+                    total
+            );
+        } catch (Exception e) {
+            log.error("Failed to find versions for rootNode: {}", rootNode, e);
+            throw new RuntimeException("Failed to find versions", e);
+        }
+    }
+
+    /**
+     * 统计根节点的版本数量
+     */
+    public long countByRootNode(String rootNode) {
+        try {
+            mongoRateLimiter.acquire();
+            Query query = Query.query(Criteria.where("root_node").is(rootNode));
+            return mongoTemplate.count(query, VersionEntity.class, COLLECTION_NAME);
+        } catch (Exception e) {
+            log.error("Failed to count versions for rootNode: {}", rootNode, e);
+            throw new RuntimeException("Failed to count versions", e);
+        }
+    }
+
+    /**
+     * 根据根节点和版本号查询
+     */
+    public VersionEntity findByRootNodeAndVersion(String rootNode, String version) {
+        try {
+            mongoRateLimiter.acquire();
+            Query query = Query.query(
+                    Criteria.where("root_node").is(rootNode)
+                            .and("version").is(version)
+            );
+            return mongoTemplate.findOne(query, VersionEntity.class, COLLECTION_NAME);
+        } catch (Exception e) {
+            log.error("Failed to find version: rootNode={}, version={}", rootNode, version, e);
+            throw new RuntimeException("Failed to find version", e);
+        }
+    }
+
+    /**
+     * 查询最后更新时间
+     */
+    public LocalDateTime findLastUpdateTime(String rootNode) {
+        try {
+            mongoRateLimiter.acquire();
+            Query query = Query.query(Criteria.where("root_node").is(rootNode))
+                    .limit(1)
+                    .with(org.springframework.data.domain.Sort.by(
+                            org.springframework.data.domain.Sort.Direction.DESC, "update_time"));
+
+            VersionEntity version = mongoTemplate.findOne(query, VersionEntity.class, COLLECTION_NAME);
+            return version != null ? version.getUpdateTime() : null;
+        } catch (Exception e) {
+            log.error("Failed to find last update time for rootNode: {}", rootNode, e);
+            throw new RuntimeException("Failed to find last update time", e);
+        }
+    }
+}
+```
+
+## CollectScheduler.java
 
 ```java
 package com.study.collect.business.testcase.service;
 
-import com.mongodb.client.MongoDatabase;
-import com.mongodb.client.model.IndexOptions;
-import com.mongodb.client.model.Indexes;
-import com.study.collect.business.testcase.common.utils.TableNameHelper;
-import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.Timer;
+import com.study.collect.business.testcase.model.param.CollectParam;
+import com.study.collect.business.testcase.repository.UriRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.bson.Document;
-import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 
-/**
- * 表结构管理器
- * 负责创建和维护集合及其索引
- */
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class TableSchemaManager {
+public class CollectScheduler {
+    private final UriHttpService httpService;
+    private final UriRepository repository;
+    private final UriCollectService collectService;
 
-    private final MongoTemplate mongoTemplate;
-    private final MeterRegistry meterRegistry;
-    private final ConcurrentHashMap<String, Boolean> initializedTables = new ConcurrentHashMap<>();
+    @Scheduled(cron = "${collect.check.cron:0 0 * * * *}") // 默认每小时执行
+    public void checkCollectStatus() {
+        log.info("Starting collect status check");
 
-    /**
-     * 确保表结构存在并正确
-     * @param rootNode 根节点
-     */
-    public void ensureTableSchema(String rootNode) {
-        String tableName = TableNameHelper.getTableName(rootNode);
-        if (initializedTables.containsKey(tableName)) {
-            return;
-        }
-
-        Timer.Sample timer = Timer.start(meterRegistry);
         try {
-            // 1. 检查并创建集合
-            if (!collectionExists(tableName)) {
-                createCollection(tableName);
-            }
+            // 获取所有rootNode的配置
+            List<String> rootNodes = getRootNodes();
 
-            // 2. 确保所需索引存在
-            ensureIndexes(tableName);
-
-            initializedTables.put(tableName, true);
-            recordMetrics("ensure_schema", timer);
-            log.info("Successfully ensured table schema for {}", tableName);
-        } catch (Exception e) {
-            recordError("ensure_schema");
-            log.error("Failed to ensure table schema for {}", tableName, e);
-            throw new RuntimeException("Failed to ensure table schema", e);
-        }
-    }
-
-    /**
-     * 清理指定时间之前的历史版本表
-     */
-    public void cleanupHistoryTables(int daysToKeep) {
-        Timer.Sample timer = Timer.start(meterRegistry);
-        try {
-            MongoDatabase db = mongoTemplate.getDb();
-            List<String> tablesToDelete = new ArrayList<>();
-
-            // 1. 获取所有集合
-            for (String collectionName : db.listCollectionNames()) {
-                if (isHistoryTable(collectionName)) {
-                    // 检查表的最后修改时间
-                    Document stats = db.runCommand(new Document("collStats", collectionName));
-                    if (isTableExpired(stats, daysToKeep)) {
-                        tablesToDelete.add(collectionName);
-                    }
-                }
-            }
-
-            // 2. 删除过期的表
-            for (String tableName : tablesToDelete) {
+            for (String rootNode : rootNodes) {
                 try {
-                    db.getCollection(tableName).drop();
-                    log.info("Dropped expired table: {}", tableName);
+                    checkRootNode(rootNode);
                 } catch (Exception e) {
-                    log.error("Failed to drop table: {}", tableName, e);
+                    log.error("Failed to check rootNode: {}", rootNode, e);
                 }
             }
-
-            recordMetrics("cleanup_tables", timer);
         } catch (Exception e) {
-            recordError("cleanup_tables");
-            log.error("Failed to cleanup history tables", e);
-            throw new RuntimeException("Failed to cleanup history tables", e);
+            log.error("Collect status check failed", e);
         }
     }
 
-    private boolean collectionExists(String tableName) {
-        return mongoTemplate.collectionExists(tableName);
+    private void checkRootNode(String rootNode) {
+        // 1. 获取版本列表
+        List<VersionInfo> versions = httpService.getVersions(
+                getServerUrl(), rootNode, 1, Integer.MAX_VALUE).join();
+
+        // 2. 检查每个版本
+        for (VersionInfo version : versions) {
+            try {
+                checkVersion(rootNode, version);
+            } catch (Exception e) {
+                log.error("Failed to check version: {}", version.getVersion(), e);
+            }
+        }
     }
 
-    private void createCollection(String tableName) {
-        mongoTemplate.createCollection(tableName);
-    }
+    private void checkVersion(String rootNode, VersionInfo version) {
+        // 获取接口URI数量
+        int apiCount = httpService.getUriCount(getServerUrl(), version.getVersion()).join();
 
-    private void ensureIndexes(String tableName) {
-        MongoDatabase db = mongoTemplate.getDb();
+        // 获取数据库URI数量
+        long dbCount = repository.countByVersion(rootNode, version.getVersion());
 
-        // URI索引
-        db.getCollection(tableName).createIndex(
-                Indexes.ascending("uri"),
-                new IndexOptions().background(true)
-        );
+        if (apiCount != dbCount) {
+            log.warn("URI count mismatch for version {}: API={}, DB={}",
+                    version.getVersion(), apiCount, dbCount);
 
-        // URI哈希索引
-        db.getCollection(tableName).createIndex(
-                Indexes.ascending("uri_hash"),
-                new IndexOptions().unique(true).background(true)
-        );
+            // 触发采集
+            CollectParam param = CollectParam.builder()
+                    .rootNode(rootNode)
+                    .version(version.getVersion())
+                    .serverUrl(getServerUrl())
+                    .build();
 
-        // 复合查询索引
-        db.getCollection(tableName).createIndex(
-                Indexes.compoundIndex(
-                        Indexes.ascending("root_node"),
-                        Indexes.ascending("version_type"),
-                        Indexes.ascending("uri_version"),
-                        Indexes.ascending("is_deleted")
-                ),
-                new IndexOptions().background(true)
-        );
-
-        // 更新时间索引
-        db.getCollection(tableName).createIndex(
-                Indexes.ascending("update_time"),
-                new IndexOptions().background(true)
-        );
-
-        // 版本代码索引
-        db.getCollection(tableName).createIndex(
-                Indexes.ascending("version_code"),
-                new IndexOptions().background(true)
-        );
-    }
-
-    private boolean isHistoryTable(String tableName) {
-        return tableName.startsWith("uri_collect_") && tableName.contains("_history_");
-    }
-
-    private boolean isTableExpired(Document stats, int daysToKeep) {
-        // MongoDB stats中的时间戳是以秒为单位的
-        long modifyTimestamp = stats.getLong("wiredTiger")
-                .getDocument("creationTime")
-                .getLong("secs");
-        long currentTime = System.currentTimeMillis() / 1000;
-        long expirationTime = currentTime - TimeUnit.DAYS.toSeconds(daysToKeep);
-        return modifyTimestamp < expirationTime;
-    }
-
-    private void recordMetrics(String operation, Timer.Sample timer) {
-        timer.stop(meterRegistry.timer("mongodb.schema", "type", operation));
-        meterRegistry.counter("mongodb.schema.total", "type", operation).increment();
-    }
-
-    private void recordError(String operation) {
-        meterRegistry.counter("mongodb.schema.error", "type", operation).increment();
+            collectService.collectData(param);
+        }
     }
 }
 ```
@@ -3769,10 +3709,12 @@ import com.study.collect.business.testcase.model.param.CollectParam;
 import com.study.collect.business.testcase.model.param.DeleteParam;
 import com.study.collect.business.testcase.model.param.QueryParam;
 import com.study.collect.business.testcase.model.response.AsyncResponse;
+import com.study.collect.business.testcase.model.response.TaskResponse;
 import org.springframework.data.domain.Page;
 
+import java.time.LocalDateTime;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
+import java.util.Map;
 
 /**
  * URI采集服务接口
@@ -3781,60 +3723,64 @@ public interface UriCollectService {
 
     /**
      * 异步采集数据
-     * @param param 采集参数
-     * @return 异步响应，包含任务ID
      */
     AsyncResponse<String> collectData(CollectParam param);
 
     /**
+     * 获取版本列表
+     */
+    Page<String> getVersions(String rootNode, Integer page, Integer size);
+
+    /**
+     * 获取版本下URI数量
+     */
+    Long getUriCount(String rootNode, String version);
+
+    /**
      * 异步删除数据
-     * @param param 删除参数
-     * @return 异步响应，包含删除结果
      */
     AsyncResponse<Long> deleteData(DeleteParam param);
 
     /**
-     * 查询URI数据
-     * @param param 查询参数
-     * @return 分页结果
+     * 条件查询URI数据
      */
     Page<UriEntity> queryUri(QueryParam param);
 
     /**
-     * 批量查询URI数据
-     * @param uris URI列表
-     * @param includeDeleted 是否包含已删除数据
-     * @return URI实体列表
+     * 批量查询URI
      */
-    List<UriEntity> batchQueryUri(List<String> uris, Boolean includeDeleted);
+    List<UriEntity> batchQueryUri(List<String> uris, Boolean includeDeleted, Boolean onlyDetail);
+
+    /**
+     * 按更新时间查询URI
+     */
+    Page<UriEntity> queryByUpdateTime(String rootNode, LocalDateTime startTime, LocalDateTime endTime,
+                                      Integer page, Integer size);
 
     /**
      * 获取任务状态
-     * @param taskId 任务ID
-     * @return 任务状态
      */
     AsyncResponse<Void> getTaskStatus(String taskId);
 
     /**
      * 取消任务
-     * @param taskId 任务ID
-     * @return 是否成功取消
      */
     boolean cancelTask(String taskId);
 
     /**
      * 更新任务优先级
-     * @param taskId 任务ID
-     * @param priority 新优先级
-     * @return 是否成功更新
      */
     boolean updateTaskPriority(String taskId, int priority);
 
     /**
      * 获取活动任务列表
-     * @return 活动任务列表
      */
-    List<AsyncResponse<Void>> getActiveTasks();
+    List<TaskResponse> getActiveTasks();
+
+    /**
+     * 获取采集统计信息
+     */
+    Map<String, Object> getCollectionStats(String rootNode);
 }
 ```
 
@@ -3843,12 +3789,12 @@ public interface UriCollectService {
 ```java
 package com.study.collect.business.testcase.service.http;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.study.collect.business.testcase.constant.CollectionConstants;
 import com.study.collect.business.testcase.model.param.CollectParam;
 import com.study.collect.business.testcase.model.param.PageParam;
 import com.study.collect.business.testcase.model.response.PageResponse;
-import com.study.collect.business.testcase.model.response.VersionResponse;
+import com.study.collect.business.testcase.model.response.UriDetail;
+import com.study.collect.business.testcase.model.response.VersionInfo;
 import com.study.collect.business.testcase.model.response.parse.HttpResponseParser;
 import com.study.collect.business.testcase.utils.HttpUtil;
 import com.study.collect.business.testcase.utils.RateLimiter;
@@ -3858,46 +3804,43 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class UriHttpService {
-    private final HttpResponseParser<PageResponse<VersionResponse>> versionParser;
-    private final HttpResponseParser<PageResponse<String>> uriListParser;
-    private final HttpResponseParser<List<Map<String, Object>>> uriDetailParser;
+
+    private final HttpResponseParser<PageResponse<VersionInfo>> versionParser;
+    private final HttpResponseParser<List<String>> uriListParser;
+    private final HttpResponseParser<List<UriDetail>> uriDetailParser;
+    private final HttpResponseParser<Integer> uriCountParser;
     private final RateLimiter rateLimiter;
 
     @Qualifier("httpExecutor")
     private final ThreadPoolTaskExecutor httpExecutor;
 
     /**
-     * 异步获取版本列表
+     * 获取版本列表
      */
-    public CompletableFuture<PageResponse<VersionResponse>> getVersionsAsync(
-            CollectParam param, PageParam pageParam) {
-        String serverUri = param.getServerUrl();
-        String rootNode = param.getRootNode();
+    public CompletableFuture<List<VersionInfo>> getVersions(
+            String serverUrl, String rootNode, int page, int size) {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 rateLimiter.acquire();
                 String response = HttpUtil.post(
-                        serverUri + "/api/versions",
+                        serverUrl + "/api/versions",
                         String.format(
-                                "{\"rootNode\":\"%s\",\"page\":\"%s\",\"size\":\"%s\"}",
-                                rootNode,
-                                pageParam.getPage(),
-                                pageParam.getSize()
-                        )).getBody();
-                return versionParser.parse(response);
+                                "{\"rootNode\":\"%s\",\"page\":%d,\"size\":%d}",
+                                rootNode, page, size
+                        )
+                ).getBody();
+
+                return versionParser.parse(response).getItems();
             } catch (Exception e) {
                 log.error("Failed to get versions for rootNode: {}", rootNode, e);
                 throw new RuntimeException("Failed to get versions", e);
@@ -3906,23 +3849,17 @@ public class UriHttpService {
     }
 
     /**
-     * 异步获取URI列表
+     * 获取URI列表
      */
-    public CompletableFuture<PageResponse<String>> getUriListAsync(
-            CollectParam param, String version, PageParam pageParam) {
-        String serverUri = param.getServerUrl();
+    public CompletableFuture<List<String>> getUriList(String serverUrl, String version) {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 rateLimiter.acquire();
                 String response = HttpUtil.post(
-                        serverUri + "/api/uris",
-                        String.format(
-                                "{\"version\":\"%s\",\"page\":\"%s\",\"size\":\"%s\"}",
-                                version,
-                                pageParam.getPage(),
-                                pageParam.getSize()
-                        )
+                        serverUrl + "/api/uris",
+                        String.format("{\"version\":\"%s\"}", version)
                 ).getBody();
+
                 return uriListParser.parse(response);
             } catch (Exception e) {
                 log.error("Failed to get URI list for version: {}", version, e);
@@ -3932,11 +3869,30 @@ public class UriHttpService {
     }
 
     /**
+     * 获取URI数量
+     */
+    public CompletableFuture<Integer> getUriCount(String serverUrl, String version) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                rateLimiter.acquire();
+                String response = HttpUtil.post(
+                        serverUrl + "/api/uri/count",
+                        String.format("{\"version\":\"%s\"}", version)
+                ).getBody();
+
+                return uriCountParser.parse(response);
+            } catch (Exception e) {
+                log.error("Failed to get URI count for version: {}", version, e);
+                throw new RuntimeException("Failed to get URI count", e);
+            }
+        }, httpExecutor);
+    }
+
+    /**
      * 批量获取URI详情
      */
-    public CompletableFuture<List<Map<String, Object>>> getUriDetailsAsync(
-            CollectParam param, List<String> uris) {
-        String serverUri = param.getServerUrl();
+    public CompletableFuture<List<UriDetail>> getUriDetails(
+            String serverUrl, List<String> uris) {
         if (uris == null || uris.isEmpty()) {
             return CompletableFuture.completedFuture(Collections.emptyList());
         }
@@ -3944,140 +3900,26 @@ public class UriHttpService {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 rateLimiter.acquire();
+                StringBuilder jsonBody = new StringBuilder("{\"uris\":[");
+                for (int i = 0; i < uris.size(); i++) {
+                    if (i > 0) {
+                        jsonBody.append(",");
+                    }
+                    jsonBody.append("\"").append(uris.get(i)).append("\"");
+                }
+                jsonBody.append("]}");
+
                 String response = HttpUtil.post(
-                        serverUri + "/api/details",
-                        "{\"uris\":" + new ObjectMapper().writeValueAsString(uris) + "}"
+                        serverUrl + "/api/details",
+                        jsonBody.toString()
                 ).getBody();
+
                 return uriDetailParser.parse(response);
             } catch (Exception e) {
                 log.error("Failed to get URI details for {} URIs", uris.size(), e);
                 throw new RuntimeException("Failed to get URI details", e);
             }
         }, httpExecutor);
-    }
-
-    /**
-     * 同步获取所有版本
-     */
-    public List<String> getAllVersions(CollectParam param) throws IOException {
-        String rootNode = param.getRootNode();
-        List<String> allVersions = new ArrayList<>();
-        PageParam pageParam = new PageParam(1, CollectionConstants.DEFAULT_BATCH_SIZE);
-
-        try {
-            // 获取第一页和总数
-            PageResponse<VersionResponse> firstPage = getVersionsAsync(param, pageParam)
-                    .get(30, TimeUnit.SECONDS);
-
-            // 处理第一页
-            processVersionPage(firstPage, allVersions);
-
-            // 处理剩余页
-            long totalPages = (firstPage.getTotal() + pageParam.getSize() - 1) / pageParam.getSize();
-            List<CompletableFuture<Void>> futures = new ArrayList<>();
-
-            for (int page = 2; page <= totalPages; page++) {
-                final int currentPage = page;
-                CompletableFuture<Void> future = getVersionsAsync(
-                        param, new PageParam(currentPage, pageParam.getSize())
-                ).thenAccept(pageResponse -> processVersionPage(pageResponse, allVersions));
-
-                futures.add(future);
-            }
-
-            // 等待所有请求完成
-            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
-                    .get(5, TimeUnit.MINUTES);
-
-        } catch (Exception e) {
-            log.error("Failed to get all versions for rootNode: {}", rootNode, e);
-            throw new IOException("Failed to get all versions", e);
-        }
-
-        return allVersions;
-    }
-
-    /**
-     * 获取版本下的所有URI
-     */
-    public List<String> getAllUrisForVersion(CollectParam param, String version) throws IOException {
-        List<String> allUris = new ArrayList<>();
-        PageParam pageParam = new PageParam(1, CollectionConstants.DEFAULT_BATCH_SIZE);
-
-        try {
-            // 获取第一页和总数
-            PageResponse<String> firstPage = getUriListAsync(param, version, pageParam)
-                    .get(30, TimeUnit.SECONDS);
-
-            allUris.addAll(firstPage.getItems());
-
-            // 处理剩余页
-            long totalPages = (firstPage.getTotal() + pageParam.getSize() - 1) / pageParam.getSize();
-            List<CompletableFuture<Void>> futures = new ArrayList<>();
-
-            for (int page = 2; page <= totalPages; page++) {
-                final int currentPage = page;
-                CompletableFuture<Void> future = getUriListAsync(
-                        param, version, new PageParam(currentPage, pageParam.getSize())
-                ).thenAccept(pageResponse -> allUris.addAll(pageResponse.getItems()));
-
-                futures.add(future);
-            }
-
-            // 等待所有请求完成
-            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
-                    .get(5, TimeUnit.MINUTES);
-
-        } catch (Exception e) {
-            log.error("Failed to get all URIs for version: {}", version, e);
-            throw new IOException("Failed to get all URIs", e);
-        }
-
-        return allUris;
-    }
-
-    private void processVersionPage(PageResponse<VersionResponse> pageResponse, List<String> versions) {
-        if (pageResponse != null && pageResponse.getItems() != null) {
-            versions.addAll(pageResponse.getItems().stream()
-                    .map(VersionResponse::getVersion)
-                    .collect(Collectors.toList()));
-        }
-    }
-
-    /**
-     * 批量处理URI详情
-     */
-    public List<Map<String, Object>> batchGetUriDetails(
-            CollectParam param, List<String> uris, int batchSize) throws IOException {
-        List<Map<String, Object>> allDetails = new ArrayList<>();
-        List<List<String>> batches = new ArrayList<>();
-
-        // 分批
-        for (int i = 0; i < uris.size(); i += batchSize) {
-            batches.add(uris.subList(i, Math.min(i + batchSize, uris.size())));
-        }
-
-        try {
-            // 并行处理每个批次
-            List<CompletableFuture<List<Map<String, Object>>>> futures = batches.stream()
-                    .map(batch -> getUriDetailsAsync(param, batch))
-                    .collect(Collectors.toList());
-
-            // 等待所有批次完成
-            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
-                    .get(5, TimeUnit.MINUTES);
-
-            // 收集结果
-            for (CompletableFuture<List<Map<String, Object>>> future : futures) {
-                allDetails.addAll(future.get());
-            }
-
-        } catch (Exception e) {
-            log.error("Failed to batch get URI details", e);
-            throw new IOException("Failed to batch get URI details", e);
-        }
-
-        return allDetails;
     }
 }
 ```
@@ -4117,25 +3959,27 @@ public class IndexChecker {
 ```java
 package com.study.collect.business.testcase.service.impl;
 
+import com.google.common.collect.Lists;
 import com.study.collect.business.testcase.model.PageResult;
 import com.study.collect.business.testcase.repository.UriRepository;
+import com.study.collect.business.testcase.utils.HashUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
-@Service
 @Slf4j
+@Service
 public class UriCleanupService {
+
     private final UriRepository repository;
-    private static final int PAGE_SIZE = 10000;
-    private static final int DELETE_BATCH_SIZE = 10000;
+    private static final int PAGE_SIZE = 2000;
+    private static final int DELETE_BATCH_SIZE = 2000;
 
     @Autowired
     public UriCleanupService(UriRepository repository) {
@@ -4144,58 +3988,77 @@ public class UriCleanupService {
 
     /**
      * 清理不在总列表中的URI数据
-     * @param allUriHashes 总的uriHash列表
+     * @param allUris 总的URI列表
      * @param rootNode 根节点
+     * @param version 版本
+     * @param hardDelete 是否硬删除
      */
-    public void cleanupUriData(List<String> allUriHashes, String rootNode) {
+    public void cleanupUriData(List<String> allUris, String rootNode, String version, boolean hardDelete) {
         try {
-            log.info("Starting URI cleanup process, total hashes: {}", allUriHashes.size());
-            Set<String> allHashSet = new HashSet<>(allUriHashes);
-            Set<String> toDeleteHashes = new HashSet<>();
-
-            // 分页查询数据库中的uriHash
-            int page = 1;
-            PageResult<String> pageResult;
-            do {
-                pageResult = repository.findUriHashesPage(rootNode, null, null, page, PAGE_SIZE);
-
-                // 找出不在总列表中的hash
-                for (String dbHash : pageResult.getItems()) {
-                    if (!allHashSet.contains(dbHash)) {
-                        toDeleteHashes.add(dbHash);
-                    }
-                }
-
-                log.info("Processed page {}/{}, found {} hashes to delete",
-                        page, pageResult.getTotalPages(), toDeleteHashes.size());
-                page++;
-            } while (page <= pageResult.getTotalPages());
-
-            // 如果有需要删除的数据，进行批量删除
-            if (!toDeleteHashes.isEmpty()) {
-                log.info("Starting deletion of {} hashes", toDeleteHashes.size());
-                List<String> toDeleteList = new ArrayList<>(toDeleteHashes);
-
-                // 分批删除
-                for (int i = 0; i < toDeleteList.size(); i += DELETE_BATCH_SIZE) {
-                    int end = Math.min(i + DELETE_BATCH_SIZE, toDeleteList.size());
-                    List<String> batch = toDeleteList.subList(i, end);
-
-                    try {
-                        repository.batchHardDelete(rootNode,batch);
-                        log.info("Deleted batch {}-{} of {}", i, end, toDeleteList.size());
-                    } catch (Exception e) {
-                        log.error("Error deleting batch {}-{}", i, end, e);
-                    }
-                }
-
-                log.info("Cleanup completed, deleted {} hashes", toDeleteList.size());
-            } else {
-                log.info("No hashes need to be deleted");
+            if(allUris == null || allUris.isEmpty()) {
+                log.warn("No URIs provided for cleanup");
+                return;
             }
 
+            log.info("Starting URI cleanup process for rootNode: {}, version: {}, total URIs: {}",
+                    rootNode, version, allUris.size());
+
+            // 将URI转换为hash集合
+            Set<String> allHashSet = allUris.stream()
+                    .map(HashUtil::hash)
+                    .collect(Collectors.toSet());
+
+            // 分页获取数据库中的数据并进行清理
+            int page = 1;
+            boolean hasMore = true;
+            int totalDeleted = 0;
+
+            while (hasMore) {
+                List<String> dbUriHashes = repository.findUriHashesNativeWithPage(
+                        rootNode,
+                        version,
+                        null,
+                        page,
+                        PAGE_SIZE
+                );
+
+                if (dbUriHashes.isEmpty()) {
+                    break;
+                }
+
+                // 找出需要删除的hash
+                List<String> toDeleteHashes = dbUriHashes.stream()
+                        .filter(hash -> !allHashSet.contains(hash))
+                        .collect(Collectors.toList());
+
+                // 分批删除
+                if (!toDeleteHashes.isEmpty()) {
+                    List<List<String>> batches = Lists.partition(toDeleteHashes, DELETE_BATCH_SIZE);
+                    for (List<String> batch : batches) {
+                        try {
+                            long deletedCount;
+                            if (hardDelete) {
+                                deletedCount = repository.batchHardDelete(rootNode, batch, DELETE_BATCH_SIZE);
+                            } else {
+                                deletedCount = repository.batchSoftDelete(rootNode, batch, DELETE_BATCH_SIZE);
+                            }
+                            totalDeleted += deletedCount;
+                            log.info("Deleted {} URIs in batch, total deleted: {}", deletedCount, totalDeleted);
+                        } catch (Exception e) {
+                            log.error("Error deleting batch of size: {}", batch.size(), e);
+                        }
+                    }
+                }
+
+                hasMore = dbUriHashes.size() >= PAGE_SIZE;
+                page++;
+            }
+
+            log.info("Cleanup completed for rootNode: {}, version: {}, total deleted: {}",
+                    rootNode, version, totalDeleted);
+
         } catch (Exception e) {
-            log.error("Error during cleanup process", e);
+            log.error("Error during cleanup process for rootNode: {}", rootNode, e);
             throw new RuntimeException("Cleanup process failed", e);
         }
     }
@@ -4204,8 +4067,115 @@ public class UriCleanupService {
      * 异步执行清理过程
      */
     @Async
-    public CompletableFuture<Void> cleanupUriDataAsync(List<String> allUriHashes, String rootNode) {
-        return CompletableFuture.runAsync(() -> cleanupUriData(allUriHashes, rootNode));
+    public CompletableFuture<Void> cleanupUriDataAsync(List<String> allUris,
+                                                       String rootNode,
+                                                       String version,
+                                                       boolean hardDelete) {
+        return CompletableFuture.runAsync(() -> {
+            cleanupUriData(allUris, rootNode, version, hardDelete);
+        }).exceptionally(throwable -> {
+            log.error("Async cleanup failed for rootNode: {}", rootNode, throwable);
+            throw new RuntimeException("Async cleanup failed", throwable);
+        });
+    }
+
+    /**
+     * 获取特定版本的URI数量
+     */
+    public long getUriCount(String rootNode, String version) {
+        try {
+            return repository.countUriHashesNative(rootNode, version, null);
+        } catch (Exception e) {
+            log.error("Failed to get URI count for rootNode: {} and version: {}", rootNode, version, e);
+            throw new RuntimeException("Failed to get URI count", e);
+        }
+    }
+
+    /**
+     * 验证数据完整性
+     * 检查数据库中的URI数量是否与提供的URI列表数量匹配
+     */
+    public boolean validateDataIntegrity(String rootNode, String version, int expectedCount) {
+        try {
+            long actualCount = getUriCount(rootNode, version);
+            boolean isValid = actualCount == expectedCount;
+
+            if (!isValid) {
+                log.warn("Data integrity check failed for rootNode: {}, version: {}. " +
+                        "Expected: {}, Actual: {}", rootNode, version, expectedCount, actualCount);
+            }
+
+            return isValid;
+        } catch (Exception e) {
+            log.error("Failed to validate data integrity for rootNode: {}", rootNode, e);
+            return false;
+        }
+    }
+
+    /**
+     * 检查并返回丢失的URI
+     */
+    public List<String> findMissingUris(List<String> expectedUris, String rootNode, String version) {
+        try {
+            Set<String> expectedHashes = expectedUris.stream()
+                    .map(HashUtil::hash)
+                    .collect(Collectors.toSet());
+
+            List<String> missingUris = new ArrayList<>();
+            int page = 1;
+            boolean hasMore = true;
+
+            while (hasMore) {
+                List<String> dbHashes = repository.findUriHashesNativeWithPage(
+                        rootNode,
+                        version,
+                        null,
+                        page,
+                        PAGE_SIZE
+                );
+
+                if (dbHashes.isEmpty()) {
+                    break;
+                }
+
+                Set<String> dbHashSet = new HashSet<>(dbHashes);
+                expectedHashes.removeAll(dbHashSet);
+
+                hasMore = dbHashes.size() >= PAGE_SIZE;
+                page++;
+            }
+
+            // 将剩余的hash转换回URI
+            return expectedUris.stream()
+                    .filter(uri -> expectedHashes.contains(HashUtil.hash(uri)))
+                    .collect(Collectors.toList());
+
+        } catch (Exception e) {
+            log.error("Failed to find missing URIs for rootNode: {}", rootNode, e);
+            throw new RuntimeException("Failed to find missing URIs", e);
+        }
+    }
+
+    /**
+     * 检查数据库健康状态
+     */
+    public Map<String, Object> checkDatabaseHealth(String rootNode, String version) {
+        Map<String, Object> healthStatus = new HashMap<>();
+        try {
+            long totalCount = getUriCount(rootNode, version);
+            long deletedCount = repository.countUriHashesNative(rootNode, version, true);
+
+            healthStatus.put("totalCount", totalCount);
+            healthStatus.put("deletedCount", deletedCount);
+            healthStatus.put("activeCount", totalCount - deletedCount);
+            healthStatus.put("status", "HEALTHY");
+
+        } catch (Exception e) {
+            log.error("Health check failed for rootNode: {}", rootNode, e);
+            healthStatus.put("status", "UNHEALTHY");
+            healthStatus.put("error", e.getMessage());
+        }
+        return healthStatus;
     }
 }
 ```
@@ -4215,73 +4185,80 @@ public class UriCleanupService {
 ```java
 package com.study.collect.business.testcase.service.impl;
 
+import com.google.common.collect.Lists;
 import com.study.collect.business.testcase.constant.CollectionConstants;
+import com.study.collect.business.testcase.entity.CollectTaskEntity;
 import com.study.collect.business.testcase.entity.UriEntity;
+import com.study.collect.business.testcase.entity.VersionEntity;
 import com.study.collect.business.testcase.manager.CollectTaskManager;
 import com.study.collect.business.testcase.manager.QueueManager;
 import com.study.collect.business.testcase.model.param.CollectParam;
 import com.study.collect.business.testcase.model.param.DeleteParam;
 import com.study.collect.business.testcase.model.param.QueryParam;
 import com.study.collect.business.testcase.model.response.AsyncResponse;
-import com.study.collect.business.testcase.model.response.PageResponse;
 import com.study.collect.business.testcase.model.response.TaskResponse;
+import com.study.collect.business.testcase.model.response.UriDetail;
+import com.study.collect.business.testcase.model.response.VersionInfo;
+import com.study.collect.business.testcase.repository.CollectTaskRepository;
 import com.study.collect.business.testcase.repository.UriRepository;
+import com.study.collect.business.testcase.repository.VersionRepository;
 import com.study.collect.business.testcase.service.UriCollectService;
 import com.study.collect.business.testcase.service.http.UriHttpService;
 import com.study.collect.business.testcase.utils.HashUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.pool2.ObjectPool;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
-import org.springframework.util.StringUtils;
 
+import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class UriCollectServiceImpl implements UriCollectService {
+
     private final UriHttpService httpService;
-    private final UriRepository repository;
+    private final UriRepository uriRepository;
+    private final VersionRepository versionRepository;
+    private final CollectTaskRepository taskRepository;
     private final ObjectPool<UriEntity> entityPool;
     private final CollectTaskManager taskManager;
-    private final UriCleanupService uriCleanupService;
     private final QueueManager<CollectParam> collectQueue;
     private final QueueManager<DeleteParam> deleteQueue;
 
+    // 用于缓存正在处理的任务
+    private final ConcurrentHashMap<String, CollectTaskEntity> activeTasks = new ConcurrentHashMap<>();
+
     @Override
     public AsyncResponse<String> collectData(CollectParam param) {
-        // 1. 创建任务
-        TaskResponse task = taskManager.createTask(
-                "COLLECT",
-                Map.of("rootNode", param.getRootNode(),
-                        "serverUri", param.getServerUrl(),
-                        "version", param.getVersion()),
-                param.getPriority()
-        );
+        validateCollectParam(param);
 
-        // 2. 将任务加入队列
+        // 创建采集任务
+        String taskId = UUID.randomUUID().toString();
+        CollectTaskEntity task = createCollectTask(param, taskId);
+        activeTasks.put(taskId, task);
+
+        // 将任务加入队列
         collectQueue.enqueue(
-                task.getTaskId(),
+                taskId,
                 param,
                 param.getPriority(),
                 this::processCollectTask
         ).exceptionally(throwable -> {
-            taskManager.updateTaskStatus(
-                    task.getTaskId(),
-                    "ERROR",
-                    throwable.getMessage()
-            );
+            handleTaskError(task, throwable);
             return null;
         });
 
-        // 3. 返回异步响应
         return AsyncResponse.<String>builder()
-                .taskId(task.getTaskId())
+                .taskId(taskId)
                 .status("QUEUED")
                 .message("Task queued successfully")
                 .build();
@@ -4289,253 +4266,255 @@ public class UriCollectServiceImpl implements UriCollectService {
 
     private void processCollectTask(CollectParam param) {
         String taskId = param.getTaskId();
+        CollectTaskEntity task = activeTasks.get(taskId);
+
         try {
-            taskManager.updateTaskStatus(taskId, "PROCESSING", "Starting data collection");
+            // 更新任务状态
+            updateTaskStatus(task, "PROCESSING", "Starting collection");
 
-            // 1. 获取所有版本
-            List<String> allVersions = httpService.getAllVersions(param
-            );
-
-            taskManager.updateTaskStatus(
-                    taskId,
-                    "PROCESSING",
-                    String.format("Found %d versions", allVersions.size())
-            );
-
-            // 过滤指定版本
-            List<String> versions = filterVersions(allVersions, param.getVersion());
-
-            // 2. 如果是增量同步，先清理数据
-                cleanupIncrementalData(param, versions);
-
-
-
-            // 3. 处理每个版本
-            long totalProcessed = 0;
-            long estimatedTotal = calculateEstimatedTotal(param, versions);
-
-            taskManager.updateTaskProgress(taskId, totalProcessed, estimatedTotal);
-
-            for (String version : versions) {
-                totalProcessed += processVersion(
-                        param,
-                        version,
-                        taskId
-                );
-                taskManager.updateTaskProgress(taskId, totalProcessed, estimatedTotal);
+            // 1. 获取并保存版本信息
+            List<VersionInfo> versions = getAndSaveVersions(param);
+            if (StringUtils.isNotEmpty(param.getVersion())) {
+                versions = filterVersions(versions, param.getVersion());
             }
 
-            taskManager.updateTaskStatus(
-                    taskId,
-                    "COMPLETED",
-                    String.format("Processed %d URIs", totalProcessed)
-            );
+            // 2. 处理每个版本
+            for (VersionInfo version : versions) {
+                if (!activeTasks.containsKey(taskId)) {
+                    log.info("Task {} was cancelled", taskId);
+                    return;
+                }
+                processVersion(task, param, version);
+            }
+
+            // 3. 重试失败的URI
+            if (!task.getFailedUriList().isEmpty()) {
+                retryFailedUris(task, param);
+            }
+
+            // 4. 完成任务
+            completeTask(task);
 
         } catch (Exception e) {
-            log.error("Error processing collect task: {}", taskId, e);
-            taskManager.updateTaskStatus(
-                    taskId,
-                    "ERROR",
-                    "Error: " + e.getMessage()
-            );
+            handleTaskError(task, e);
             throw new RuntimeException("Task processing failed", e);
+        } finally {
+            activeTasks.remove(taskId);
         }
     }
 
-private List<String> filterVersions(List<String> allVersions, String versionFilter) {
-        // 检查版本过滤器是否不为空
-        if (StringUtils.hasText(versionFilter)) {
-            // 按逗号分隔版本过滤器并修剪每个元素
-            Set<String> filterSet = Arrays.stream(versionFilter.split(","))
-                    .map(String::trim)
-                    .collect(Collectors.toSet());
-            // 根据过滤器集合过滤版本
-            return allVersions.stream()
-                    // 检查allVersions中的每个元素是否完全匹配versionFilter中的某个元素 .filter(filterSet::contains)
-                    // 检查allVersions中的每个元素是否至少包含versionFilter分隔的字符串中的一个
-                    .filter(version -> filterSet.stream().anyMatch(version::contains))
-                    .collect(Collectors.toList());
+    private void processVersion(CollectTaskEntity task, CollectParam param, VersionInfo version) {
+        try {
+            log.info("Processing version: {}", version.getVersion());
+            updateTaskStatus(task, "PROCESSING", "Processing version: " + version.getVersion());
+
+            // 1. 获取URI列表和总数
+            CompletableFuture<List<String>> urisFuture = httpService.getUriList(param.getServerUrl(), version.getVersion());
+            CompletableFuture<Integer> countFuture = httpService.getUriCount(param.getServerUrl(), version.getVersion());
+
+            List<String> uris = urisFuture.get();
+            int totalCount = countFuture.get();
+
+            // 更新任务进度信息
+            updateTaskProgress(task, totalCount);
+
+            // 2. 处理增量场景
+            if (param.getIncremental()) {
+                uris = filterIncrementalUris(uris, version, param.getStartTime(), param.getEndTime());
+            }
+
+            // 3. 删除不存在的URI
+            if (!param.getIncremental()) {
+                deleteNonExistentUris(param.getRootNode(), version.getVersion(), new HashSet<>(uris), param.getHardDelete());
+            }
+
+            // 4. 批量处理URI
+            processUrisBatch(task, param, version, uris);
+
+        } catch (Exception e) {
+            log.error("Failed to process version: {}", version.getVersion(), e);
+            task.addFailedUri("VERSION:" + version.getVersion(), e.getMessage());
+            taskRepository.save(task);
         }
-        // 如果没有提供过滤器，则返回所有版本
-        return allVersions;
     }
-
-    private long processVersion(
-      CollectParam param,
-            String version,
-            String taskId
-    ) throws Exception {
-        String rootNode = param.getRootNode();
-        // 1. 获取该版本下的所有URI
-        List<String> allUris = httpService.getAllUrisForVersion(param, version);
-        long totalProcessed = 0;
-
-        // 2. 分批处理
-        List<List<String>> batches = partition(
-                allUris,
-                CollectionConstants.DEFAULT_BATCH_SIZE
-        );
+    private void processUrisBatch(CollectTaskEntity task, CollectParam param,
+                                  VersionInfo version, List<String> uris) {
+        List<List<String>> batches = Lists.partition(uris, CollectionConstants.HTTP_BATCH_SIZE);
 
         for (List<String> batch : batches) {
-            // 获取URI详情
-            List<Map<String, Object>> details = httpService.batchGetUriDetails(
-                    param,
-                    batch,
-                    CollectionConstants.DEFAULT_BATCH_SIZE
-            );
-
-            // 创建实体并保存
-            List<UriEntity> entities = new ArrayList<>();
-            for (Map<String, Object> detail : details) {
-                UriEntity entity = null;
-                try {
-                    entity = entityPool.borrowObject();
-                    fillEntity(entity, rootNode, version, detail);
-                    entities.add(entity);
-                } catch (Exception e) {
-                    log.error("Error creating entity", e);
-                    if (entity != null) {
-                        entityPool.returnObject(entity);
-                    }
-                }
+            if (!activeTasks.containsKey(task.getTaskId())) {
+                log.info("Task {} was cancelled during batch processing", task.getTaskId());
+                return;
             }
 
             try {
-                if (!entities.isEmpty()) {
-                    repository.batchUpsert(rootNode, entities);
-                    totalProcessed += entities.size();
-                }
-            } finally {
-                // 返还对象到对象池
-                for (UriEntity entity : entities) {
+                // 获取URI详情
+                List<UriDetail> details = httpService.getUriDetails(param.getServerUrl(), batch).get();
+
+                // 转换为实体并保存
+                List<UriEntity> entities = new ArrayList<>();
+                for (UriDetail detail : details) {
+                    UriEntity entity = null;
                     try {
-                        entityPool.returnObject(entity);
+                        entity = entityPool.borrowObject();
+                        fillEntity(entity, param.getRootNode(), version, detail);
+                        entities.add(entity);
                     } catch (Exception e) {
-                        log.error("Error returning entity to pool", e);
+                        log.error("Failed to create entity for URI: {}", detail.getUri(), e);
+                        task.addFailedUri(detail.getUri(), "Entity creation failed: " + e.getMessage());
+                        if (entity != null) {
+                            try {
+                                entityPool.returnObject(entity);
+                            } catch (Exception ex) {
+                                log.error("Failed to return entity to pool", ex);
+                            }
+                        }
                     }
                 }
-            }
 
-            // 更新任务进度
-            taskManager.updateTaskStatus(
-                    taskId,
-                    "PROCESSING",
-                    String.format("Processing version %s: %d/%d",
-                            version, totalProcessed, allUris.size())
-            );
+                if (!entities.isEmpty()) {
+                    try {
+                        uriRepository.batchUpsert(param.getRootNode(), entities);
+                    } finally {
+                        // 返还所有实体到对象池
+                        for (UriEntity entity : entities) {
+                            try {
+                                entityPool.returnObject(entity);
+                            } catch (Exception e) {
+                                log.error("Failed to return entity to pool", e);
+                            }
+                        }
+                    }
+                }
+
+                // 更新任务进度
+                task.setProcessedUris(task.getProcessedUris() + batch.size());
+                task.setProgress(calculateProgress(task.getProcessedUris(), task.getTotalUris()));
+                taskRepository.save(task);
+
+            } catch (Exception e) {
+                log.error("Failed to process batch for version: {}", version.getVersion(), e);
+                batch.forEach(uri -> task.addFailedUri(uri, e.getMessage()));
+                taskRepository.save(task);
+            }
+        }
+    }
+
+    private void fillEntity(UriEntity entity, String rootNode, VersionInfo version, UriDetail detail) {
+        entity.setUri(detail.getUri());
+        entity.setUriHash(HashUtil.hash(detail.getUri()));
+        entity.setRootNode(rootNode);
+        entity.setVersionType(version.getType());
+        entity.setUriVersion(version.getVersion());
+        entity.setRealUri(detail.getRealUri());
+        entity.setNumber(detail.getNumber());
+        entity.setName(detail.getName());
+        entity.setThirdPartyUpdateTime(detail.getUpdateTime());
+        entity.setDetails(detail.getDetails());
+        entity.setDeleted(false);
+    }
+
+    private void retryFailedUris(CollectTaskEntity task, CollectParam param) {
+        if (CollectionUtils.isEmpty(task.getFailedUriList())) {
+            return;
         }
 
-        return totalProcessed;
+        log.info("Retrying {} failed URIs for task: {}", task.getFailedUriList().size(), task.getTaskId());
+        updateTaskStatus(task, "PROCESSING", "Retrying failed URIs");
+
+        List<String> retriedUris = new ArrayList<>();
+        List<List<String>> batches = Lists.partition(new ArrayList<>(task.getFailedUriList()),
+                CollectionConstants.HTTP_BATCH_SIZE);
+
+        for (List<String> batch : batches) {
+            try {
+                // 过滤掉版本级别的失败记录
+                List<String> uris = batch.stream()
+                        .filter(uri -> !uri.startsWith("VERSION:"))
+                        .collect(Collectors.toList());
+
+                if (!uris.isEmpty()) {
+                    List<UriDetail> details = httpService.getUriDetails(param.getServerUrl(), uris).get();
+                    if (!details.isEmpty()) {
+                        for (UriDetail detail : details) {
+                            VersionInfo version = getVersionInfo(detail.getVersion());
+                            List<UriEntity> entities = Collections.singletonList(
+                                    createEntity(param.getRootNode(), version, detail));
+                            uriRepository.batchUpsert(param.getRootNode(), entities);
+                            retriedUris.add(detail.getUri());
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                log.error("Failed to retry batch", e);
+            }
+        }
+
+        // 更新失败列表
+        if (!retriedUris.isEmpty()) {
+            task.getFailedUriList().removeAll(retriedUris);
+            task.setFailedUris(task.getFailedUris() - retriedUris.size());
+            taskRepository.save(task);
+        }
+    }
+
+    @Override
+    public Page<String> getVersions(String rootNode, Integer page, Integer size) {
+        int pageNum = page != null ? page : 1;
+        int pageSize = size != null ? size : CollectionConstants.DEFAULT_PAGE_SIZE;
+        return versionRepository.findVersionsByRootNode(rootNode, PageRequest.of(pageNum - 1, pageSize));
+    }
+
+    @Override
+    public Long getUriCount(String rootNode, String version) {
+        return uriRepository.countByRootNodeAndVersion(rootNode, version);
     }
 
     @Override
     public AsyncResponse<Long> deleteData(DeleteParam param) {
-        // 1. 创建任务
-        TaskResponse task = taskManager.createTask(
-                "DELETE",
-                Map.of("rootNode", param.getRootNode(),
-                        "urisCount", param.getUris().size(),
-                        "hardDelete", param.getHardDelete()),
-                param.getPriority()
-        );
+        String taskId = UUID.randomUUID().toString();
+        param.setTaskId(taskId);
 
-        // 2. 将任务加入队列
         deleteQueue.enqueue(
-                task.getTaskId(),
+                taskId,
                 param,
                 param.getPriority(),
                 this::processDeleteTask
-        ).exceptionally(throwable -> {
-            taskManager.updateTaskStatus(
-                    task.getTaskId(),
-                    "ERROR",
-                    throwable.getMessage()
-            );
-            return null;
-        });
+        );
 
-        // 3. 返回异步响应
         return AsyncResponse.<Long>builder()
-                .taskId(task.getTaskId())
+                .taskId(taskId)
                 .status("QUEUED")
                 .message("Delete task queued successfully")
                 .build();
     }
 
-    private void processDeleteTask(DeleteParam param) {
-        String taskId = param.getTaskId();
-        try {
-            taskManager.updateTaskStatus(taskId, "PROCESSING", "Starting data deletion");
-
-            List<List<String>> batches = partition(
-                    param.getUris(),
-                    param.getBatchSize() != null ?
-                            param.getBatchSize() :
-                            CollectionConstants.DEFAULT_BATCH_SIZE
-            );
-
-            long totalDeleted = 0;
-            for (List<String> batch : batches) {
-                long batchCount;
-                if (param.getHardDelete()) {
-                    batchCount = repository.batchHardDelete(param.getRootNode(), batch);
-                } else {
-                    batchCount = repository.batchSoftDelete(param.getRootNode(), batch);
-                }
-                totalDeleted += batchCount;
-
-                taskManager.updateTaskProgress(
-                        taskId,
-                        totalDeleted,
-                        param.getUris().size()
-                );
-            }
-
-            taskManager.updateTaskStatus(
-                    taskId,
-                    "COMPLETED",
-                    String.format("Deleted %d URIs", totalDeleted)
-            );
-
-        } catch (Exception e) {
-            log.error("Error processing delete task: {}", taskId, e);
-            taskManager.updateTaskStatus(
-                    taskId,
-                    "ERROR",
-                    "Error: " + e.getMessage()
-            );
-            throw new RuntimeException("Delete task processing failed", e);
-        }
-    }
-
     @Override
     public Page<UriEntity> queryUri(QueryParam param) {
-        return repository.findByCondition(
-                param.getRootNode(),
-                param.getVersion(),
-                param.getVersionType(),
-                param.getIncludeDeleted(),
-                PageRequest.of(param.getPage() - 1, param.getSize())
-        );
+        return uriRepository.findByConditions(param);
     }
 
     @Override
-    public List<UriEntity> batchQueryUri(List<String> uris, Boolean includeDeleted) {
-        if (CollectionUtils.isEmpty(uris)) {
-            return Collections.emptyList();
-        }
+    public List<UriEntity> batchQueryUri(List<String> uris, Boolean includeDeleted, Boolean onlyDetail) {
+        return uriRepository.batchQuery(uris, includeDeleted, onlyDetail);
+    }
 
-        // 使用第一个URI的rootNode作为默认值
-        return repository.batchQuery(
-                uris,
-                this::extractRootNode,
-                includeDeleted
-        );
+    @Override
+    public Page<UriEntity> queryByUpdateTime(String rootNode, LocalDateTime startTime,
+                                             LocalDateTime endTime, Integer page, Integer size) {
+        int pageNum = page != null ? page : 1;
+        int pageSize = size != null ? size : CollectionConstants.DEFAULT_PAGE_SIZE;
+        return uriRepository.findByUpdateTimeRange(rootNode, startTime, endTime,
+                PageRequest.of(pageNum - 1, pageSize));
     }
 
     @Override
     public AsyncResponse<Void> getTaskStatus(String taskId) {
-        TaskResponse task = taskManager.getTaskStatus(taskId);
+        CollectTaskEntity task = activeTasks.get(taskId);
+        if (task == null) {
+            task = taskRepository.findByTaskId(taskId);
+        }
+
         if (task == null) {
             return AsyncResponse.<Void>builder()
                     .taskId(taskId)
@@ -4556,9 +4535,11 @@ private List<String> filterVersions(List<String> allVersions, String versionFilt
 
     @Override
     public boolean cancelTask(String taskId) {
-        // 尝试取消队列中的任务
-        if (collectQueue.cancel(taskId) || deleteQueue.cancel(taskId)) {
-            taskManager.cancelTask(taskId);
+        CollectTaskEntity task = activeTasks.remove(taskId);
+        if (task != null) {
+            task.setStatus("CANCELLED");
+            task.setEndTime(LocalDateTime.now());
+            taskRepository.save(task);
             return true;
         }
         return false;
@@ -4566,103 +4547,280 @@ private List<String> filterVersions(List<String> allVersions, String versionFilt
 
     @Override
     public boolean updateTaskPriority(String taskId, int priority) {
-        // 更新任务优先级
-        if (collectQueue.updatePriority(taskId, priority) ||
-                deleteQueue.updatePriority(taskId, priority)) {
-            return taskManager.updateTaskPriority(taskId, priority);
-        }
-        return false;
+        return collectQueue.updatePriority(taskId, priority) ||
+                deleteQueue.updatePriority(taskId, priority);
     }
 
     @Override
-    public List<AsyncResponse<Void>> getActiveTasks() {
-        return taskManager.getActiveTasks().stream()
-                .map(task -> AsyncResponse.<Void>builder()
-                        .taskId(task.getTaskId())
-                        .status(task.getStatus())
-                        .message(task.getMessage())
-                        .progress(task.getProgress())
-                        .startTime(task.getStartTime())
-                        .build())
+    public List<TaskResponse> getActiveTasks() {
+        return activeTasks.values().stream()
+                .map(this::convertToTaskResponse)
                 .collect(Collectors.toList());
     }
 
-    private void cleanupIncrementalData(
-            CollectParam param,
-            List<String> versions
-    ) throws Exception {
-        String rootNode = param.getRootNode();
-        List<String> allUriHashes = new ArrayList<>();
+    @Override
+    public Map<String, Object> getCollectionStats(String rootNode) {
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("totalUris", uriRepository.countByRootNode(rootNode));
+        stats.put("totalVersions", versionRepository.countByRootNode(rootNode));
+        stats.put("lastCollectTime", taskRepository.findLastCollectTime(rootNode));
+        stats.put("activeTasks", activeTasks.values().stream()
+                .filter(task -> task.getRootNode().equals(rootNode))
+                .count());
+        return stats;
+    }
 
-        // 获取所有版本的URI
-        for (String version : versions) {
-            List<String> versionUris = httpService.getAllUrisForVersion(param, version);
-            allUriHashes.addAll(versionUris.stream()
-                    .map(this::generateUriHash)
-                    .collect(Collectors.toSet()));
+    // 其他私有辅助方法...
+    /**
+     * 验证采集参数
+     */
+    private void validateCollectParam(CollectParam param) {
+        if (param == null) {
+            throw new IllegalArgumentException("CollectParam cannot be null");
+        }
+        if (StringUtils.isBlank(param.getRootNode())) {
+            throw new IllegalArgumentException("RootNode cannot be empty");
+        }
+        if (StringUtils.isBlank(param.getServerUrl())) {
+            throw new IllegalArgumentException("ServerUrl cannot be empty");
+        }
+        if (param.getIncremental() && param.getStartTime() == null) {
+            throw new IllegalArgumentException("StartTime is required for incremental collection");
+        }
+    }
+
+    /**
+     * 创建采集任务
+     */
+    private CollectTaskEntity createCollectTask(CollectParam param, String taskId) {
+        CollectTaskEntity task = new CollectTaskEntity();
+        task.setTaskId(taskId);
+        task.setRootNode(param.getRootNode());
+        task.setVersion(param.getVersion());
+        task.setStatus("CREATED");
+        task.setPriority(param.getPriority() != null ? param.getPriority() : 0);
+        task.setCreateTime(LocalDateTime.now());
+        task.setIsIncremental(param.getIncremental());
+        task.setIncrementStartTime(param.getStartTime());
+        task.setIncrementEndTime(param.getEndTime());
+        task.setProcessedUris(0L);
+        task.setFailedUris(0L);
+        task.setProgress(0.0);
+
+        return taskRepository.save(task);
+    }
+
+    /**
+     * 获取并保存版本信息
+     */
+    private List<VersionInfo> getAndSaveVersions(CollectParam param) throws Exception {
+        List<VersionInfo> versions = new ArrayList<>();
+        int page = 1;
+        int size = 200; // 每页200条
+
+        while (true) {
+            List<VersionInfo> pageVersions = httpService.getVersions(
+                    param.getServerUrl(),
+                    param.getRootNode(),
+                    page,
+                    size
+            ).get();
+
+            if (pageVersions.isEmpty()) {
+                break;
+            }
+
+            versions.addAll(pageVersions);
+
+            // 保存版本信息
+            List<VersionEntity> versionEntities = pageVersions.stream()
+                    .map(v -> convertToVersionEntity(v, param.getRootNode()))
+                    .collect(Collectors.toList());
+            versionRepository.saveAll(versionEntities);
+
+            if (pageVersions.size() < size) {
+                break;
+            }
+            page++;
         }
 
-        // 删除不存在的URI //TODO 改成分页批量删除 ,可选软删除或者硬删除，根据param.getHardDelete()来判断
-        uriCleanupService.cleanupUriData(allUriHashes,rootNode);
-//        repository.deleteNotInUris(rootNode, allUriHashes);
+        return versions;
     }
 
-    private String generateUriHash(String uri) {
-        return Objects.hash(uri) + "";
+    /**
+     * 过滤版本列表
+     */
+    private List<VersionInfo> filterVersions(List<VersionInfo> versions, String versionFilter) {
+        if (StringUtils.isBlank(versionFilter)) {
+            return versions;
+        }
+
+        Set<String> filterSet = Arrays.stream(versionFilter.split(","))
+                .map(String::trim)
+                .collect(Collectors.toSet());
+
+        return versions.stream()
+                .filter(v -> filterSet.stream().anyMatch(v.getVersion()::contains))
+                .collect(Collectors.toList());
     }
 
-    private String extractRootNode(String uri) {
-        // 从URI中提取rootNode的逻辑
-        String[] parts = uri.split("/");
-        return parts.length > 0 ? parts[0] : "";
-    }
-
-    private <T> List<List<T>> partition(List<T> list, int size) {
-        if (CollectionUtils.isEmpty(list)) {
+    /**
+     * 过滤增量URI
+     */
+    private List<String> filterIncrementalUris(List<String> uris, VersionInfo version,
+                                               LocalDateTime startTime, LocalDateTime endTime) {
+        if (CollectionUtils.isEmpty(uris)) {
             return Collections.emptyList();
         }
 
-        List<List<T>> partitions = new ArrayList<>();
-        for (int i = 0; i < list.size(); i += size) {
-            partitions.add(list.subList(i, Math.min(i + size, list.size())));
-        }
-        return partitions;
+        // 获取已存在的URI的更新时间
+        Map<String, LocalDateTime> existingUriUpdateTimes =
+                uriRepository.findUpdateTimesByUris(uris);
+
+        return uris.stream()
+                .filter(uri -> {
+                    LocalDateTime existingUpdateTime = existingUriUpdateTimes.get(uri);
+                    if (existingUpdateTime == null) {
+                        return true; // 新URI，需要采集
+                    }
+                    // 检查更新时间是否在范围内
+                    return existingUpdateTime.isAfter(startTime) &&
+                            (endTime == null || existingUpdateTime.isBefore(endTime));
+                })
+                .collect(Collectors.toList());
     }
 
-    private long calculateEstimatedTotal(CollectParam param, List<String> versions) {
-        long total = 0;
-        for (String version : versions) {
-            try {
-                PageResponse<String> response = httpService.getUriListAsync(
-                        param,
-                        version,
-                        new com.study.collect.business.testcase.model.param.PageParam(1, 1)
-                ).get();
-                total += response.getTotal();
-            } catch (Exception e) {
-                log.warn("Error calculating total for version: {}", version, e);
+    /**
+     * 删除不存在的URI
+     */
+    private void deleteNonExistentUris(String rootNode, String version,
+                                       Set<String> existingUris, boolean hardDelete) {
+        List<String> urisToDelete = new ArrayList<>();
+        int page = 0;
+        int size = 2000; // 每次处理2000条
+
+        while (true) {
+            Page<String> dbUris = uriRepository.findUrisByVersion(
+                    rootNode,
+                    version,
+                    PageRequest.of(page, size)
+            );
+
+            if (!dbUris.hasContent()) {
+                break;
             }
+
+            urisToDelete.addAll(
+                    dbUris.getContent().stream()
+                            .filter(uri -> !existingUris.contains(uri))
+                            .collect(Collectors.toList())
+            );
+
+            // 每积累2000条执行一次删除
+            if (urisToDelete.size() >= 2000) {
+                executeBatchDelete(rootNode, urisToDelete, hardDelete);
+                urisToDelete.clear();
+            }
+
+            if (!dbUris.hasNext()) {
+                break;
+            }
+            page++;
         }
-        return total;
-    }
-    private void fillEntity(
-            UriEntity entity,
-            String rootNode,
-            String version,
-            Map<String, Object> detail
-    ) {
-        String uri = (String) detail.get("uri");
-        entity.setUri(uri);
-        entity.setUriHash(HashUtil.hash(uri));  // 重要：设置完 uri 后立即生成 uriHash
-        entity.setRootNode(rootNode);
-        entity.setVersionType(getVersionType(version));
-        entity.setUriVersion(version);
-        entity.setDetails(detail);
+
+        // 处理剩余的URI
+        if (!urisToDelete.isEmpty()) {
+            executeBatchDelete(rootNode, urisToDelete, hardDelete);
+        }
     }
 
+    /**
+     * 执行批量删除
+     */
+    private void executeBatchDelete(String rootNode, List<String> uris, boolean hardDelete) {
+        try {
+            if (hardDelete) {
+                uriRepository.batchHardDelete(rootNode, uris);
+            } else {
+                uriRepository.batchSoftDelete(rootNode, uris);
+            }
+        } catch (Exception e) {
+            log.error("Failed to delete URIs for rootNode: {}", rootNode, e);
+            throw new RuntimeException("Failed to delete URIs", e);
+        }
+    }
 
-    private String getVersionType(String version) {
-        return version.toLowerCase().contains("branch") ? "BRANCH" : "TRUNK";
+    /**
+     * 更新任务状态
+     */
+    private void updateTaskStatus(CollectTaskEntity task, String status, String message) {
+        task.setStatus(status);
+        task.setMessage(message);
+        if ("PROCESSING".equals(status) && task.getStartTime() == null) {
+            task.setStartTime(LocalDateTime.now());
+        }
+        taskRepository.save(task);
+    }
+
+    /**
+     * 更新任务进度
+     */
+    private void updateTaskProgress(CollectTaskEntity task, long totalCount) {
+        task.setTotalUris(task.getTotalUris() + totalCount);
+        task.setProgress(calculateProgress(task.getProcessedUris(), task.getTotalUris()));
+        taskRepository.save(task);
+    }
+
+    /**
+     * 计算进度百分比
+     */
+    private double calculateProgress(long processed, long total) {
+        if (total == 0) {
+            return 0.0;
+        }
+        return (double) processed / total * 100;
+    }
+
+    /**
+     * 处理任务错误
+     */
+    private void handleTaskError(CollectTaskEntity task, Throwable error) {
+        log.error("Task {} failed", task.getTaskId(), error);
+        task.setStatus("FAILED");
+        task.setEndTime(LocalDateTime.now());
+        task.setMessage(error.getMessage());
+        taskRepository.save(task);
+    }
+
+    /**
+     * 完成任务
+     */
+    private void completeTask(CollectTaskEntity task) {
+        task.setStatus("COMPLETED");
+        task.setEndTime(LocalDateTime.now());
+        task.setProgress(100.0);
+        task.setMessage("Collection completed successfully");
+        taskRepository.save(task);
+    }
+
+    /**
+     * 转换为任务响应对象
+     */
+    private TaskResponse convertToTaskResponse(CollectTaskEntity task) {
+        return TaskResponse.builder()
+                .taskId(task.getTaskId())
+                .type("COLLECT")
+                .status(task.getStatus())
+                .progress(task.getProgress())
+                .message(task.getMessage())
+                .priority(task.getPriority())
+                .createTime(task.getCreateTime())
+                .startTime(task.getStartTime())
+                .endTime(task.getEndTime())
+                .totalCount(task.getTotalUris())
+                .processedCount(task.getProcessedUris())
+                .failedCount(task.getFailedUris())
+                .build();
     }
 }
 ```
@@ -5165,13 +5323,10 @@ import com.study.collect.business.testcase.constant.CollectionConstants;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import javax.annotation.PreDestroy;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
-/**
- * 限流器实现
- * 使用滑动窗口算法实现限流
- */
 @Slf4j
 @Component
 public class RateLimiter {
@@ -5192,7 +5347,12 @@ public class RateLimiter {
         });
 
         // 定期清理过期的时间戳
-        scheduler.scheduleAtFixedRate(this::cleanup, 1, 1, TimeUnit.MINUTES);
+        scheduler.scheduleAtFixedRate(
+                this::cleanup,
+                1,
+                1,
+                TimeUnit.MINUTES
+        );
     }
 
     /**
@@ -5200,7 +5360,7 @@ public class RateLimiter {
      */
     public void acquire() throws InterruptedException {
         while (!tryAcquire()) {
-            Thread.sleep(5000);  // 等待100ms后重试
+            Thread.sleep(100); // 等待100ms后重试
         }
     }
 
@@ -5208,7 +5368,7 @@ public class RateLimiter {
      * 尝试获取许可
      */
     public boolean tryAcquire() {
-        cleanup();  // 清理过期的时间戳
+        cleanup(); // 清理过期的时间戳
 
         long now = System.currentTimeMillis();
         int currentCount = currentPermits.get();
@@ -5249,8 +5409,23 @@ public class RateLimiter {
     }
 
     /**
-     * 关闭清理线程
+     * 获取剩余许可数
      */
+    public int getAvailablePermits() {
+        cleanup();
+        return permitsPerMinute - currentPermits.get();
+    }
+
+    /**
+     * 等待直到有可用许可
+     */
+    public void waitForPermit() throws InterruptedException {
+        while (getCurrentRate() >= permitsPerMinute) {
+            Thread.sleep(100);
+        }
+    }
+
+    @PreDestroy
     public void shutdown() {
         scheduler.shutdown();
         try {

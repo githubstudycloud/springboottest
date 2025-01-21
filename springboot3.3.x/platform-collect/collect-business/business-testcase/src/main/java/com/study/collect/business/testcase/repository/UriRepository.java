@@ -3,22 +3,21 @@ package com.study.collect.business.testcase.repository;
 import com.google.common.collect.Lists;
 import com.mongodb.bulk.BulkWriteResult;
 import com.mongodb.client.MongoCollection;
-import com.mongodb.client.model.BulkWriteOptions;
-import com.mongodb.client.model.UpdateOneModel;
-import com.mongodb.client.model.UpdateOptions;
-import com.mongodb.client.model.WriteModel;
+import com.mongodb.client.model.*;
 import com.mongodb.client.result.DeleteResult;
 import com.mongodb.client.result.UpdateResult;
 import com.study.collect.business.testcase.config.DynamicCollectionIndexConfiguration;
 import com.study.collect.business.testcase.constant.CollectionConstants;
 import com.study.collect.business.testcase.entity.UriEntity;
 import com.study.collect.business.testcase.model.UriQueryCondition;
+import com.study.collect.business.testcase.model.param.QueryParam;
 import com.study.collect.business.testcase.utils.HashUtil;
 import com.study.collect.business.testcase.utils.RateLimiter;
 import lombok.extern.slf4j.Slf4j;
 import org.bson.Document;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
@@ -39,6 +38,9 @@ public class UriRepository {
     private final DynamicCollectionIndexConfiguration indexConfiguration;
     private final RateLimiter mongoRateLimiter;
 
+    private static final int DEFAULT_PAGE_SIZE = 20;
+    private static final int HTTP_BATCH_SIZE = 100;
+
     public UriRepository(MongoTemplate mongoTemplate,
                          DynamicCollectionIndexConfiguration indexConfiguration,
                          RateLimiter mongoRateLimiter) {
@@ -46,6 +48,101 @@ public class UriRepository {
         this.indexConfiguration = indexConfiguration;
         this.mongoRateLimiter = mongoRateLimiter;
     }
+
+    /**
+     * 查询指定版本的URI列表
+     */
+    public Page<String> findUrisByVersion(String rootNode, String version, Pageable pageable) {
+        try {
+            mongoRateLimiter.acquire();
+
+            Query query = new Query(Criteria.where("root_node").is(rootNode)
+                    .and("uri_version").is(version)
+                    .and("is_deleted").is(false));
+            query.with(pageable);
+            query.fields().include("uri");
+
+            long total = mongoTemplate.count(query, UriEntity.class, getCollectionName(rootNode));
+            List<UriEntity> entities = mongoTemplate.find(query, UriEntity.class, getCollectionName(rootNode));
+
+            List<String> uris = entities.stream()
+                    .map(UriEntity::getUri)
+                    .collect(Collectors.toList());
+
+            return new PageImpl<>(uris, pageable, total);
+        } catch (Exception e) {
+            log.error("Failed to find URIs by version for rootNode: {}, version: {}", rootNode, version, e);
+            throw new RuntimeException("Failed to find URIs by version", e);
+        }
+    }
+
+    /**
+     * 统计指定根节点和版本的URI数量
+     */
+    public long countByRootNodeAndVersion(String rootNode, String version) {
+        try {
+            mongoRateLimiter.acquire();
+            Query query = new Query(Criteria.where("root_node").is(rootNode)
+                    .and("uri_version").is(version)
+                    .and("is_deleted").is(false));
+            return mongoTemplate.count(query, UriEntity.class, getCollectionName(rootNode));
+        } catch (Exception e) {
+            log.error("Failed to count URIs for rootNode: {} and version: {}", rootNode, version, e);
+            throw new RuntimeException("Failed to count URIs", e);
+        }
+    }
+
+    /**
+     * 条件查询
+     */
+    public Page<UriEntity> findByConditions(QueryParam param) {
+        try {
+            mongoRateLimiter.acquire();
+
+            Criteria criteria = new Criteria();
+            if (StringUtils.hasText(param.getRootNode())) {
+                criteria.and("root_node").is(param.getRootNode());
+            }
+            if (StringUtils.hasText(param.getVersion())) {
+                criteria.and("uri_version").is(param.getVersion());
+            }
+            if (StringUtils.hasText(param.getVersionType())) {
+                criteria.and("version_type").is(param.getVersionType());
+            }
+            if (!param.getIncludeDeleted()) {
+                criteria.and("is_deleted").is(false);
+            }
+            if (param.getOnlyDeleted()) {
+                criteria.and("is_deleted").is(true);
+            }
+            if (!CollectionUtils.isEmpty(param.getUris())) {
+                List<String> hashes = param.getUris().stream()
+                        .map(HashUtil::hash)
+                        .collect(Collectors.toList());
+                criteria.and("uri_hash").in(hashes);
+            }
+
+            Pageable pageable = PageRequest.of(
+                    param.getPage() - 1,
+                    param.getSize() != null ? param.getSize() : DEFAULT_PAGE_SIZE
+            );
+
+            Query query = new Query(criteria).with(pageable);
+            String collectionName = getCollectionName(param.getRootNode());
+
+            long total = mongoTemplate.count(query, UriEntity.class, collectionName);
+            List<UriEntity> content = mongoTemplate.find(query, UriEntity.class, collectionName);
+
+            return new PageImpl<>(content, pageable, total);
+        } catch (Exception e) {
+            log.error("Failed to find URIs by conditions: {}", param, e);
+            throw new RuntimeException("Failed to find URIs by conditions", e);
+        }
+    }
+
+//    private String getCollectionName(String rootNode) {
+//        return String.format("%s_%s", CollectionConstants.URI_COLLECTION_PREFIX, rootNode);
+//    }
 
     /**
      * 批量更新或插入
