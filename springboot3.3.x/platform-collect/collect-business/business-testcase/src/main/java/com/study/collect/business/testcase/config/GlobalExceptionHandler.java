@@ -5,10 +5,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindException;
+import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import javax.validation.ConstraintViolation;
 import javax.validation.ConstraintViolationException;
 import java.util.stream.Collectors;
 
@@ -22,12 +24,12 @@ public class GlobalExceptionHandler {
         String errors = ex.getBindingResult()
                 .getFieldErrors()
                 .stream()
-                .map(error -> error.getField() + ": " + error.getDefaultMessage())
+                .map(FieldError::getDefaultMessage)
                 .collect(Collectors.joining(", "));
 
         return ResponseEntity
                 .badRequest()
-                .body(AsyncResponse.<Void>builder()
+                .body(AsyncResponse.<Void>asyncBuilder()
                         .status("ERROR")
                         .message("Validation failed: " + errors)
                         .build());
@@ -43,7 +45,7 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity
                 .badRequest()
-                .body(AsyncResponse.<Void>builder()
+                .body(AsyncResponse.<Void>asyncBuilder()
                         .status("ERROR")
                         .message("Invalid parameters: " + errors)
                         .build());
@@ -54,12 +56,12 @@ public class GlobalExceptionHandler {
             ConstraintViolationException ex) {
         String errors = ex.getConstraintViolations()
                 .stream()
-                .map(violation -> violation.getPropertyPath() + ": " + violation.getMessage())
+                .map(ConstraintViolation::getMessage)
                 .collect(Collectors.joining(", "));
 
         return ResponseEntity
                 .badRequest()
-                .body(AsyncResponse.<Void>builder()
+                .body(AsyncResponse.<Void>asyncBuilder()
                         .status("ERROR")
                         .message("Validation failed: " + errors)
                         .build());
@@ -70,7 +72,7 @@ public class GlobalExceptionHandler {
             IllegalArgumentException ex) {
         return ResponseEntity
                 .badRequest()
-                .body(AsyncResponse.<Void>builder()
+                .body(AsyncResponse.<Void>asyncBuilder()
                         .status("ERROR")
                         .message("Invalid argument: " + ex.getMessage())
                         .build());
@@ -81,7 +83,7 @@ public class GlobalExceptionHandler {
         log.error("Unexpected error", ex);
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(AsyncResponse.<Void>builder()
+                .body(AsyncResponse.<Void>asyncBuilder()
                         .status("ERROR")
                         .message("Internal server error: " + ex.getMessage())
                         .build());

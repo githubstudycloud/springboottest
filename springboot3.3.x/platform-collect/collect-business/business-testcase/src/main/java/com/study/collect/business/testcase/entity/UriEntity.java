@@ -1,18 +1,16 @@
 package com.study.collect.business.testcase.entity;
 
 import com.study.collect.business.testcase.utils.HashUtil;
-import jakarta.persistence.PrePersist;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.index.CompoundIndexes;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 
+import jakarta.persistence.PrePersist;
 import java.time.LocalDateTime;
 import java.util.Map;
 
@@ -40,8 +38,7 @@ import java.util.Map;
         ),
         @CompoundIndex(name = "idx_update_time", def = "{'third_party_update_time': -1}", background = true)
 })
-public class UriEntity extends VersionEntity {
-    private static final Logger log = LoggerFactory.getLogger(UriEntity.class);
+public class UriEntity extends BaseEntity {
 
     @Indexed(unique = true, background = true)
     @Field("uri_hash")
@@ -59,11 +56,12 @@ public class UriEntity extends VersionEntity {
     @Field("uri_version")
     private String uriVersion;
 
-
     @Field("third_party_update_time")
     private LocalDateTime thirdPartyUpdateTime;
+
     @Field("real_uri")
     private String realUri;
+
     private String number;
     private String name;
     private Map<String, Object> details;
@@ -92,18 +90,31 @@ public class UriEntity extends VersionEntity {
         }
     }
 
+    @Override
+    public String getVersion() {
+        return this.uriVersion;
+    }
 
+    @Override
     public void reset() {
-//        super.reset(); // 调用父类的 reset TODO
+        super.reset();
         this.uri = null;
-        this.uriHash = null;  // 继续清空 uriHash
+        this.uriHash = null;
         this.rootNode = null;
         this.versionType = null;
         this.uriVersion = null;
+        this.realUri = null;
+        this.number = null;
+        this.name = null;
         this.details = null;
-        this.deleted = false;
-        this.version = 0L;
-        this.versionCode = null;
-        this.versionTime = null;
+        this.thirdPartyUpdateTime = null;
+    }
+
+    public UriEntity buildFrom(String uri, String rootNode) {
+        this.uri = uri;
+        this.uriHash = generateUriHash(uri);
+        this.rootNode = rootNode;
+        this.id = generateId(uri);
+        return this;
     }
 }

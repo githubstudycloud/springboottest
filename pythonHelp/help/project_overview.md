@@ -92,7 +92,7 @@ business-testcase/
 ## pom.xml
 
 ```xml
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
@@ -195,8 +195,16 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class CollectionStrategy implements ApplicationContextAware {
-    private static ApplicationContext applicationContext;
     private static final ThreadLocal<String> versionHolder = new ThreadLocal<>();
+    private static ApplicationContext applicationContext;
+
+    public static void setVersion(String version) {
+        versionHolder.set(version);
+    }
+
+    public static void clearVersion() {
+        versionHolder.remove();
+    }
 
     @Override
     public void setApplicationContext(ApplicationContext context) throws BeansException {
@@ -206,14 +214,6 @@ public class CollectionStrategy implements ApplicationContextAware {
     public String getCollectionName(String baseCollection) {
         String version = versionHolder.get();
         return version != null ? baseCollection + "_" + version : baseCollection;
-    }
-
-    public static void setVersion(String version) {
-        versionHolder.set(version);
-    }
-
-    public static void clearVersion() {
-        versionHolder.remove();
     }
 }
 ```
@@ -509,10 +509,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindException;
+import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import javax.validation.ConstraintViolation;
 import javax.validation.ConstraintViolationException;
 import java.util.stream.Collectors;
 
@@ -526,12 +528,12 @@ public class GlobalExceptionHandler {
         String errors = ex.getBindingResult()
                 .getFieldErrors()
                 .stream()
-                .map(error -> error.getField() + ": " + error.getDefaultMessage())
+                .map(FieldError::getDefaultMessage)
                 .collect(Collectors.joining(", "));
 
         return ResponseEntity
                 .badRequest()
-                .body(AsyncResponse.<Void>builder()
+                .body(AsyncResponse.<Void>asyncBuilder()
                         .status("ERROR")
                         .message("Validation failed: " + errors)
                         .build());
@@ -547,7 +549,7 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity
                 .badRequest()
-                .body(AsyncResponse.<Void>builder()
+                .body(AsyncResponse.<Void>asyncBuilder()
                         .status("ERROR")
                         .message("Invalid parameters: " + errors)
                         .build());
@@ -558,12 +560,12 @@ public class GlobalExceptionHandler {
             ConstraintViolationException ex) {
         String errors = ex.getConstraintViolations()
                 .stream()
-                .map(violation -> violation.getPropertyPath() + ": " + violation.getMessage())
+                .map(ConstraintViolation::getMessage)
                 .collect(Collectors.joining(", "));
 
         return ResponseEntity
                 .badRequest()
-                .body(AsyncResponse.<Void>builder()
+                .body(AsyncResponse.<Void>asyncBuilder()
                         .status("ERROR")
                         .message("Validation failed: " + errors)
                         .build());
@@ -574,7 +576,7 @@ public class GlobalExceptionHandler {
             IllegalArgumentException ex) {
         return ResponseEntity
                 .badRequest()
-                .body(AsyncResponse.<Void>builder()
+                .body(AsyncResponse.<Void>asyncBuilder()
                         .status("ERROR")
                         .message("Invalid argument: " + ex.getMessage())
                         .build());
@@ -585,7 +587,7 @@ public class GlobalExceptionHandler {
         log.error("Unexpected error", ex);
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(AsyncResponse.<Void>builder()
+                .body(AsyncResponse.<Void>asyncBuilder()
                         .status("ERROR")
                         .message("Internal server error: " + ex.getMessage())
                         .build());
@@ -858,9 +860,6 @@ import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
-
 @Configuration
 @Slf4j
 public class ObjectPoolConfig {
@@ -1003,6 +1002,7 @@ public class ThreadPoolConfig {
                 new ArrayBlockingQueue<>(CollectionConstants.QUEUE_CAPACITY),
                 new ThreadFactory() {
                     private int count = 0;
+
                     @Override
                     public Thread newThread(Runnable r) {
                         Thread thread = new Thread(r);
@@ -1021,7 +1021,7 @@ public class ThreadPoolConfig {
         executor.setCorePoolSize(CollectionConstants.CORE_POOL_SIZE);
         executor.setMaxPoolSize(CollectionConstants.MAX_POOL_SIZE);
         executor.setQueueCapacity(CollectionConstants.QUEUE_CAPACITY);
-        executor.setKeepAliveSeconds((int)CollectionConstants.KEEP_ALIVE_TIME);
+        executor.setKeepAliveSeconds((int) CollectionConstants.KEEP_ALIVE_TIME);
         executor.setThreadNamePrefix("http-thread-");
         executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
         executor.setWaitForTasksToCompleteOnShutdown(true);
@@ -1035,7 +1035,7 @@ public class ThreadPoolConfig {
         executor.setCorePoolSize(CollectionConstants.CORE_POOL_SIZE);
         executor.setMaxPoolSize(CollectionConstants.MAX_POOL_SIZE);
         executor.setQueueCapacity(CollectionConstants.QUEUE_CAPACITY);
-        executor.setKeepAliveSeconds((int)CollectionConstants.KEEP_ALIVE_TIME);
+        executor.setKeepAliveSeconds((int) CollectionConstants.KEEP_ALIVE_TIME);
         executor.setThreadNamePrefix("mongo-thread-");
         executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
         executor.setWaitForTasksToCompleteOnShutdown(true);
@@ -1144,13 +1144,13 @@ public enum VersionType {
         this.description = description;
     }
 
-    public String getDescription() {
-        return description;
-    }
-
     public static VersionType fromString(String version) {
         return version != null && version.toLowerCase().contains("branch") ?
                 BRANCH : TRUNK;
+    }
+
+    public String getDescription() {
+        return description;
     }
 }
 ```
@@ -1303,12 +1303,11 @@ public class UriCollectController {
 ```java
 package com.study.collect.business.testcase.entity;
 
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.*;
 import org.springframework.data.mongodb.core.mapping.Field;
+import jakarta.persistence.PrePersist;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
@@ -1351,6 +1350,18 @@ public abstract class BaseEntity implements Serializable {
         this.deleted = false;
     }
 
+    public void reset() {
+        this.id = null;
+        this.createTime = null;
+        this.updateTime = null;
+        this.createBy = null;
+        this.updateBy = null;
+        this.version = 0L;
+        this.deleted = false;
+    }
+
+    public abstract String getVersion();
+
     @PrePersist
     public void prePersist() {
         if (this.createTime == null) {
@@ -1366,11 +1377,6 @@ public abstract class BaseEntity implements Serializable {
             this.deleted = false;
         }
     }
-
-    @PreUpdate
-    public void preUpdate() {
-        this.updateTime = LocalDateTime.now();
-    }
 }
 ```
 
@@ -1381,11 +1387,11 @@ package com.study.collect.business.testcase.entity;
 
 import lombok.Data;
 import lombok.EqualsAndHashCode;
-import org.springframework.data.mongodb.core.mapping.Document;
-import org.springframework.data.mongodb.core.mapping.Field;
 import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.index.CompoundIndexes;
 import org.springframework.data.mongodb.core.index.Indexed;
+import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.Field;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -1488,6 +1494,35 @@ public class CollectTaskEntity extends BaseEntity {
         retryCount = (retryCount == null ? 0 : retryCount) + 1;
         lastRetryTime = LocalDateTime.now();
     }
+
+    @Override
+    public String getVersion() {
+        return this.version;
+    }
+
+    @Override
+    public void reset() {
+        super.reset();
+        this.taskId = null;
+        this.rootNode = null;
+        this.version = null;
+        this.status = null;
+        this.priority = null;
+        this.message = null;
+        this.startTime = null;
+        this.endTime = null;
+        this.totalUris = 0L;
+        this.processedUris = 0L;
+        this.failedUris = 0L;
+        this.failedUriList = new ArrayList<>();
+        this.errorDetails = new HashMap<>();
+        this.progress = 0.0;
+        this.isIncremental = false;
+        this.incrementStartTime = null;
+        this.incrementEndTime = null;
+        this.retryCount = 0;
+        this.lastRetryTime = null;
+    }
 }
 ```
 
@@ -1497,23 +1532,17 @@ public class CollectTaskEntity extends BaseEntity {
 package com.study.collect.business.testcase.entity;
 
 import com.study.collect.business.testcase.utils.HashUtil;
-import jakarta.annotation.PostConstruct;
-import jakarta.persistence.PrePersist;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.index.CompoundIndexes;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 
+import jakarta.persistence.PrePersist;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 
 @Document(collection = "#{@collectionStrategy.getCollectionName('uri_collect')}")
@@ -1540,8 +1569,7 @@ import java.util.Map;
         ),
         @CompoundIndex(name = "idx_update_time", def = "{'third_party_update_time': -1}", background = true)
 })
-public class UriEntity extends VersionEntity {
-    private static final Logger log = LoggerFactory.getLogger(UriEntity.class);
+public class UriEntity extends BaseEntity {
 
     @Indexed(unique = true, background = true)
     @Field("uri_hash")
@@ -1559,11 +1587,12 @@ public class UriEntity extends VersionEntity {
     @Field("uri_version")
     private String uriVersion;
 
-
     @Field("third_party_update_time")
     private LocalDateTime thirdPartyUpdateTime;
+
     @Field("real_uri")
     private String realUri;
+
     private String number;
     private String name;
     private Map<String, Object> details;
@@ -1592,19 +1621,32 @@ public class UriEntity extends VersionEntity {
         }
     }
 
+    @Override
+    public String getVersion() {
+        return this.uriVersion;
+    }
 
+    @Override
     public void reset() {
-//        super.reset(); // 调用父类的 reset TODO
+        super.reset();
         this.uri = null;
-        this.uriHash = null;  // 继续清空 uriHash
+        this.uriHash = null;
         this.rootNode = null;
         this.versionType = null;
         this.uriVersion = null;
+        this.realUri = null;
+        this.number = null;
+        this.name = null;
         this.details = null;
-        this.deleted = false;
-        this.version = 0L;
-        this.versionCode = null;
-        this.versionTime = null;
+        this.thirdPartyUpdateTime = null;
+    }
+
+    public UriEntity buildFrom(String uri, String rootNode) {
+        this.uri = uri;
+        this.uriHash = generateUriHash(uri);
+        this.rootNode = rootNode;
+        this.id = generateId(uri);
+        return this;
     }
 }
 ```
@@ -1617,11 +1659,10 @@ package com.study.collect.business.testcase.entity;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
-import org.springframework.data.mongodb.core.mapping.Document;
-import org.springframework.data.mongodb.core.mapping.Field;
 import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.index.CompoundIndexes;
-import org.springframework.data.mongodb.core.index.Indexed;
+import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.Field;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -1637,43 +1678,60 @@ import java.time.format.DateTimeFormatter;
 public class VersionEntity extends BaseEntity {
 
     @Field("version")
-    private String version;
+    protected String version;
 
     @Field("root_node")
-    private String rootNode;
+    protected String rootNode;
 
     @Field("version_type")
-    private String versionType;
+    protected String versionType;
 
-    private String name;
+    protected String name;
 
-    private String description;
+    protected String description;
 
     @Field("version_code")
-    private String versionCode;
+    protected String versionCode;
 
     @Field("version_time")
-    private LocalDateTime versionTime;
+    protected LocalDateTime versionTime;
 
-    private Integer sort;
+    protected Integer sort;
+
+    @Override
+    public String getVersion() {
+        return this.version;
+    }
+
+    @Override
+    public void reset() {
+        super.reset();
+        this.version = null;
+        this.rootNode = null;
+        this.versionType = null;
+        this.name = null;
+        this.description = null;
+        this.versionCode = null;
+        this.versionTime = null;
+        this.sort = null;
+    }
 
     public void initVersion() {
-        this.version = String.valueOf(0L);
+        this.version = "0";
         this.versionCode = generateVersionCode();
         this.versionTime = LocalDateTime.now();
     }
 
     public void upgradeVersion() {
-        this.version = this.version + 1;
+        int currentVersion = Integer.parseInt(this.version);
+        this.version = String.valueOf(currentVersion + 1);
         this.versionCode = generateVersionCode();
         this.versionTime = LocalDateTime.now();
     }
 
     private String generateVersionCode() {
-        return String.format("%s%s%s%d",
-                "V",
+        return String.format("V%s_%s",
                 LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")),
-                "_",
                 this.version);
     }
 }
@@ -1691,7 +1749,10 @@ import org.springframework.stereotype.Component;
 
 import javax.annotation.PreDestroy;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -1855,13 +1916,15 @@ package com.study.collect.business.testcase.manager;
 
 import com.study.collect.business.testcase.constant.CollectionConstants;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PreDestroy;
 import java.util.Comparator;
-import java.util.concurrent.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.PriorityBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 @Slf4j
@@ -1883,26 +1946,6 @@ public class QueueManager<T> {
 
         // 启动队列处理线程
         startQueueProcessor();
-    }
-
-    private static class QueueItem<T> {
-        final String id;
-        final T item;
-        volatile int priority;
-        final CompletableFuture<Void> future;
-        final Consumer<T> processor;
-
-        QueueItem(String id, T item, int priority, Consumer<T> processor) {
-            this.id = id;
-            this.item = item;
-            this.priority = priority;
-            this.processor = processor;
-            this.future = new CompletableFuture<>();
-        }
-
-        int getPriority() {
-            return priority;
-        }
     }
 
     /**
@@ -2005,6 +2048,26 @@ public class QueueManager<T> {
      */
     public boolean isQueued(String id) {
         return itemMap.containsKey(id);
+    }
+
+    private static class QueueItem<T> {
+        final String id;
+        final T item;
+        final CompletableFuture<Void> future;
+        final Consumer<T> processor;
+        volatile int priority;
+
+        QueueItem(String id, T item, int priority, Consumer<T> processor) {
+            this.id = id;
+            this.item = item;
+            this.priority = priority;
+            this.processor = processor;
+            this.future = new CompletableFuture<>();
+        }
+
+        int getPriority() {
+            return priority;
+        }
     }
 }
 ```
@@ -2268,15 +2331,13 @@ public class QueryParam {
 ```java
 package com.study.collect.business.testcase.model.response;
 
-import lombok.Builder;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
 import java.time.LocalDateTime;
 
 @Data
-@Builder
-@EqualsAndHashCode(callSuper = false)
+@EqualsAndHashCode(callSuper = true)
 public class AsyncResponse<T> extends BaseResponse {
     private String taskId;
     private Double progress;
@@ -2284,8 +2345,27 @@ public class AsyncResponse<T> extends BaseResponse {
     private LocalDateTime endTime;
     private T result;
 
+    private AsyncResponse() {
+        super();
+    }
+
+    private AsyncResponse(String code, String message, String status,
+                          String taskId, Double progress, LocalDateTime startTime,
+                          LocalDateTime endTime, T result) {
+        super(code, message, status);
+        this.taskId = taskId;
+        this.progress = progress;
+        this.startTime = startTime;
+        this.endTime = endTime;
+        this.result = result;
+    }
+
+    public static <T> AsyncResponseBuilder<T> asyncBuilder() {
+        return new AsyncResponseBuilder<>();
+    }
+
     public static <T> AsyncResponse<T> processing(String taskId) {
-        return AsyncResponse.<T>builder()
+        return AsyncResponse.<T>asyncBuilder()
                 .taskId(taskId)
                 .status("PROCESSING")
                 .progress(0.0)
@@ -2294,7 +2374,7 @@ public class AsyncResponse<T> extends BaseResponse {
     }
 
     public static <T> AsyncResponse<T> success(String taskId, T result) {
-        return AsyncResponse.<T>builder()
+        return AsyncResponse.<T>asyncBuilder()
                 .taskId(taskId)
                 .status("COMPLETED")
                 .progress(100.0)
@@ -2305,12 +2385,67 @@ public class AsyncResponse<T> extends BaseResponse {
     }
 
     public static <T> AsyncResponse<T> error(String taskId, String message) {
-        return AsyncResponse.<T>builder()
+        return AsyncResponse.<T>asyncBuilder()
                 .taskId(taskId)
                 .status("ERROR")
                 .message(message)
                 .endTime(LocalDateTime.now())
                 .build();
+    }
+
+    public static class AsyncResponseBuilder<T> {
+        private String code;
+        private String message;
+        private String status;
+        private String taskId;
+        private Double progress;
+        private LocalDateTime startTime;
+        private LocalDateTime endTime;
+        private T result;
+
+        public AsyncResponseBuilder<T> code(String code) {
+            this.code = code;
+            return this;
+        }
+
+        public AsyncResponseBuilder<T> message(String message) {
+            this.message = message;
+            return this;
+        }
+
+        public AsyncResponseBuilder<T> status(String status) {
+            this.status = status;
+            return this;
+        }
+
+        public AsyncResponseBuilder<T> taskId(String taskId) {
+            this.taskId = taskId;
+            return this;
+        }
+
+        public AsyncResponseBuilder<T> progress(Double progress) {
+            this.progress = progress;
+            return this;
+        }
+
+        public AsyncResponseBuilder<T> startTime(LocalDateTime startTime) {
+            this.startTime = startTime;
+            return this;
+        }
+
+        public AsyncResponseBuilder<T> endTime(LocalDateTime endTime) {
+            this.endTime = endTime;
+            return this;
+        }
+
+        public AsyncResponseBuilder<T> result(T result) {
+            this.result = result;
+            return this;
+        }
+
+        public AsyncResponse<T> build() {
+            return new AsyncResponse<>(code, message, status, taskId, progress, startTime, endTime, result);
+        }
     }
 }
 ```
@@ -2323,16 +2458,43 @@ package com.study.collect.business.testcase.model.response;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.experimental.SuperBuilder;
 
 @Data
-@SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
 public class BaseResponse {
     private String code;
     private String message;
     private String status;
+
+    public static BaseResponseBuilder builder() {
+        return new BaseResponseBuilder();
+    }
+
+    public static class BaseResponseBuilder {
+        protected String code;
+        protected String message;
+        protected String status;
+
+        public BaseResponseBuilder code(String code) {
+            this.code = code;
+            return this;
+        }
+
+        public BaseResponseBuilder message(String message) {
+            this.message = message;
+            return this;
+        }
+
+        public BaseResponseBuilder status(String status) {
+            this.status = status;
+            return this;
+        }
+
+        public BaseResponse build() {
+            return new BaseResponse(code, message, status);
+        }
+    }
 }
 ```
 
@@ -2529,17 +2691,10 @@ package com.study.collect.business.testcase.model.response;
 
 
 import lombok.Data;
-
-//@Data
-//@SuperBuilder
-//@EqualsAndHashCode(callSuper = true)
-//public class VersionResponse extends BaseResponse {
-//    private String version;
-//    private String versionType;
-//    private String description;
-//}
 import lombok.NoArgsConstructor;
+
 import java.time.LocalDateTime;
+
 //
 @Data
 @NoArgsConstructor
@@ -2660,6 +2815,7 @@ public interface HttpResponseParser<T> {
 
     /**
      * 解析HTTP响应
+     *
      * @param response 响应字符串
      * @return 解析后的结果
      * @throws IOException 解析异常
@@ -2668,6 +2824,7 @@ public interface HttpResponseParser<T> {
 
     /**
      * 从错误响应中提取错误信息
+     *
      * @param errorResponse 错误响应
      * @return 错误信息
      */
@@ -2904,9 +3061,9 @@ import java.util.List;
 @Repository
 public class CollectTaskRepository {
 
+    private static final String COLLECTION_NAME = "collect_tasks";
     private final MongoTemplate mongoTemplate;
     private final RateLimiter mongoRateLimiter;
-    private static final String COLLECTION_NAME = "collect_tasks";
 
     public CollectTaskRepository(MongoTemplate mongoTemplate, RateLimiter mongoRateLimiter) {
         this.mongoTemplate = mongoTemplate;
@@ -3049,12 +3206,14 @@ import com.study.collect.business.testcase.config.DynamicCollectionIndexConfigur
 import com.study.collect.business.testcase.constant.CollectionConstants;
 import com.study.collect.business.testcase.entity.UriEntity;
 import com.study.collect.business.testcase.model.UriQueryCondition;
+import com.study.collect.business.testcase.model.param.QueryParam;
 import com.study.collect.business.testcase.utils.HashUtil;
 import com.study.collect.business.testcase.utils.RateLimiter;
 import lombok.extern.slf4j.Slf4j;
 import org.bson.Document;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
@@ -3071,6 +3230,8 @@ import java.util.stream.Collectors;
 @Slf4j
 @Repository
 public class UriRepository {
+    private static final int DEFAULT_PAGE_SIZE = 20;
+    private static final int HTTP_BATCH_SIZE = 100;
     private final MongoTemplate mongoTemplate;
     private final DynamicCollectionIndexConfiguration indexConfiguration;
     private final RateLimiter mongoRateLimiter;
@@ -3082,6 +3243,101 @@ public class UriRepository {
         this.indexConfiguration = indexConfiguration;
         this.mongoRateLimiter = mongoRateLimiter;
     }
+
+    /**
+     * 查询指定版本的URI列表
+     */
+    public Page<String> findUrisByVersion(String rootNode, String version, Pageable pageable) {
+        try {
+            mongoRateLimiter.acquire();
+
+            Query query = new Query(Criteria.where("root_node").is(rootNode)
+                    .and("uri_version").is(version)
+                    .and("is_deleted").is(false));
+            query.with(pageable);
+            query.fields().include("uri");
+
+            long total = mongoTemplate.count(query, UriEntity.class, getCollectionName(rootNode));
+            List<UriEntity> entities = mongoTemplate.find(query, UriEntity.class, getCollectionName(rootNode));
+
+            List<String> uris = entities.stream()
+                    .map(UriEntity::getUri)
+                    .collect(Collectors.toList());
+
+            return new PageImpl<>(uris, pageable, total);
+        } catch (Exception e) {
+            log.error("Failed to find URIs by version for rootNode: {}, version: {}", rootNode, version, e);
+            throw new RuntimeException("Failed to find URIs by version", e);
+        }
+    }
+
+    /**
+     * 统计指定根节点和版本的URI数量
+     */
+    public long countByRootNodeAndVersion(String rootNode, String version) {
+        try {
+            mongoRateLimiter.acquire();
+            Query query = new Query(Criteria.where("root_node").is(rootNode)
+                    .and("uri_version").is(version)
+                    .and("is_deleted").is(false));
+            return mongoTemplate.count(query, UriEntity.class, getCollectionName(rootNode));
+        } catch (Exception e) {
+            log.error("Failed to count URIs for rootNode: {} and version: {}", rootNode, version, e);
+            throw new RuntimeException("Failed to count URIs", e);
+        }
+    }
+
+    /**
+     * 条件查询
+     */
+    public Page<UriEntity> findByConditions(QueryParam param) {
+        try {
+            mongoRateLimiter.acquire();
+
+            Criteria criteria = new Criteria();
+            if (StringUtils.hasText(param.getRootNode())) {
+                criteria.and("root_node").is(param.getRootNode());
+            }
+            if (StringUtils.hasText(param.getVersion())) {
+                criteria.and("uri_version").is(param.getVersion());
+            }
+            if (StringUtils.hasText(param.getVersionType())) {
+                criteria.and("version_type").is(param.getVersionType());
+            }
+            if (!param.getIncludeDeleted()) {
+                criteria.and("is_deleted").is(false);
+            }
+            if (param.getOnlyDeleted()) {
+                criteria.and("is_deleted").is(true);
+            }
+            if (!CollectionUtils.isEmpty(param.getUris())) {
+                List<String> hashes = param.getUris().stream()
+                        .map(HashUtil::hash)
+                        .collect(Collectors.toList());
+                criteria.and("uri_hash").in(hashes);
+            }
+
+            Pageable pageable = PageRequest.of(
+                    param.getPage() - 1,
+                    param.getSize() != null ? param.getSize() : DEFAULT_PAGE_SIZE
+            );
+
+            Query query = new Query(criteria).with(pageable);
+            String collectionName = getCollectionName(param.getRootNode());
+
+            long total = mongoTemplate.count(query, UriEntity.class, collectionName);
+            List<UriEntity> content = mongoTemplate.find(query, UriEntity.class, collectionName);
+
+            return new PageImpl<>(content, pageable, total);
+        } catch (Exception e) {
+            log.error("Failed to find URIs by conditions: {}", param, e);
+            throw new RuntimeException("Failed to find URIs by conditions", e);
+        }
+    }
+
+//    private String getCollectionName(String rootNode) {
+//        return String.format("%s_%s", CollectionConstants.URI_COLLECTION_PREFIX, rootNode);
+//    }
 
     /**
      * 批量更新或插入
@@ -3128,6 +3384,7 @@ public class UriRepository {
             throw new RuntimeException("Batch upsert failed", e);
         }
     }
+
     /**
      * 分页批量软删除
      */
@@ -3393,13 +3650,15 @@ public class UriRepository {
 
         return doc;
     }
+
     /**
      * 使用原生命令分页查询uri_hash
-     * @param rootNode 根节点
-     * @param version 版本号
+     *
+     * @param rootNode    根节点
+     * @param version     版本号
      * @param versionType 版本类型
-     * @param page 页码（从1开始）
-     * @param size 每页大小
+     * @param page        页码（从1开始）
+     * @param size        每页大小
      * @return uri_hash列表
      */
     public List<String> findUriHashesNativeWithPage(String rootNode,
@@ -3501,9 +3760,9 @@ import java.util.List;
 @Repository
 public class VersionRepository {
 
+    private static final String COLLECTION_NAME = "versions";
     private final MongoTemplate mongoTemplate;
     private final RateLimiter mongoRateLimiter;
-    private static final String COLLECTION_NAME = "versions";
 
     public VersionRepository(MongoTemplate mongoTemplate, RateLimiter mongoRateLimiter) {
         this.mongoTemplate = mongoTemplate;
@@ -3624,7 +3883,9 @@ public class VersionRepository {
 package com.study.collect.business.testcase.service;
 
 import com.study.collect.business.testcase.model.param.CollectParam;
+import com.study.collect.business.testcase.model.response.VersionInfo;
 import com.study.collect.business.testcase.repository.UriRepository;
+import com.study.collect.business.testcase.service.http.UriHttpService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -3789,9 +4050,6 @@ public interface UriCollectService {
 ```java
 package com.study.collect.business.testcase.service.http;
 
-import com.study.collect.business.testcase.constant.CollectionConstants;
-import com.study.collect.business.testcase.model.param.CollectParam;
-import com.study.collect.business.testcase.model.param.PageParam;
 import com.study.collect.business.testcase.model.response.PageResponse;
 import com.study.collect.business.testcase.model.response.UriDetail;
 import com.study.collect.business.testcase.model.response.VersionInfo;
@@ -3806,9 +4064,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
@@ -3931,13 +4187,12 @@ package com.study.collect.business.testcase.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.bson.Document;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
-
-import org.bson.Document;
 
 @Slf4j
 @Component
@@ -3960,12 +4215,10 @@ public class IndexChecker {
 package com.study.collect.business.testcase.service.impl;
 
 import com.google.common.collect.Lists;
-import com.study.collect.business.testcase.model.PageResult;
 import com.study.collect.business.testcase.repository.UriRepository;
 import com.study.collect.business.testcase.utils.HashUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
@@ -3977,9 +4230,9 @@ import java.util.stream.Collectors;
 @Service
 public class UriCleanupService {
 
-    private final UriRepository repository;
     private static final int PAGE_SIZE = 2000;
     private static final int DELETE_BATCH_SIZE = 2000;
+    private final UriRepository repository;
 
     @Autowired
     public UriCleanupService(UriRepository repository) {
@@ -3988,14 +4241,15 @@ public class UriCleanupService {
 
     /**
      * 清理不在总列表中的URI数据
-     * @param allUris 总的URI列表
-     * @param rootNode 根节点
-     * @param version 版本
+     *
+     * @param allUris    总的URI列表
+     * @param rootNode   根节点
+     * @param version    版本
      * @param hardDelete 是否硬删除
      */
     public void cleanupUriData(List<String> allUris, String rootNode, String version, boolean hardDelete) {
         try {
-            if(allUris == null || allUris.isEmpty()) {
+            if (allUris == null || allUris.isEmpty()) {
                 log.warn("No URIs provided for cleanup");
                 return;
             }
@@ -4189,7 +4443,6 @@ import com.google.common.collect.Lists;
 import com.study.collect.business.testcase.constant.CollectionConstants;
 import com.study.collect.business.testcase.entity.CollectTaskEntity;
 import com.study.collect.business.testcase.entity.UriEntity;
-import com.study.collect.business.testcase.entity.VersionEntity;
 import com.study.collect.business.testcase.manager.CollectTaskManager;
 import com.study.collect.business.testcase.manager.QueueManager;
 import com.study.collect.business.testcase.model.param.CollectParam;
@@ -4207,23 +4460,22 @@ import com.study.collect.business.testcase.service.http.UriHttpService;
 import com.study.collect.business.testcase.utils.HashUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.pool2.ObjectPool;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
-import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class UriCollectServiceImpl implements UriCollectService {
+    private static final int HTTP_BATCH_SIZE = CollectionConstants.HTTP_BATCH_SIZE;
+    private static final int DEFAULT_PAGE_SIZE = 20;
 
     private final UriHttpService httpService;
     private final UriRepository uriRepository;
@@ -4234,28 +4486,28 @@ public class UriCollectServiceImpl implements UriCollectService {
     private final QueueManager<CollectParam> collectQueue;
     private final QueueManager<DeleteParam> deleteQueue;
 
-    // 用于缓存正在处理的任务
     private final ConcurrentHashMap<String, CollectTaskEntity> activeTasks = new ConcurrentHashMap<>();
 
     @Override
     public AsyncResponse<String> collectData(CollectParam param) {
         validateCollectParam(param);
 
-        // 创建采集任务
         String taskId = UUID.randomUUID().toString();
-        CollectTaskEntity task = createCollectTask(param, taskId);
-        activeTasks.put(taskId, task);
+        param.setTaskId(taskId);
 
-        // 将任务加入队列
-        collectQueue.enqueue(
-                taskId,
-                param,
-                param.getPriority(),
-                this::processCollectTask
-        ).exceptionally(throwable -> {
-            handleTaskError(task, throwable);
-            return null;
-        });
+        Map<String, Object> taskParams = new HashMap<>();
+        taskParams.put("rootNode", param.getRootNode());
+        taskParams.put("version", param.getVersion());
+        taskParams.put("serverUrl", param.getServerUrl());
+        taskParams.put("incremental", param.getIncremental());
+
+        TaskResponse task = taskManager.createTask("COLLECT", taskParams, param.getPriority());
+
+        collectQueue.enqueue(taskId, param, param.getPriority(), this::processCollectTask)
+                .exceptionally(throwable -> {
+                    taskManager.updateTaskStatus(taskId, "ERROR", throwable.getMessage());
+                    return null;
+                });
 
         return AsyncResponse.<String>builder()
                 .taskId(taskId)
@@ -4264,111 +4516,82 @@ public class UriCollectServiceImpl implements UriCollectService {
                 .build();
     }
 
+    private void validateCollectParam(CollectParam param) {
+        if (param == null) {
+            throw new IllegalArgumentException("CollectParam cannot be null");
+        }
+        if (!StringUtils.hasText(param.getRootNode())) {
+            throw new IllegalArgumentException("RootNode cannot be empty");
+        }
+        if (!StringUtils.hasText(param.getServerUrl())) {
+            throw new IllegalArgumentException("ServerUrl cannot be empty");
+        }
+        if (param.getIncremental() && param.getStartTime() == null) {
+            throw new IllegalArgumentException("StartTime is required for incremental collection");
+        }
+    }
+
     private void processCollectTask(CollectParam param) {
         String taskId = param.getTaskId();
-        CollectTaskEntity task = activeTasks.get(taskId);
+        taskManager.updateTaskStatus(taskId, "PROCESSING", "Starting collection");
 
         try {
-            // 更新任务状态
-            updateTaskStatus(task, "PROCESSING", "Starting collection");
+            // 获取版本列表
+            List<VersionInfo> versions = httpService.getVersions(
+                    param.getServerUrl(),
+                    param.getRootNode(),
+                    1,
+                    Integer.MAX_VALUE
+            ).get();
 
-            // 1. 获取并保存版本信息
-            List<VersionInfo> versions = getAndSaveVersions(param);
-            if (StringUtils.isNotEmpty(param.getVersion())) {
-                versions = filterVersions(versions, param.getVersion());
+            if (StringUtils.hasText(param.getVersion())) {
+                versions = versions.stream()
+                        .filter(v -> v.getVersion().equals(param.getVersion()))
+                        .toList();
             }
 
-            // 2. 处理每个版本
+            long totalUris = 0;
             for (VersionInfo version : versions) {
-                if (!activeTasks.containsKey(taskId)) {
-                    log.info("Task {} was cancelled", taskId);
-                    return;
-                }
-                processVersion(task, param, version);
+                // 获取该版本下的URI数量
+                int versionUriCount = httpService.getUriCount(param.getServerUrl(), version.getVersion()).get();
+                totalUris += versionUriCount;
+
+                // 处理该版本的URI
+                processVersionUris(param, version, versionUriCount, taskId);
             }
 
-            // 3. 重试失败的URI
-            if (!task.getFailedUriList().isEmpty()) {
-                retryFailedUris(task, param);
-            }
-
-            // 4. 完成任务
-            completeTask(task);
+            taskManager.updateTaskStatus(taskId, "COMPLETED", "Collection completed successfully");
 
         } catch (Exception e) {
-            handleTaskError(task, e);
-            throw new RuntimeException("Task processing failed", e);
-        } finally {
-            activeTasks.remove(taskId);
+            log.error("Failed to process collect task: {}", taskId, e);
+            taskManager.updateTaskStatus(taskId, "ERROR", "Collection failed: " + e.getMessage());
+            throw new RuntimeException("Failed to process collect task", e);
         }
     }
 
-    private void processVersion(CollectTaskEntity task, CollectParam param, VersionInfo version) {
+    private void processVersionUris(CollectParam param, VersionInfo version, int totalCount, String taskId) {
         try {
-            log.info("Processing version: {}", version.getVersion());
-            updateTaskStatus(task, "PROCESSING", "Processing version: " + version.getVersion());
+            // 分批获取URI列表
+            int offset = 0;
+            int batchSize = param.getBatchSize() != null ? param.getBatchSize() : HTTP_BATCH_SIZE;
 
-            // 1. 获取URI列表和总数
-            CompletableFuture<List<String>> urisFuture = httpService.getUriList(param.getServerUrl(), version.getVersion());
-            CompletableFuture<Integer> countFuture = httpService.getUriCount(param.getServerUrl(), version.getVersion());
+            while (offset < totalCount) {
+                // 获取一批URI
+                List<String> uris = httpService.getUriList(param.getServerUrl(), version.getVersion()).get();
 
-            List<String> uris = urisFuture.get();
-            int totalCount = countFuture.get();
-
-            // 更新任务进度信息
-            updateTaskProgress(task, totalCount);
-
-            // 2. 处理增量场景
-            if (param.getIncremental()) {
-                uris = filterIncrementalUris(uris, version, param.getStartTime(), param.getEndTime());
-            }
-
-            // 3. 删除不存在的URI
-            if (!param.getIncremental()) {
-                deleteNonExistentUris(param.getRootNode(), version.getVersion(), new HashSet<>(uris), param.getHardDelete());
-            }
-
-            // 4. 批量处理URI
-            processUrisBatch(task, param, version, uris);
-
-        } catch (Exception e) {
-            log.error("Failed to process version: {}", version.getVersion(), e);
-            task.addFailedUri("VERSION:" + version.getVersion(), e.getMessage());
-            taskRepository.save(task);
-        }
-    }
-    private void processUrisBatch(CollectTaskEntity task, CollectParam param,
-                                  VersionInfo version, List<String> uris) {
-        List<List<String>> batches = Lists.partition(uris, CollectionConstants.HTTP_BATCH_SIZE);
-
-        for (List<String> batch : batches) {
-            if (!activeTasks.containsKey(task.getTaskId())) {
-                log.info("Task {} was cancelled during batch processing", task.getTaskId());
-                return;
-            }
-
-            try {
                 // 获取URI详情
-                List<UriDetail> details = httpService.getUriDetails(param.getServerUrl(), batch).get();
+                List<UriDetail> details = httpService.getUriDetails(param.getServerUrl(), uris).get();
 
-                // 转换为实体并保存
+                // 转换并保存实体
                 List<UriEntity> entities = new ArrayList<>();
                 for (UriDetail detail : details) {
-                    UriEntity entity = null;
+                    UriEntity entity = entityPool.borrowObject();
                     try {
-                        entity = entityPool.borrowObject();
                         fillEntity(entity, param.getRootNode(), version, detail);
                         entities.add(entity);
                     } catch (Exception e) {
-                        log.error("Failed to create entity for URI: {}", detail.getUri(), e);
-                        task.addFailedUri(detail.getUri(), "Entity creation failed: " + e.getMessage());
-                        if (entity != null) {
-                            try {
-                                entityPool.returnObject(entity);
-                            } catch (Exception ex) {
-                                log.error("Failed to return entity to pool", ex);
-                            }
-                        }
+                        log.error("Failed to process URI: {}", detail.getUri(), e);
+                        entityPool.returnObject(entity);
                     }
                 }
 
@@ -4376,27 +4599,22 @@ public class UriCollectServiceImpl implements UriCollectService {
                     try {
                         uriRepository.batchUpsert(param.getRootNode(), entities);
                     } finally {
-                        // 返还所有实体到对象池
+                        // 返还实体到对象池
                         for (UriEntity entity : entities) {
-                            try {
-                                entityPool.returnObject(entity);
-                            } catch (Exception e) {
-                                log.error("Failed to return entity to pool", e);
-                            }
+                            entityPool.returnObject(entity);
                         }
                     }
                 }
 
-                // 更新任务进度
-                task.setProcessedUris(task.getProcessedUris() + batch.size());
-                task.setProgress(calculateProgress(task.getProcessedUris(), task.getTotalUris()));
-                taskRepository.save(task);
-
-            } catch (Exception e) {
-                log.error("Failed to process batch for version: {}", version.getVersion(), e);
-                batch.forEach(uri -> task.addFailedUri(uri, e.getMessage()));
-                taskRepository.save(task);
+                // 更新进度
+                offset += batchSize;
+                double progress = (double) offset / totalCount * 100;
+                taskManager.updateTaskProgress(taskId, offset, totalCount);
             }
+
+        } catch (Exception e) {
+            log.error("Failed to process version: {}", version.getVersion(), e);
+            throw new RuntimeException("Failed to process version", e);
         }
     }
 
@@ -4414,54 +4632,10 @@ public class UriCollectServiceImpl implements UriCollectService {
         entity.setDeleted(false);
     }
 
-    private void retryFailedUris(CollectTaskEntity task, CollectParam param) {
-        if (CollectionUtils.isEmpty(task.getFailedUriList())) {
-            return;
-        }
-
-        log.info("Retrying {} failed URIs for task: {}", task.getFailedUriList().size(), task.getTaskId());
-        updateTaskStatus(task, "PROCESSING", "Retrying failed URIs");
-
-        List<String> retriedUris = new ArrayList<>();
-        List<List<String>> batches = Lists.partition(new ArrayList<>(task.getFailedUriList()),
-                CollectionConstants.HTTP_BATCH_SIZE);
-
-        for (List<String> batch : batches) {
-            try {
-                // 过滤掉版本级别的失败记录
-                List<String> uris = batch.stream()
-                        .filter(uri -> !uri.startsWith("VERSION:"))
-                        .collect(Collectors.toList());
-
-                if (!uris.isEmpty()) {
-                    List<UriDetail> details = httpService.getUriDetails(param.getServerUrl(), uris).get();
-                    if (!details.isEmpty()) {
-                        for (UriDetail detail : details) {
-                            VersionInfo version = getVersionInfo(detail.getVersion());
-                            List<UriEntity> entities = Collections.singletonList(
-                                    createEntity(param.getRootNode(), version, detail));
-                            uriRepository.batchUpsert(param.getRootNode(), entities);
-                            retriedUris.add(detail.getUri());
-                        }
-                    }
-                }
-            } catch (Exception e) {
-                log.error("Failed to retry batch", e);
-            }
-        }
-
-        // 更新失败列表
-        if (!retriedUris.isEmpty()) {
-            task.getFailedUriList().removeAll(retriedUris);
-            task.setFailedUris(task.getFailedUris() - retriedUris.size());
-            taskRepository.save(task);
-        }
-    }
-
     @Override
     public Page<String> getVersions(String rootNode, Integer page, Integer size) {
         int pageNum = page != null ? page : 1;
-        int pageSize = size != null ? size : CollectionConstants.DEFAULT_PAGE_SIZE;
+        int pageSize = size != null ? size : DEFAULT_PAGE_SIZE;
         return versionRepository.findVersionsByRootNode(rootNode, PageRequest.of(pageNum - 1, pageSize));
     }
 
@@ -4472,21 +4646,74 @@ public class UriCollectServiceImpl implements UriCollectService {
 
     @Override
     public AsyncResponse<Long> deleteData(DeleteParam param) {
+        validateDeleteParam(param);
+
         String taskId = UUID.randomUUID().toString();
         param.setTaskId(taskId);
 
-        deleteQueue.enqueue(
-                taskId,
-                param,
-                param.getPriority(),
-                this::processDeleteTask
-        );
+        Map<String, Object> taskParams = new HashMap<>();
+        taskParams.put("rootNode", param.getRootNode());
+        taskParams.put("version", param.getVersion());
+        taskParams.put("uriCount", param.getUris().size());
+        taskParams.put("hardDelete", param.getHardDelete());
+
+        TaskResponse task = taskManager.createTask("DELETE", taskParams, param.getPriority());
+
+        deleteQueue.enqueue(taskId, param, param.getPriority(), this::processDeleteTask)
+                .exceptionally(throwable -> {
+                    taskManager.updateTaskStatus(taskId, "ERROR", throwable.getMessage());
+                    return null;
+                });
 
         return AsyncResponse.<Long>builder()
                 .taskId(taskId)
                 .status("QUEUED")
                 .message("Delete task queued successfully")
                 .build();
+    }
+
+    private void validateDeleteParam(DeleteParam param) {
+        if (param == null) {
+            throw new IllegalArgumentException("DeleteParam cannot be null");
+        }
+        if (param.getUris() == null || param.getUris().isEmpty()) {
+            throw new IllegalArgumentException("URIs cannot be empty");
+        }
+    }
+
+    private void processDeleteTask(DeleteParam param) {
+        String taskId = param.getTaskId();
+        taskManager.updateTaskStatus(taskId, "PROCESSING", "Starting deletion");
+
+        try {
+            int batchSize = param.getBatchSize() != null ? param.getBatchSize() : HTTP_BATCH_SIZE;
+            List<List<String>> batches = Lists.partition(param.getUris(), batchSize);
+
+            long totalDeleted = 0;
+            long totalBatches = batches.size();
+
+            for (int i = 0; i < batches.size(); i++) {
+                List<String> batch = batches.get(i);
+                long deletedCount;
+
+                if (param.getHardDelete()) {
+                    deletedCount = uriRepository.batchHardDelete(param.getRootNode(), batch, batchSize);
+                } else {
+                    deletedCount = uriRepository.batchSoftDelete(param.getRootNode(), batch, batchSize);
+                }
+
+                totalDeleted += deletedCount;
+                double progress = ((i + 1.0) / totalBatches) * 100;
+                taskManager.updateTaskProgress(taskId, i + 1, totalBatches);
+            }
+
+            taskManager.updateTaskStatus(taskId, "COMPLETED", String.format("Successfully deleted %d URIs", totalDeleted));
+
+        } catch (Exception e) {
+            log.error("Failed to process delete task: {}", taskId, e);
+            taskManager.updateTaskStatus(taskId, "ERROR", "Deletion failed: " + e.getMessage());
+            throw new RuntimeException("Failed to process delete task", e);
+        }
     }
 
     @Override
@@ -4503,18 +4730,18 @@ public class UriCollectServiceImpl implements UriCollectService {
     public Page<UriEntity> queryByUpdateTime(String rootNode, LocalDateTime startTime,
                                              LocalDateTime endTime, Integer page, Integer size) {
         int pageNum = page != null ? page : 1;
-        int pageSize = size != null ? size : CollectionConstants.DEFAULT_PAGE_SIZE;
-        return uriRepository.findByUpdateTimeRange(rootNode, startTime, endTime,
-                PageRequest.of(pageNum - 1, pageSize));
+        int pageSize = size != null ? size : DEFAULT_PAGE_SIZE;
+        return uriRepository.findByUpdateTimeRange(
+                rootNode,
+                startTime,
+                endTime,
+                PageRequest.of(pageNum - 1, pageSize)
+        );
     }
 
     @Override
     public AsyncResponse<Void> getTaskStatus(String taskId) {
-        CollectTaskEntity task = activeTasks.get(taskId);
-        if (task == null) {
-            task = taskRepository.findByTaskId(taskId);
-        }
-
+        TaskResponse task = taskManager.getTaskStatus(taskId);
         if (task == null) {
             return AsyncResponse.<Void>builder()
                     .taskId(taskId)
@@ -4528,34 +4755,24 @@ public class UriCollectServiceImpl implements UriCollectService {
                 .status(task.getStatus())
                 .message(task.getMessage())
                 .progress(task.getProgress())
-                .startTime(task.getStartTime())
+                .startTime(task.getCreateTime())
                 .endTime(task.getEndTime())
                 .build();
     }
 
     @Override
     public boolean cancelTask(String taskId) {
-        CollectTaskEntity task = activeTasks.remove(taskId);
-        if (task != null) {
-            task.setStatus("CANCELLED");
-            task.setEndTime(LocalDateTime.now());
-            taskRepository.save(task);
-            return true;
-        }
-        return false;
+        return taskManager.cancelTask(taskId);
     }
 
     @Override
     public boolean updateTaskPriority(String taskId, int priority) {
-        return collectQueue.updatePriority(taskId, priority) ||
-                deleteQueue.updatePriority(taskId, priority);
+        return taskManager.updateTaskPriority(taskId, priority);
     }
 
     @Override
     public List<TaskResponse> getActiveTasks() {
-        return activeTasks.values().stream()
-                .map(this::convertToTaskResponse)
-                .collect(Collectors.toList());
+        return taskManager.getActiveTasks();
     }
 
     @Override
@@ -4564,263 +4781,10 @@ public class UriCollectServiceImpl implements UriCollectService {
         stats.put("totalUris", uriRepository.countByRootNode(rootNode));
         stats.put("totalVersions", versionRepository.countByRootNode(rootNode));
         stats.put("lastCollectTime", taskRepository.findLastCollectTime(rootNode));
-        stats.put("activeTasks", activeTasks.values().stream()
-                .filter(task -> task.getRootNode().equals(rootNode))
+        stats.put("activeTasks", taskManager.getActiveTasks().stream()
+                .filter(task -> rootNode.equals(task.getParams().get("rootNode")))
                 .count());
         return stats;
-    }
-
-    // 其他私有辅助方法...
-    /**
-     * 验证采集参数
-     */
-    private void validateCollectParam(CollectParam param) {
-        if (param == null) {
-            throw new IllegalArgumentException("CollectParam cannot be null");
-        }
-        if (StringUtils.isBlank(param.getRootNode())) {
-            throw new IllegalArgumentException("RootNode cannot be empty");
-        }
-        if (StringUtils.isBlank(param.getServerUrl())) {
-            throw new IllegalArgumentException("ServerUrl cannot be empty");
-        }
-        if (param.getIncremental() && param.getStartTime() == null) {
-            throw new IllegalArgumentException("StartTime is required for incremental collection");
-        }
-    }
-
-    /**
-     * 创建采集任务
-     */
-    private CollectTaskEntity createCollectTask(CollectParam param, String taskId) {
-        CollectTaskEntity task = new CollectTaskEntity();
-        task.setTaskId(taskId);
-        task.setRootNode(param.getRootNode());
-        task.setVersion(param.getVersion());
-        task.setStatus("CREATED");
-        task.setPriority(param.getPriority() != null ? param.getPriority() : 0);
-        task.setCreateTime(LocalDateTime.now());
-        task.setIsIncremental(param.getIncremental());
-        task.setIncrementStartTime(param.getStartTime());
-        task.setIncrementEndTime(param.getEndTime());
-        task.setProcessedUris(0L);
-        task.setFailedUris(0L);
-        task.setProgress(0.0);
-
-        return taskRepository.save(task);
-    }
-
-    /**
-     * 获取并保存版本信息
-     */
-    private List<VersionInfo> getAndSaveVersions(CollectParam param) throws Exception {
-        List<VersionInfo> versions = new ArrayList<>();
-        int page = 1;
-        int size = 200; // 每页200条
-
-        while (true) {
-            List<VersionInfo> pageVersions = httpService.getVersions(
-                    param.getServerUrl(),
-                    param.getRootNode(),
-                    page,
-                    size
-            ).get();
-
-            if (pageVersions.isEmpty()) {
-                break;
-            }
-
-            versions.addAll(pageVersions);
-
-            // 保存版本信息
-            List<VersionEntity> versionEntities = pageVersions.stream()
-                    .map(v -> convertToVersionEntity(v, param.getRootNode()))
-                    .collect(Collectors.toList());
-            versionRepository.saveAll(versionEntities);
-
-            if (pageVersions.size() < size) {
-                break;
-            }
-            page++;
-        }
-
-        return versions;
-    }
-
-    /**
-     * 过滤版本列表
-     */
-    private List<VersionInfo> filterVersions(List<VersionInfo> versions, String versionFilter) {
-        if (StringUtils.isBlank(versionFilter)) {
-            return versions;
-        }
-
-        Set<String> filterSet = Arrays.stream(versionFilter.split(","))
-                .map(String::trim)
-                .collect(Collectors.toSet());
-
-        return versions.stream()
-                .filter(v -> filterSet.stream().anyMatch(v.getVersion()::contains))
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * 过滤增量URI
-     */
-    private List<String> filterIncrementalUris(List<String> uris, VersionInfo version,
-                                               LocalDateTime startTime, LocalDateTime endTime) {
-        if (CollectionUtils.isEmpty(uris)) {
-            return Collections.emptyList();
-        }
-
-        // 获取已存在的URI的更新时间
-        Map<String, LocalDateTime> existingUriUpdateTimes =
-                uriRepository.findUpdateTimesByUris(uris);
-
-        return uris.stream()
-                .filter(uri -> {
-                    LocalDateTime existingUpdateTime = existingUriUpdateTimes.get(uri);
-                    if (existingUpdateTime == null) {
-                        return true; // 新URI，需要采集
-                    }
-                    // 检查更新时间是否在范围内
-                    return existingUpdateTime.isAfter(startTime) &&
-                            (endTime == null || existingUpdateTime.isBefore(endTime));
-                })
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * 删除不存在的URI
-     */
-    private void deleteNonExistentUris(String rootNode, String version,
-                                       Set<String> existingUris, boolean hardDelete) {
-        List<String> urisToDelete = new ArrayList<>();
-        int page = 0;
-        int size = 2000; // 每次处理2000条
-
-        while (true) {
-            Page<String> dbUris = uriRepository.findUrisByVersion(
-                    rootNode,
-                    version,
-                    PageRequest.of(page, size)
-            );
-
-            if (!dbUris.hasContent()) {
-                break;
-            }
-
-            urisToDelete.addAll(
-                    dbUris.getContent().stream()
-                            .filter(uri -> !existingUris.contains(uri))
-                            .collect(Collectors.toList())
-            );
-
-            // 每积累2000条执行一次删除
-            if (urisToDelete.size() >= 2000) {
-                executeBatchDelete(rootNode, urisToDelete, hardDelete);
-                urisToDelete.clear();
-            }
-
-            if (!dbUris.hasNext()) {
-                break;
-            }
-            page++;
-        }
-
-        // 处理剩余的URI
-        if (!urisToDelete.isEmpty()) {
-            executeBatchDelete(rootNode, urisToDelete, hardDelete);
-        }
-    }
-
-    /**
-     * 执行批量删除
-     */
-    private void executeBatchDelete(String rootNode, List<String> uris, boolean hardDelete) {
-        try {
-            if (hardDelete) {
-                uriRepository.batchHardDelete(rootNode, uris);
-            } else {
-                uriRepository.batchSoftDelete(rootNode, uris);
-            }
-        } catch (Exception e) {
-            log.error("Failed to delete URIs for rootNode: {}", rootNode, e);
-            throw new RuntimeException("Failed to delete URIs", e);
-        }
-    }
-
-    /**
-     * 更新任务状态
-     */
-    private void updateTaskStatus(CollectTaskEntity task, String status, String message) {
-        task.setStatus(status);
-        task.setMessage(message);
-        if ("PROCESSING".equals(status) && task.getStartTime() == null) {
-            task.setStartTime(LocalDateTime.now());
-        }
-        taskRepository.save(task);
-    }
-
-    /**
-     * 更新任务进度
-     */
-    private void updateTaskProgress(CollectTaskEntity task, long totalCount) {
-        task.setTotalUris(task.getTotalUris() + totalCount);
-        task.setProgress(calculateProgress(task.getProcessedUris(), task.getTotalUris()));
-        taskRepository.save(task);
-    }
-
-    /**
-     * 计算进度百分比
-     */
-    private double calculateProgress(long processed, long total) {
-        if (total == 0) {
-            return 0.0;
-        }
-        return (double) processed / total * 100;
-    }
-
-    /**
-     * 处理任务错误
-     */
-    private void handleTaskError(CollectTaskEntity task, Throwable error) {
-        log.error("Task {} failed", task.getTaskId(), error);
-        task.setStatus("FAILED");
-        task.setEndTime(LocalDateTime.now());
-        task.setMessage(error.getMessage());
-        taskRepository.save(task);
-    }
-
-    /**
-     * 完成任务
-     */
-    private void completeTask(CollectTaskEntity task) {
-        task.setStatus("COMPLETED");
-        task.setEndTime(LocalDateTime.now());
-        task.setProgress(100.0);
-        task.setMessage("Collection completed successfully");
-        taskRepository.save(task);
-    }
-
-    /**
-     * 转换为任务响应对象
-     */
-    private TaskResponse convertToTaskResponse(CollectTaskEntity task) {
-        return TaskResponse.builder()
-                .taskId(task.getTaskId())
-                .type("COLLECT")
-                .status(task.getStatus())
-                .progress(task.getProgress())
-                .message(task.getMessage())
-                .priority(task.getPriority())
-                .createTime(task.getCreateTime())
-                .startTime(task.getStartTime())
-                .endTime(task.getEndTime())
-                .totalCount(task.getTotalUris())
-                .processedCount(task.getProcessedUris())
-                .failedCount(task.getFailedUris())
-                .build();
     }
 }
 ```
@@ -4832,7 +4796,6 @@ package com.study.collect.business.testcase.utils;
 
 import org.apache.commons.codec.digest.DigestUtils;
 
-import org.apache.commons.codec.digest.DigestUtils;
 //
 public class HashUtil {
     public static String hash(String input) {
@@ -4874,13 +4837,13 @@ import java.util.stream.Collectors;
 //
 public class HttpUtil {
     private static final Logger logger = Logger.getLogger(HttpUtil.class.getName());
-    
+
     // 配置常量
     private static final int CONNECT_TIMEOUT = 5000; // 连接超时时间
     private static final int READ_TIMEOUT = 15000;   // 读取超时时间
     private static final int MAX_RETRY = 3;          // 最大重试次数
     private static final int RETRY_INTERVAL = 1000;  // 重试间隔基数（毫秒）
-    
+
     // 线程池配置
     private static final ExecutorService executorService = new ThreadPoolExecutor(
             10,                 // 核心线程数
@@ -4890,6 +4853,7 @@ public class HttpUtil {
             new LinkedBlockingQueue<>(1000), // 工作队列
             new ThreadFactory() {
                 private int count = 0;
+
                 @Override
                 public Thread newThread(Runnable r) {
                     Thread thread = new Thread(r);
@@ -4909,43 +4873,21 @@ public class HttpUtil {
     }
 
     /**
-     * HTTP响应对象
-     */
-    public static class HttpResponse {
-        private final int code;
-        private final String body;
-        private final Map<String, List<String>> headers;
-        private final long responseTime; // 响应时间（毫秒）
-
-        public HttpResponse(int code, String body, Map<String, List<String>> headers, long responseTime) {
-            this.code = code;
-            this.body = body;
-            this.headers = headers;
-            this.responseTime = responseTime;
-        }
-
-        public int getCode() { return code; }
-        public String getBody() { return body; }
-        public Map<String, List<String>> getHeaders() { return headers; }
-        public long getResponseTime() { return responseTime; }
-
-        @Override
-        public String toString() {
-            return String.format("HttpResponse{code=%d, responseTime=%dms, bodyLength=%d}",
-                    code, responseTime, body != null ? body.length() : 0);
-        }
-    }
-
-    /**
      * 禁用SSL证书验证
      */
     private static void disableSslVerification() {
         try {
             // 创建信任所有证书的TrustManager
             TrustManager[] trustAllCerts = new TrustManager[]{new X509TrustManager() {
-                public X509Certificate[] getAcceptedIssuers() { return null; }
-                public void checkClientTrusted(X509Certificate[] certs, String authType) {}
-                public void checkServerTrusted(X509Certificate[] certs, String authType) {}
+                public X509Certificate[] getAcceptedIssuers() {
+                    return null;
+                }
+
+                public void checkClientTrusted(X509Certificate[] certs, String authType) {
+                }
+
+                public void checkServerTrusted(X509Certificate[] certs, String authType) {
+                }
             }};
 
             // 安装自定义的SSLContext
@@ -4963,9 +4905,10 @@ public class HttpUtil {
 
     /**
      * 执行HTTP请求
-     * @param method HTTP方法
-     * @param urlStr 请求URL
-     * @param body 请求体
+     *
+     * @param method  HTTP方法
+     * @param urlStr  请求URL
+     * @param body    请求体
      * @param headers 请求头
      * @return HTTP响应对象
      */
@@ -4973,7 +4916,7 @@ public class HttpUtil {
         HttpURLConnection conn = null;
         int retryCount = 0;
         long startTime = System.currentTimeMillis();
-        
+
         while (retryCount < MAX_RETRY) {
             try {
                 URL url = new URL(urlStr);
@@ -4994,7 +4937,7 @@ public class HttpUtil {
                 logRequest(method, urlStr, headers, body, responseCode, responseTime);
 
                 return new HttpResponse(responseCode, responseBody, conn.getHeaderFields(), responseTime);
-                
+
             } catch (IOException e) {
                 handleRetry(++retryCount, e, urlStr);
             } finally {
@@ -5003,7 +4946,7 @@ public class HttpUtil {
                 }
             }
         }
-        
+
         throw new IOException("Max retries exceeded for URL: " + urlStr);
     }
 
@@ -5020,7 +4963,7 @@ public class HttpUtil {
         // 设置通用headers
         conn.setRequestProperty("Accept", "application/json");
         conn.setRequestProperty("Content-Type", "application/json");
-        
+
         // 设置自定义headers
         if (headers != null) {
             headers.forEach(conn::setRequestProperty);
@@ -5031,8 +4974,8 @@ public class HttpUtil {
      * 判断是否需要写入请求体
      */
     private static boolean shouldWriteBody(String method, String body) {
-        return body != null && !body.isEmpty() && 
-               (method.equals("POST") || method.equals("PUT") || method.equals("PATCH"));
+        return body != null && !body.isEmpty() &&
+                (method.equals("POST") || method.equals("PUT") || method.equals("PATCH"));
     }
 
     /**
@@ -5066,11 +5009,11 @@ public class HttpUtil {
         if (retryCount == MAX_RETRY) {
             throw e;
         }
-        
+
         long sleepTime = (long) (RETRY_INTERVAL * Math.pow(2, retryCount - 1));
         logger.log(Level.WARNING, String.format("Request failed for URL: %s, retry %d/%d after %dms",
                 url, retryCount, MAX_RETRY, sleepTime), e);
-                
+
         try {
             Thread.sleep(sleepTime);
         } catch (InterruptedException ie) {
@@ -5082,8 +5025,8 @@ public class HttpUtil {
     /**
      * 记录请求日志
      */
-    private static void logRequest(String method, String url, Map<String, String> headers, 
-                                 String body, int responseCode, long responseTime) {
+    private static void logRequest(String method, String url, Map<String, String> headers,
+                                   String body, int responseCode, long responseTime) {
         logger.log(Level.INFO, String.format("HTTP %s %s - Response: %d, Time: %dms",
                 method, url, responseCode, responseTime));
     }
@@ -5091,8 +5034,8 @@ public class HttpUtil {
     /**
      * 异步执行HTTP请求
      */
-    public static CompletableFuture<HttpResponse> asyncRequest(String method, String url, 
-                                                             String body, Map<String, String> headers) {
+    public static CompletableFuture<HttpResponse> asyncRequest(String method, String url,
+                                                               String body, Map<String, String> headers) {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 return request(method, url, body, headers);
@@ -5167,6 +5110,45 @@ public class HttpUtil {
             Thread.currentThread().interrupt();
         }
     }
+
+    /**
+     * HTTP响应对象
+     */
+    public static class HttpResponse {
+        private final int code;
+        private final String body;
+        private final Map<String, List<String>> headers;
+        private final long responseTime; // 响应时间（毫秒）
+
+        public HttpResponse(int code, String body, Map<String, List<String>> headers, long responseTime) {
+            this.code = code;
+            this.body = body;
+            this.headers = headers;
+            this.responseTime = responseTime;
+        }
+
+        public int getCode() {
+            return code;
+        }
+
+        public String getBody() {
+            return body;
+        }
+
+        public Map<String, List<String>> getHeaders() {
+            return headers;
+        }
+
+        public long getResponseTime() {
+            return responseTime;
+        }
+
+        @Override
+        public String toString() {
+            return String.format("HttpResponse{code=%d, responseTime=%dms, bodyLength=%d}",
+                    code, responseTime, body != null ? body.length() : 0);
+        }
+    }
 }
 
 ```
@@ -5177,10 +5159,12 @@ public class HttpUtil {
 package com.study.collect.business.testcase.utils;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.mongodb.core.MongoOperations;
 import org.springframework.util.CollectionUtils;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -5324,7 +5308,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PreDestroy;
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
@@ -5445,11 +5432,9 @@ public class RateLimiter {
 ```java
 package com.study.collect.business.testcase.utils;
 
-import com.study.collect.business.testcase.constant.CollectionConstants;
 import lombok.Builder;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.mongodb.core.MongoTemplate;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -5474,47 +5459,6 @@ public class StreamProcessManager<T, R> {
     private final AtomicInteger activeProcesses;
     private final List<ProcessMetrics> metricsHistory;
     private volatile boolean running = true;
-
-    /**
-     * 处理配置
-     */
-    @Data
-    @Builder
-    public static class ProcessConfig<T, R> {
-        // 基础配置
-        private String processName;
-        private int batchSize;
-        private int processThreads;
-        private int saveThreads;
-        private boolean useVirtualThreads;
-
-        // 数据处理函数
-        private Function<Integer, List<T>> dataFetcher;      // 数据获取函数
-        private Function<T, R> dataConverter;                // 数据转换函数
-        private Consumer<List<R>> dataSaver;                 // 数据保存函数
-        private Consumer<ProcessMetrics> progressCallback;    // 进度回调函数
-
-        // 监控配置
-        private long timeoutSeconds;
-        private int maxRetries;
-        private long retryDelayMs;
-    }
-
-    /**
-     * 处理指标
-     */
-    @Data
-    @Builder
-    public static class ProcessMetrics {
-        private String processName;
-        private long totalItems;
-        private long processedItems;
-        private long failedItems;
-        private long startTime;
-        private long endTime;
-        private double progressPercentage;
-        private Map<String, Object> customMetrics;
-    }
 
     public StreamProcessManager(ProcessConfig<T, R> config) {
         this.config = config;
@@ -5751,6 +5695,47 @@ public class StreamProcessManager<T, R> {
      */
     public int getQueueSize() {
         return processQueue.size();
+    }
+
+    /**
+     * 处理配置
+     */
+    @Data
+    @Builder
+    public static class ProcessConfig<T, R> {
+        // 基础配置
+        private String processName;
+        private int batchSize;
+        private int processThreads;
+        private int saveThreads;
+        private boolean useVirtualThreads;
+
+        // 数据处理函数
+        private Function<Integer, List<T>> dataFetcher;      // 数据获取函数
+        private Function<T, R> dataConverter;                // 数据转换函数
+        private Consumer<List<R>> dataSaver;                 // 数据保存函数
+        private Consumer<ProcessMetrics> progressCallback;    // 进度回调函数
+
+        // 监控配置
+        private long timeoutSeconds;
+        private int maxRetries;
+        private long retryDelayMs;
+    }
+
+    /**
+     * 处理指标
+     */
+    @Data
+    @Builder
+    public static class ProcessMetrics {
+        private String processName;
+        private long totalItems;
+        private long processedItems;
+        private long failedItems;
+        private long startTime;
+        private long endTime;
+        private double progressPercentage;
+        private Map<String, Object> customMetrics;
     }
 }
 ```

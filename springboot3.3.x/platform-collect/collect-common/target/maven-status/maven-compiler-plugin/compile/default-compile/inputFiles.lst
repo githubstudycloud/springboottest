@@ -1,6 +1,6 @@
-E:\idea\java\springboottestWork5\springboot3.3.x\platform-collect\collect-common\src\main\java\com\study\collect\common\model\Response.java
-E:\idea\java\springboottestWork5\springboot3.3.x\platform-collect\collect-common\src\main\java\com\study\collect\common\exception\BaseException.java
-E:\idea\java\springboottestWork5\springboot3.3.x\platform-collect\collect-common\src\main\java\com\study\collect\common\util\JsonUtils.java
-E:\idea\java\springboottestWork5\springboot3.3.x\platform-collect\collect-common\src\main\java\com\study\collect\common\util\DateUtils.java
-E:\idea\java\springboottestWork5\springboot3.3.x\platform-collect\collect-common\src\main\java\com\study\App.java
-E:\idea\java\springboottestWork5\springboot3.3.x\platform-collect\collect-common\src\main\java\com\study\collect\common\exception\GlobalExceptionHandler.java
+E:\idea\java\springboottestWork6\springboot3.3.x\platform-collect\collect-common\src\main\java\com\study\collect\common\exception\GlobalExceptionHandler.java
+E:\idea\java\springboottestWork6\springboot3.3.x\platform-collect\collect-common\src\main\java\com\study\collect\common\exception\BaseException.java
+E:\idea\java\springboottestWork6\springboot3.3.x\platform-collect\collect-common\src\main\java\com\study\collect\common\model\Response.java
+E:\idea\java\springboottestWork6\springboot3.3.x\platform-collect\collect-common\src\main\java\com\study\collect\common\util\JsonUtils.java
+E:\idea\java\springboottestWork6\springboot3.3.x\platform-collect\collect-common\src\main\java\com\study\App.java
+E:\idea\java\springboottestWork6\springboot3.3.x\platform-collect\collect-common\src\main\java\com\study\collect\common\util\DateUtils.java

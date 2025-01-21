@@ -22,43 +22,60 @@ import java.time.format.DateTimeFormatter;
 public class VersionEntity extends BaseEntity {
 
     @Field("version")
-    private String version;
+    protected String version;
 
     @Field("root_node")
-    private String rootNode;
+    protected String rootNode;
 
     @Field("version_type")
-    private String versionType;
+    protected String versionType;
 
-    private String name;
+    protected String name;
 
-    private String description;
+    protected String description;
 
     @Field("version_code")
-    private String versionCode;
+    protected String versionCode;
 
     @Field("version_time")
-    private LocalDateTime versionTime;
+    protected LocalDateTime versionTime;
 
-    private Integer sort;
+    protected Integer sort;
+
+    @Override
+    public String getVersion() {
+        return this.version;
+    }
+
+    @Override
+    public void reset() {
+        super.reset();
+        this.version = null;
+        this.rootNode = null;
+        this.versionType = null;
+        this.name = null;
+        this.description = null;
+        this.versionCode = null;
+        this.versionTime = null;
+        this.sort = null;
+    }
 
     public void initVersion() {
-        this.version = String.valueOf(0L);
+        this.version = "0";
         this.versionCode = generateVersionCode();
         this.versionTime = LocalDateTime.now();
     }
 
     public void upgradeVersion() {
-        this.version = this.version + 1;
+        int currentVersion = Integer.parseInt(this.version);
+        this.version = String.valueOf(currentVersion + 1);
         this.versionCode = generateVersionCode();
         this.versionTime = LocalDateTime.now();
     }
 
     private String generateVersionCode() {
-        return String.format("%s%s%s%d",
-                "V",
+        return String.format("V%s_%s",
                 LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")),
-                "_",
                 this.version);
     }
 }

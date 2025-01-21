@@ -1,11 +1,10 @@
 package com.study.collect.business.testcase.entity;
 
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.*;
 import org.springframework.data.mongodb.core.mapping.Field;
+import jakarta.persistence.PrePersist;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
@@ -48,6 +47,18 @@ public abstract class BaseEntity implements Serializable {
         this.deleted = false;
     }
 
+    public void reset() {
+        this.id = null;
+        this.createTime = null;
+        this.updateTime = null;
+        this.createBy = null;
+        this.updateBy = null;
+        this.version = 0L;
+        this.deleted = false;
+    }
+
+    public abstract String getVersion();
+
     @PrePersist
     public void prePersist() {
         if (this.createTime == null) {
@@ -62,10 +73,5 @@ public abstract class BaseEntity implements Serializable {
         if (this.deleted == null) {
             this.deleted = false;
         }
-    }
-
-    @PreUpdate
-    public void preUpdate() {
-        this.updateTime = LocalDateTime.now();
     }
 }

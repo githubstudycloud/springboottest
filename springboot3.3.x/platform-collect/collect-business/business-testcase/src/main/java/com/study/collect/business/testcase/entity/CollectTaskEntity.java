@@ -109,4 +109,33 @@ public class CollectTaskEntity extends BaseEntity {
         retryCount = (retryCount == null ? 0 : retryCount) + 1;
         lastRetryTime = LocalDateTime.now();
     }
+
+    @Override
+    public String getVersion() {
+        return this.version;
+    }
+
+    @Override
+    public void reset() {
+        super.reset();
+        this.taskId = null;
+        this.rootNode = null;
+        this.version = null;
+        this.status = null;
+        this.priority = null;
+        this.message = null;
+        this.startTime = null;
+        this.endTime = null;
+        this.totalUris = 0L;
+        this.processedUris = 0L;
+        this.failedUris = 0L;
+        this.failedUriList = new ArrayList<>();
+        this.errorDetails = new HashMap<>();
+        this.progress = 0.0;
+        this.isIncremental = false;
+        this.incrementStartTime = null;
+        this.incrementEndTime = null;
+        this.retryCount = 0;
+        this.lastRetryTime = null;
+    }
 }
