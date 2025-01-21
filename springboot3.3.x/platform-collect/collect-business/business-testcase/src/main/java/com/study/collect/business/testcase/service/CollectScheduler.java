@@ -67,15 +67,15 @@ public class CollectScheduler {
 
     private void checkRootNode(String rootNode) throws ExecutionException, InterruptedException {
         // 1. 获取版本列表
-        PageResponse<VersionInfo> versionsResponse = httpService.getVersions(
+        List<VersionInfo> versionsResponse = httpService.getVersions(
                 serverUrl, rootNode, 1, Integer.MAX_VALUE).get();
 
-        if (versionsResponse == null || versionsResponse.getItems() == null) {
+        if (versionsResponse == null ) {
             log.warn("No versions found for rootNode: {}", rootNode);
             return;
         }
 
-        List<VersionInfo> versions = versionsResponse.getItems();
+        List<VersionInfo> versions = versionsResponse;
 
         // 2. 检查每个版本
         for (VersionInfo version : versions) {

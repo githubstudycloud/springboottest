@@ -134,3 +134,10 @@ collect:
         exchange: collect.result
         queue: collect.result.queue
         routing-key: collect.result
+  server:
+    url: http://your-server-url
+  check:
+    cron: "0 0 * * * *"  # 每小时检查一次
+  root-nodes:  # 可选配置，如果不配置则需要实现getDefaultRootNodes()方法
+    - node1
+    - node2

@@ -35,7 +35,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 @RequiredArgsConstructor
 public class UriCollectServiceImpl implements UriCollectService {
-    private static final int HTTP_BATCH_SIZE = CollectionConstants.HTTP_BATCH_SIZE;
+    private static final int HTTP_BATCH_SIZE = CollectionConstants.DEFAULT_BATCH_SIZE;
     private static final int DEFAULT_PAGE_SIZE = 20;
 
     private final UriHttpService httpService;
@@ -70,7 +70,7 @@ public class UriCollectServiceImpl implements UriCollectService {
                     return null;
                 });
 
-        return AsyncResponse.<String>builder()
+        return AsyncResponse.<String>asyncBuilder()
                 .taskId(taskId)
                 .status("QUEUED")
                 .message("Task queued successfully")
@@ -226,7 +226,7 @@ public class UriCollectServiceImpl implements UriCollectService {
                     return null;
                 });
 
-        return AsyncResponse.<Long>builder()
+        return AsyncResponse.<Long>asyncBuilder()
                 .taskId(taskId)
                 .status("QUEUED")
                 .message("Delete task queued successfully")
@@ -304,14 +304,14 @@ public class UriCollectServiceImpl implements UriCollectService {
     public AsyncResponse<Void> getTaskStatus(String taskId) {
         TaskResponse task = taskManager.getTaskStatus(taskId);
         if (task == null) {
-            return AsyncResponse.<Void>builder()
+            return AsyncResponse.<Void>asyncBuilder()
                     .taskId(taskId)
                     .status("NOT_FOUND")
                     .message("Task not found")
                     .build();
         }
 
-        return AsyncResponse.<Void>builder()
+        return AsyncResponse.<Void>asyncBuilder()
                 .taskId(taskId)
                 .status(task.getStatus())
                 .message(task.getMessage())
