@@ -9,6 +9,7 @@ import com.study.collect.core.task.model.TaskResult;
 public interface TaskHandler {
     /**
      * 执行任务
+     *
      * @param context 任务上下文
      * @return 任务执行结果
      */
@@ -16,6 +17,7 @@ public interface TaskHandler {
 
     /**
      * 获取处理器类型
+     *
      * @return 处理器类型标识
      */
     String getType();

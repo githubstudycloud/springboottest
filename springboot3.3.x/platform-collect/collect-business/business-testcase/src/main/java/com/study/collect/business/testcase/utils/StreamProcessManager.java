@@ -1,10 +1,8 @@
 package com.study.collect.business.testcase.utils;
 
-import com.study.collect.business.testcase.constant.CollectionConstants;
 import lombok.Builder;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.mongodb.core.MongoTemplate;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,47 +27,6 @@ public class StreamProcessManager<T, R> {
     private final AtomicInteger activeProcesses;
     private final List<ProcessMetrics> metricsHistory;
     private volatile boolean running = true;
-
-    /**
-     * 处理配置
-     */
-    @Data
-    @Builder
-    public static class ProcessConfig<T, R> {
-        // 基础配置
-        private String processName;
-        private int batchSize;
-        private int processThreads;
-        private int saveThreads;
-        private boolean useVirtualThreads;
-
-        // 数据处理函数
-        private Function<Integer, List<T>> dataFetcher;      // 数据获取函数
-        private Function<T, R> dataConverter;                // 数据转换函数
-        private Consumer<List<R>> dataSaver;                 // 数据保存函数
-        private Consumer<ProcessMetrics> progressCallback;    // 进度回调函数
-
-        // 监控配置
-        private long timeoutSeconds;
-        private int maxRetries;
-        private long retryDelayMs;
-    }
-
-    /**
-     * 处理指标
-     */
-    @Data
-    @Builder
-    public static class ProcessMetrics {
-        private String processName;
-        private long totalItems;
-        private long processedItems;
-        private long failedItems;
-        private long startTime;
-        private long endTime;
-        private double progressPercentage;
-        private Map<String, Object> customMetrics;
-    }
 
     public StreamProcessManager(ProcessConfig<T, R> config) {
         this.config = config;
@@ -306,5 +263,46 @@ public class StreamProcessManager<T, R> {
      */
     public int getQueueSize() {
         return processQueue.size();
+    }
+
+    /**
+     * 处理配置
+     */
+    @Data
+    @Builder
+    public static class ProcessConfig<T, R> {
+        // 基础配置
+        private String processName;
+        private int batchSize;
+        private int processThreads;
+        private int saveThreads;
+        private boolean useVirtualThreads;
+
+        // 数据处理函数
+        private Function<Integer, List<T>> dataFetcher;      // 数据获取函数
+        private Function<T, R> dataConverter;                // 数据转换函数
+        private Consumer<List<R>> dataSaver;                 // 数据保存函数
+        private Consumer<ProcessMetrics> progressCallback;    // 进度回调函数
+
+        // 监控配置
+        private long timeoutSeconds;
+        private int maxRetries;
+        private long retryDelayMs;
+    }
+
+    /**
+     * 处理指标
+     */
+    @Data
+    @Builder
+    public static class ProcessMetrics {
+        private String processName;
+        private long totalItems;
+        private long processedItems;
+        private long failedItems;
+        private long startTime;
+        private long endTime;
+        private double progressPercentage;
+        private Map<String, Object> customMetrics;
     }
 }

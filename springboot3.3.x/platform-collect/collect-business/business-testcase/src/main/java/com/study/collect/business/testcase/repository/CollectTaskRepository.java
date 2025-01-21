@@ -16,9 +16,9 @@ import java.util.List;
 @Repository
 public class CollectTaskRepository {
 
+    private static final String COLLECTION_NAME = "collect_tasks";
     private final MongoTemplate mongoTemplate;
     private final RateLimiter mongoRateLimiter;
-    private static final String COLLECTION_NAME = "collect_tasks";
 
     public CollectTaskRepository(MongoTemplate mongoTemplate, RateLimiter mongoRateLimiter) {
         this.mongoTemplate = mongoTemplate;

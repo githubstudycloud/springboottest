@@ -24,6 +24,7 @@ public class ThreadPoolConfig {
                 new ArrayBlockingQueue<>(CollectionConstants.QUEUE_CAPACITY),
                 new ThreadFactory() {
                     private int count = 0;
+
                     @Override
                     public Thread newThread(Runnable r) {
                         Thread thread = new Thread(r);
@@ -42,7 +43,7 @@ public class ThreadPoolConfig {
         executor.setCorePoolSize(CollectionConstants.CORE_POOL_SIZE);
         executor.setMaxPoolSize(CollectionConstants.MAX_POOL_SIZE);
         executor.setQueueCapacity(CollectionConstants.QUEUE_CAPACITY);
-        executor.setKeepAliveSeconds((int)CollectionConstants.KEEP_ALIVE_TIME);
+        executor.setKeepAliveSeconds((int) CollectionConstants.KEEP_ALIVE_TIME);
         executor.setThreadNamePrefix("http-thread-");
         executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
         executor.setWaitForTasksToCompleteOnShutdown(true);
@@ -56,7 +57,7 @@ public class ThreadPoolConfig {
         executor.setCorePoolSize(CollectionConstants.CORE_POOL_SIZE);
         executor.setMaxPoolSize(CollectionConstants.MAX_POOL_SIZE);
         executor.setQueueCapacity(CollectionConstants.QUEUE_CAPACITY);
-        executor.setKeepAliveSeconds((int)CollectionConstants.KEEP_ALIVE_TIME);
+        executor.setKeepAliveSeconds((int) CollectionConstants.KEEP_ALIVE_TIME);
         executor.setThreadNamePrefix("mongo-thread-");
         executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
         executor.setWaitForTasksToCompleteOnShutdown(true);

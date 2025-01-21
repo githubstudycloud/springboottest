@@ -18,9 +18,9 @@ import java.util.List;
 @Repository
 public class VersionRepository {
 
+    private static final String COLLECTION_NAME = "versions";
     private final MongoTemplate mongoTemplate;
     private final RateLimiter mongoRateLimiter;
-    private static final String COLLECTION_NAME = "versions";
 
     public VersionRepository(MongoTemplate mongoTemplate, RateLimiter mongoRateLimiter) {
         this.mongoTemplate = mongoTemplate;

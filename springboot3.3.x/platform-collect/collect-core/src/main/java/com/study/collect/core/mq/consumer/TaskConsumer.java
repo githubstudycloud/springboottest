@@ -80,7 +80,7 @@ public class TaskConsumer {
         }
     }
 
-//    private Object executeTask(TaskMessage message) {
+    //    private Object executeTask(TaskMessage message) {
 //        // 实际任务执行逻辑
 //        // 这里需要根据具体业务实现，可能需要调用具体的TaskHandler
 //        return null;

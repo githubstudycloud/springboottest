@@ -1,8 +1,5 @@
 package com.study.collect.business.testcase.service.http;
 
-import com.study.collect.business.testcase.constant.CollectionConstants;
-import com.study.collect.business.testcase.model.param.CollectParam;
-import com.study.collect.business.testcase.model.param.PageParam;
 import com.study.collect.business.testcase.model.response.PageResponse;
 import com.study.collect.business.testcase.model.response.UriDetail;
 import com.study.collect.business.testcase.model.response.VersionInfo;
@@ -17,9 +14,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service

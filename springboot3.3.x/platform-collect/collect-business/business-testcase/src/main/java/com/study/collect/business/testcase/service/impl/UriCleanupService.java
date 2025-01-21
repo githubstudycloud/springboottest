@@ -1,12 +1,10 @@
 package com.study.collect.business.testcase.service.impl;
 
 import com.google.common.collect.Lists;
-import com.study.collect.business.testcase.model.PageResult;
 import com.study.collect.business.testcase.repository.UriRepository;
 import com.study.collect.business.testcase.utils.HashUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
@@ -18,9 +16,9 @@ import java.util.stream.Collectors;
 @Service
 public class UriCleanupService {
 
-    private final UriRepository repository;
     private static final int PAGE_SIZE = 2000;
     private static final int DELETE_BATCH_SIZE = 2000;
+    private final UriRepository repository;
 
     @Autowired
     public UriCleanupService(UriRepository repository) {
@@ -29,14 +27,15 @@ public class UriCleanupService {
 
     /**
      * 清理不在总列表中的URI数据
-     * @param allUris 总的URI列表
-     * @param rootNode 根节点
-     * @param version 版本
+     *
+     * @param allUris    总的URI列表
+     * @param rootNode   根节点
+     * @param version    版本
      * @param hardDelete 是否硬删除
      */
     public void cleanupUriData(List<String> allUris, String rootNode, String version, boolean hardDelete) {
         try {
-            if(allUris == null || allUris.isEmpty()) {
+            if (allUris == null || allUris.isEmpty()) {
                 log.warn("No URIs provided for cleanup");
                 return;
             }

@@ -1,6 +1,7 @@
 package com.study.collect.core.task.model;
 
 import lombok.Data;
+
 import java.io.Serializable;
 
 @Data
@@ -43,6 +44,17 @@ public class ShardingConfig implements Serializable {
     private String failureStrategy = "CONTINUE";
 
     /**
+     * 创建默认配置
+     */
+    public static ShardingConfig createDefault() {
+        ShardingConfig config = new ShardingConfig();
+        config.setEnabled(false);
+        config.setTotal(1);
+        config.setStrategy("AVERAGE");
+        return config;
+    }
+
+    /**
      * 验证分片配置
      */
     public void validate() {
@@ -54,16 +66,5 @@ public class ShardingConfig implements Serializable {
                 throw new IllegalArgumentException("分片超时时间不能小于0");
             }
         }
-    }
-
-    /**
-     * 创建默认配置
-     */
-    public static ShardingConfig createDefault() {
-        ShardingConfig config = new ShardingConfig();
-        config.setEnabled(false);
-        config.setTotal(1);
-        config.setStrategy("AVERAGE");
-        return config;
     }
 }

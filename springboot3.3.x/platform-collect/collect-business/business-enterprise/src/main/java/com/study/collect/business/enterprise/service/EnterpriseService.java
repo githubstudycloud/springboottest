@@ -34,6 +34,9 @@ public class EnterpriseService {
     private final TaskProducer taskProducer;
     private final TaskExecuteService taskExecuteService;
     private final MongoTemplate mongoTemplate;
+    private final Random random = new Random();
+    private final String[] INDUSTRIES = {"制造业", "服务业", "零售业", "建筑业", "科技业"};
+    private final String[] AUTHORITIES = {"北京", "上海", "广州", "深圳", "杭州"};
 
     /**
      * 生成测试数据
@@ -172,10 +175,6 @@ public class EnterpriseService {
         enterprise.setDeleted(false);
         return enterprise;
     }
-
-    private final Random random = new Random();
-    private final String[] INDUSTRIES = {"制造业", "服务业", "零售业", "建筑业", "科技业"};
-    private final String[] AUTHORITIES = {"北京", "上海", "广州", "深圳", "杭州"};
 
     private String randomIndustry() {
         return INDUSTRIES[random.nextInt(INDUSTRIES.length)];

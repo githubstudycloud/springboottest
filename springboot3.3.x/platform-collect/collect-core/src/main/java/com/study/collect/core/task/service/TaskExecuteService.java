@@ -1,13 +1,13 @@
 package com.study.collect.core.task.service;
 
-import com.study.collect.core.task.enums.LogTypeEnum;
-import com.study.collect.core.task.enums.TaskStatusEnum;
-import com.study.collect.core.task.utils.InstanceIdGenerator;
 import com.study.collect.core.task.entity.TaskConfig;
 import com.study.collect.core.task.entity.TaskInstance;
 import com.study.collect.core.task.entity.TaskLog;
+import com.study.collect.core.task.enums.LogTypeEnum;
+import com.study.collect.core.task.enums.TaskStatusEnum;
 import com.study.collect.core.task.mapper.TaskInstanceMapper;
 import com.study.collect.core.task.mapper.TaskLogMapper;
+import com.study.collect.core.task.utils.InstanceIdGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

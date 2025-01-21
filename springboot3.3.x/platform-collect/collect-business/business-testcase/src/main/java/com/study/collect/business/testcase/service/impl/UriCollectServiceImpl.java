@@ -9,7 +9,10 @@ import com.study.collect.business.testcase.manager.QueueManager;
 import com.study.collect.business.testcase.model.param.CollectParam;
 import com.study.collect.business.testcase.model.param.DeleteParam;
 import com.study.collect.business.testcase.model.param.QueryParam;
-import com.study.collect.business.testcase.model.response.*;
+import com.study.collect.business.testcase.model.response.AsyncResponse;
+import com.study.collect.business.testcase.model.response.TaskResponse;
+import com.study.collect.business.testcase.model.response.UriDetail;
+import com.study.collect.business.testcase.model.response.VersionInfo;
 import com.study.collect.business.testcase.repository.CollectTaskRepository;
 import com.study.collect.business.testcase.repository.UriRepository;
 import com.study.collect.business.testcase.repository.VersionRepository;
@@ -26,7 +29,6 @@ import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j

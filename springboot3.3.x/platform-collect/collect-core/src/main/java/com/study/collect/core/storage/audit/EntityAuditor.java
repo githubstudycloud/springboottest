@@ -1,6 +1,5 @@
 package com.study.collect.core.storage.audit;
 
-import com.study.collect.core.storage.entity.BaseEntity;
 import org.springframework.data.domain.AuditorAware;
 import org.springframework.stereotype.Component;
 

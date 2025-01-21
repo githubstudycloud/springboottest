@@ -3,7 +3,10 @@ package com.study.collect.business.testcase.repository;
 import com.google.common.collect.Lists;
 import com.mongodb.bulk.BulkWriteResult;
 import com.mongodb.client.MongoCollection;
-import com.mongodb.client.model.*;
+import com.mongodb.client.model.BulkWriteOptions;
+import com.mongodb.client.model.UpdateOneModel;
+import com.mongodb.client.model.UpdateOptions;
+import com.mongodb.client.model.WriteModel;
 import com.mongodb.client.result.DeleteResult;
 import com.mongodb.client.result.UpdateResult;
 import com.study.collect.business.testcase.config.DynamicCollectionIndexConfiguration;
@@ -34,12 +37,11 @@ import java.util.stream.Collectors;
 @Slf4j
 @Repository
 public class UriRepository {
+    private static final int DEFAULT_PAGE_SIZE = 20;
+    private static final int HTTP_BATCH_SIZE = 100;
     private final MongoTemplate mongoTemplate;
     private final DynamicCollectionIndexConfiguration indexConfiguration;
     private final RateLimiter mongoRateLimiter;
-
-    private static final int DEFAULT_PAGE_SIZE = 20;
-    private static final int HTTP_BATCH_SIZE = 100;
 
     public UriRepository(MongoTemplate mongoTemplate,
                          DynamicCollectionIndexConfiguration indexConfiguration,
@@ -189,6 +191,7 @@ public class UriRepository {
             throw new RuntimeException("Batch upsert failed", e);
         }
     }
+
     /**
      * 分页批量软删除
      */
@@ -454,13 +457,15 @@ public class UriRepository {
 
         return doc;
     }
+
     /**
      * 使用原生命令分页查询uri_hash
-     * @param rootNode 根节点
-     * @param version 版本号
+     *
+     * @param rootNode    根节点
+     * @param version     版本号
      * @param versionType 版本类型
-     * @param page 页码（从1开始）
-     * @param size 每页大小
+     * @param page        页码（从1开始）
+     * @param size        每页大小
      * @return uri_hash列表
      */
     public List<String> findUriHashesNativeWithPage(String rootNode,

@@ -21,7 +21,7 @@
     </resultMap>
 
     <!-- 修改所有select的resultType为resultMap -->
-<!--    <select id="selectById" resultMap="taskConfigMap">-->
+    <!--    <select id="selectById" resultMap="taskConfigMap">-->
 
 
     <select id="selectPage" resultMap="taskConfigMap">

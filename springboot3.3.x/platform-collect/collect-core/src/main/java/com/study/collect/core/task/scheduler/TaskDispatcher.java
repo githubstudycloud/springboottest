@@ -1,9 +1,9 @@
 package com.study.collect.core.task.scheduler;
 
-import com.study.collect.core.task.enums.TaskStatusEnum;
 import com.study.collect.core.mq.message.TaskMessage;
 import com.study.collect.core.mq.producer.TaskProducer;
 import com.study.collect.core.task.entity.TaskInstance;
+import com.study.collect.core.task.enums.TaskStatusEnum;
 import com.study.collect.core.task.mapper.TaskInstanceMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;

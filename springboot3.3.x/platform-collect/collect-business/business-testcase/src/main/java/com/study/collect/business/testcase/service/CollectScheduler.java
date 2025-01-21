@@ -1,7 +1,9 @@
 package com.study.collect.business.testcase.service;
 
 import com.study.collect.business.testcase.model.param.CollectParam;
+import com.study.collect.business.testcase.model.response.VersionInfo;
 import com.study.collect.business.testcase.repository.UriRepository;
+import com.study.collect.business.testcase.service.http.UriHttpService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;

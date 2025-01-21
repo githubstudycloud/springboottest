@@ -13,12 +13,12 @@ public enum VersionType {
         this.description = description;
     }
 
-    public String getDescription() {
-        return description;
-    }
-
     public static VersionType fromString(String version) {
         return version != null && version.toLowerCase().contains("branch") ?
                 BRANCH : TRUNK;
+    }
+
+    public String getDescription() {
+        return description;
     }
 }

@@ -27,8 +27,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 @RequiredArgsConstructor
 public class EnterpriseCollector extends AbstractCollector<String, List<Enterprise>> {
 
-    private final EnterpriseRepository repository;
     private static final int BATCH_SIZE = 100;
+    private final EnterpriseRepository repository;
     private final AtomicInteger counter = new AtomicInteger(0);
 
     @Override

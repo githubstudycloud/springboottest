@@ -2,6 +2,7 @@
 package com.study.collect.business.finance.api.model.response;
 
 import lombok.Data;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 

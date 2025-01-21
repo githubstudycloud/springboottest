@@ -151,23 +151,23 @@ public class FinanceDataService {
 //                .reduce(BigDecimal.ZERO, BigDecimal::add)
 //                .divide(BigDecimal.valueOf
 
-                        // FinanceDataService.java (续)
-        private BigDecimal calculateAveragePrice(List<FinanceData> dataList) {
-            return dataList.stream()
-                    .map(FinanceData::getPrice)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add)
-                    .divide(BigDecimal.valueOf(dataList.size()), 2, RoundingMode.HALF_UP);
-        }
-
-        private BigDecimal calculateTotalVolume(List<FinanceData> dataList) {
-            return dataList.stream()
-                    .map(FinanceData::getVolume)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-        }
-
-        private BigDecimal calculateTotalAmount(List<FinanceData> dataList) {
-            return dataList.stream()
-                    .map(FinanceData::getAmount)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-        }
+    // FinanceDataService.java (续)
+    private BigDecimal calculateAveragePrice(List<FinanceData> dataList) {
+        return dataList.stream()
+                .map(FinanceData::getPrice)
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .divide(BigDecimal.valueOf(dataList.size()), 2, RoundingMode.HALF_UP);
     }
+
+    private BigDecimal calculateTotalVolume(List<FinanceData> dataList) {
+        return dataList.stream()
+                .map(FinanceData::getVolume)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private BigDecimal calculateTotalAmount(List<FinanceData> dataList) {
+        return dataList.stream()
+                .map(FinanceData::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+}

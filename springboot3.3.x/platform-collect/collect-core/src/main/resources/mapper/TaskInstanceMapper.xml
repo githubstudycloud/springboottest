@@ -22,15 +22,12 @@
 
     <!-- 插入实例 -->
     <insert id="insert" parameterType="TaskInstance" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO task_instance (
-            instance_id, task_code, shard_index, shard_total,
-            shard_param, status, host_name, start_time,
-            error_msg
-        ) VALUES (
-                     #{instanceId}, #{taskCode}, #{shardIndex}, #{shardTotal},
-                     #{shardParam}, #{status}, #{hostName}, #{startTime},
-                     #{errorMsg}
-                 )
+        INSERT INTO task_instance (instance_id, task_code, shard_index, shard_total,
+                                   shard_param, status, host_name, start_time,
+                                   error_msg)
+        VALUES (#{instanceId}, #{taskCode}, #{shardIndex}, #{shardTotal},
+                #{shardParam}, #{status}, #{hostName}, #{startTime},
+                #{errorMsg})
     </insert>
 
     <!-- 更新状态 -->
@@ -45,24 +42,29 @@
     <!-- 更新结束时间 -->
     <update id="updateEndTime">
         UPDATE task_instance
-        SET end_time = #{endTime},
+        SET end_time    = #{endTime},
             update_time = CURRENT_TIMESTAMP
         WHERE instance_id = #{instanceId}
     </update>
 
     <!-- 根据ID查询 -->
     <select id="selectById" resultMap="taskInstanceMap">
-        SELECT * FROM task_instance WHERE id = #{id}
+        SELECT *
+        FROM task_instance
+        WHERE id = #{id}
     </select>
 
     <!-- 根据实例ID查询 -->
     <select id="selectByInstanceId" resultMap="taskInstanceMap">
-        SELECT * FROM task_instance WHERE instance_id = #{instanceId}
+        SELECT *
+        FROM task_instance
+        WHERE instance_id = #{instanceId}
     </select>
 
     <!-- 查询运行中的任务 -->
     <select id="selectRunning" resultMap="taskInstanceMap">
-        SELECT * FROM task_instance
+        SELECT *
+        FROM task_instance
         WHERE status = 1
         ORDER BY start_time ASC
     </select>
@@ -82,28 +84,32 @@
 
     <!-- 查询超时任务 -->
     <select id="selectTimeout" resultMap="taskInstanceMap">
-        SELECT * FROM task_instance
+        SELECT *
+        FROM task_instance
         WHERE status = 1
           AND start_time &lt; DATE_SUB(NOW(), INTERVAL #{timeoutMinutes} MINUTE)
     </select>
 
     <!-- 根据主机名查询任务 -->
     <select id="selectByHostName" resultMap="taskInstanceMap">
-        SELECT * FROM task_instance
+        SELECT *
+        FROM task_instance
         WHERE host_name = #{hostName}
           AND status = 1
     </select>
 
     <!-- 根据状态统计任务数 -->
     <select id="countByStatus" resultType="int">
-        SELECT COUNT(*) FROM task_instance
+        SELECT COUNT(*)
+        FROM task_instance
         WHERE task_code = #{taskCode}
           AND status = #{status}
     </select>
 
     <!-- 清理历史数据 -->
     <delete id="cleanHistoryData">
-        DELETE FROM task_instance
+        DELETE
+        FROM task_instance
         WHERE create_time &lt; DATE_SUB(NOW(), INTERVAL #{daysBefore} DAY)
           AND status IN (2, 3, 4, 5)
     </delete>

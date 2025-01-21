@@ -1,7 +1,7 @@
 package com.study.collect.core.task.service;
 
-import com.study.collect.core.task.enums.TaskStatusEnum;
 import com.study.collect.core.task.entity.TaskConfig;
+import com.study.collect.core.task.enums.TaskStatusEnum;
 import com.study.collect.core.task.mapper.TaskConfigMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

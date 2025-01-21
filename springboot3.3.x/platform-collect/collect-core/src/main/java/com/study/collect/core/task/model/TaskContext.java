@@ -1,6 +1,7 @@
 package com.study.collect.core.task.model;
 
 import lombok.Data;
+
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;

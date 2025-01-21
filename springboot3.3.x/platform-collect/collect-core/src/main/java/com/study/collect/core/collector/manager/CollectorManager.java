@@ -18,14 +18,13 @@ import java.util.concurrent.ConcurrentHashMap;
 public class CollectorManager {
 
     private final Map<String, ICollector<?, ?>> collectors = new ConcurrentHashMap<>();
+    @Autowired
+    private ApplicationContext applicationContext;
 
     @PostConstruct
     public void init() {
         registerCollectors();
     }
-
-    @Autowired
-    private ApplicationContext applicationContext;
 
     /**
      * 扫描并注册所有带有@Collector注解的采集器

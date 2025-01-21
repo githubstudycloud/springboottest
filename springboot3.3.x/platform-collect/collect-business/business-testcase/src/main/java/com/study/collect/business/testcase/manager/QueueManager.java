@@ -2,13 +2,15 @@ package com.study.collect.business.testcase.manager;
 
 import com.study.collect.business.testcase.constant.CollectionConstants;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PreDestroy;
 import java.util.Comparator;
-import java.util.concurrent.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.PriorityBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 @Slf4j
@@ -30,26 +32,6 @@ public class QueueManager<T> {
 
         // 启动队列处理线程
         startQueueProcessor();
-    }
-
-    private static class QueueItem<T> {
-        final String id;
-        final T item;
-        volatile int priority;
-        final CompletableFuture<Void> future;
-        final Consumer<T> processor;
-
-        QueueItem(String id, T item, int priority, Consumer<T> processor) {
-            this.id = id;
-            this.item = item;
-            this.priority = priority;
-            this.processor = processor;
-            this.future = new CompletableFuture<>();
-        }
-
-        int getPriority() {
-            return priority;
-        }
     }
 
     /**
@@ -152,5 +134,25 @@ public class QueueManager<T> {
      */
     public boolean isQueued(String id) {
         return itemMap.containsKey(id);
+    }
+
+    private static class QueueItem<T> {
+        final String id;
+        final T item;
+        final CompletableFuture<Void> future;
+        final Consumer<T> processor;
+        volatile int priority;
+
+        QueueItem(String id, T item, int priority, Consumer<T> processor) {
+            this.id = id;
+            this.item = item;
+            this.priority = priority;
+            this.processor = processor;
+            this.future = new CompletableFuture<>();
+        }
+
+        int getPriority() {
+            return priority;
+        }
     }
 }

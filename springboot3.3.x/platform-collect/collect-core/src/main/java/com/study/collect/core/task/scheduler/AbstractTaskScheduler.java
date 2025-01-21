@@ -54,8 +54,11 @@ public abstract class AbstractTaskScheduler implements TaskScheduler {
     }
 
     protected abstract void doStart();
+
     protected abstract void doStop();
+
     protected abstract void doAddTask(TaskDefinition task);
+
     protected abstract void doRemoveTask(String taskId);
 
     // 提供任务配置转换方法

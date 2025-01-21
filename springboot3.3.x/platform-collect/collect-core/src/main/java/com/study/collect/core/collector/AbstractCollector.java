@@ -5,8 +5,6 @@ import com.study.collect.core.collector.model.CollectContext;
 import com.study.collect.core.collector.model.CollectResult;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.List;
-
 @Slf4j
 public abstract class AbstractCollector<T, R> implements ICollector<T, R> {
 

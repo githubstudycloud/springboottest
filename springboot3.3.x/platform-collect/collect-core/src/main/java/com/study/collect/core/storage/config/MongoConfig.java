@@ -47,9 +47,9 @@
 //        return new MongoTemplate(mongoClient, getDatabaseName());
 //    }
 //
-////    // 添加审计配置
-////    @Bean
-////    public AuditorAware<String> auditorProvider() {
-////        return new EntityAuditor();
-////    }
+/// /    // 添加审计配置
+/// /    @Bean
+/// /    public AuditorAware<String> auditorProvider() {
+/// /        return new EntityAuditor();
+/// /    }
 //}

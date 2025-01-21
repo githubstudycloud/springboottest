@@ -27,13 +27,13 @@ import java.util.stream.Collectors;
 //
 public class HttpUtil {
     private static final Logger logger = Logger.getLogger(HttpUtil.class.getName());
-    
+
     // 配置常量
     private static final int CONNECT_TIMEOUT = 5000; // 连接超时时间
     private static final int READ_TIMEOUT = 15000;   // 读取超时时间
     private static final int MAX_RETRY = 3;          // 最大重试次数
     private static final int RETRY_INTERVAL = 1000;  // 重试间隔基数（毫秒）
-    
+
     // 线程池配置
     private static final ExecutorService executorService = new ThreadPoolExecutor(
             10,                 // 核心线程数
@@ -43,6 +43,7 @@ public class HttpUtil {
             new LinkedBlockingQueue<>(1000), // 工作队列
             new ThreadFactory() {
                 private int count = 0;
+
                 @Override
                 public Thread newThread(Runnable r) {
                     Thread thread = new Thread(r);
@@ -62,43 +63,21 @@ public class HttpUtil {
     }
 
     /**
-     * HTTP响应对象
-     */
-    public static class HttpResponse {
-        private final int code;
-        private final String body;
-        private final Map<String, List<String>> headers;
-        private final long responseTime; // 响应时间（毫秒）
-
-        public HttpResponse(int code, String body, Map<String, List<String>> headers, long responseTime) {
-            this.code = code;
-            this.body = body;
-            this.headers = headers;
-            this.responseTime = responseTime;
-        }
-
-        public int getCode() { return code; }
-        public String getBody() { return body; }
-        public Map<String, List<String>> getHeaders() { return headers; }
-        public long getResponseTime() { return responseTime; }
-
-        @Override
-        public String toString() {
-            return String.format("HttpResponse{code=%d, responseTime=%dms, bodyLength=%d}",
-                    code, responseTime, body != null ? body.length() : 0);
-        }
-    }
-
-    /**
      * 禁用SSL证书验证
      */
     private static void disableSslVerification() {
         try {
             // 创建信任所有证书的TrustManager
             TrustManager[] trustAllCerts = new TrustManager[]{new X509TrustManager() {
-                public X509Certificate[] getAcceptedIssuers() { return null; }
-                public void checkClientTrusted(X509Certificate[] certs, String authType) {}
-                public void checkServerTrusted(X509Certificate[] certs, String authType) {}
+                public X509Certificate[] getAcceptedIssuers() {
+                    return null;
+                }
+
+                public void checkClientTrusted(X509Certificate[] certs, String authType) {
+                }
+
+                public void checkServerTrusted(X509Certificate[] certs, String authType) {
+                }
             }};
 
             // 安装自定义的SSLContext
@@ -116,9 +95,10 @@ public class HttpUtil {
 
     /**
      * 执行HTTP请求
-     * @param method HTTP方法
-     * @param urlStr 请求URL
-     * @param body 请求体
+     *
+     * @param method  HTTP方法
+     * @param urlStr  请求URL
+     * @param body    请求体
      * @param headers 请求头
      * @return HTTP响应对象
      */
@@ -126,7 +106,7 @@ public class HttpUtil {
         HttpURLConnection conn = null;
         int retryCount = 0;
         long startTime = System.currentTimeMillis();
-        
+
         while (retryCount < MAX_RETRY) {
             try {
                 URL url = new URL(urlStr);
@@ -147,7 +127,7 @@ public class HttpUtil {
                 logRequest(method, urlStr, headers, body, responseCode, responseTime);
 
                 return new HttpResponse(responseCode, responseBody, conn.getHeaderFields(), responseTime);
-                
+
             } catch (IOException e) {
                 handleRetry(++retryCount, e, urlStr);
             } finally {
@@ -156,7 +136,7 @@ public class HttpUtil {
                 }
             }
         }
-        
+
         throw new IOException("Max retries exceeded for URL: " + urlStr);
     }
 
@@ -173,7 +153,7 @@ public class HttpUtil {
         // 设置通用headers
         conn.setRequestProperty("Accept", "application/json");
         conn.setRequestProperty("Content-Type", "application/json");
-        
+
         // 设置自定义headers
         if (headers != null) {
             headers.forEach(conn::setRequestProperty);
@@ -184,8 +164,8 @@ public class HttpUtil {
      * 判断是否需要写入请求体
      */
     private static boolean shouldWriteBody(String method, String body) {
-        return body != null && !body.isEmpty() && 
-               (method.equals("POST") || method.equals("PUT") || method.equals("PATCH"));
+        return body != null && !body.isEmpty() &&
+                (method.equals("POST") || method.equals("PUT") || method.equals("PATCH"));
     }
 
     /**
@@ -219,11 +199,11 @@ public class HttpUtil {
         if (retryCount == MAX_RETRY) {
             throw e;
         }
-        
+
         long sleepTime = (long) (RETRY_INTERVAL * Math.pow(2, retryCount - 1));
         logger.log(Level.WARNING, String.format("Request failed for URL: %s, retry %d/%d after %dms",
                 url, retryCount, MAX_RETRY, sleepTime), e);
-                
+
         try {
             Thread.sleep(sleepTime);
         } catch (InterruptedException ie) {
@@ -235,8 +215,8 @@ public class HttpUtil {
     /**
      * 记录请求日志
      */
-    private static void logRequest(String method, String url, Map<String, String> headers, 
-                                 String body, int responseCode, long responseTime) {
+    private static void logRequest(String method, String url, Map<String, String> headers,
+                                   String body, int responseCode, long responseTime) {
         logger.log(Level.INFO, String.format("HTTP %s %s - Response: %d, Time: %dms",
                 method, url, responseCode, responseTime));
     }
@@ -244,8 +224,8 @@ public class HttpUtil {
     /**
      * 异步执行HTTP请求
      */
-    public static CompletableFuture<HttpResponse> asyncRequest(String method, String url, 
-                                                             String body, Map<String, String> headers) {
+    public static CompletableFuture<HttpResponse> asyncRequest(String method, String url,
+                                                               String body, Map<String, String> headers) {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 return request(method, url, body, headers);
@@ -318,6 +298,45 @@ public class HttpUtil {
         } catch (InterruptedException e) {
             executorService.shutdownNow();
             Thread.currentThread().interrupt();
+        }
+    }
+
+    /**
+     * HTTP响应对象
+     */
+    public static class HttpResponse {
+        private final int code;
+        private final String body;
+        private final Map<String, List<String>> headers;
+        private final long responseTime; // 响应时间（毫秒）
+
+        public HttpResponse(int code, String body, Map<String, List<String>> headers, long responseTime) {
+            this.code = code;
+            this.body = body;
+            this.headers = headers;
+            this.responseTime = responseTime;
+        }
+
+        public int getCode() {
+            return code;
+        }
+
+        public String getBody() {
+            return body;
+        }
+
+        public Map<String, List<String>> getHeaders() {
+            return headers;
+        }
+
+        public long getResponseTime() {
+            return responseTime;
+        }
+
+        @Override
+        public String toString() {
+            return String.format("HttpResponse{code=%d, responseTime=%dms, bodyLength=%d}",
+                    code, responseTime, body != null ? body.length() : 0);
         }
     }
 }

@@ -2,17 +2,10 @@ package com.study.collect.business.testcase.model.response;
 
 
 import lombok.Data;
-
-//@Data
-//@SuperBuilder
-//@EqualsAndHashCode(callSuper = true)
-//public class VersionResponse extends BaseResponse {
-//    private String version;
-//    private String versionType;
-//    private String description;
-//}
 import lombok.NoArgsConstructor;
+
 import java.time.LocalDateTime;
+
 //
 @Data
 @NoArgsConstructor

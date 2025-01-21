@@ -14,27 +14,27 @@
 
     <dependencies>
         <!-- 业务模块依赖 -->
-<!--        <dependency>-->
-<!--            <groupId>com.study</groupId>-->
-<!--            <artifactId>business-enterprise</artifactId>-->
-<!--            <version>${project.version}</version>-->
-<!--        </dependency>-->
+        <!--        <dependency>-->
+        <!--            <groupId>com.study</groupId>-->
+        <!--            <artifactId>business-enterprise</artifactId>-->
+        <!--            <version>${project.version}</version>-->
+        <!--        </dependency>-->
         <dependency>
             <groupId>com.study</groupId>
             <artifactId>business-testcase</artifactId>
             <version>${project.version}</version>
         </dependency>
 
-<!--        <dependency>-->
-<!--            <groupId>com.study</groupId>-->
-<!--            <artifactId>business-finance</artifactId>-->
-<!--            <version>${project.version}</version>-->
-<!--        </dependency>-->
-<!--        <dependency>-->
-<!--            <groupId>com.study</groupId>-->
-<!--            <artifactId>business-medical</artifactId>-->
-<!--            <version>${project.version}</version>-->
-<!--        </dependency>-->
+        <!--        <dependency>-->
+        <!--            <groupId>com.study</groupId>-->
+        <!--            <artifactId>business-finance</artifactId>-->
+        <!--            <version>${project.version}</version>-->
+        <!--        </dependency>-->
+        <!--        <dependency>-->
+        <!--            <groupId>com.study</groupId>-->
+        <!--            <artifactId>business-medical</artifactId>-->
+        <!--            <version>${project.version}</version>-->
+        <!--        </dependency>-->
 
         <!-- Spring Boot Starters -->
         <dependency>

@@ -12,9 +12,6 @@ import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
-
 @Configuration
 @Slf4j
 public class ObjectPoolConfig {

@@ -14,11 +14,8 @@
 
     <!-- 插入日志 -->
     <insert id="insert" parameterType="TaskLog">
-        INSERT INTO task_log (
-            instance_id, task_code, log_type, log_content
-        ) VALUES (
-                     #{instanceId}, #{taskCode}, #{logType}, #{logContent}
-                 )
+        INSERT INTO task_log (instance_id, task_code, log_type, log_content)
+        VALUES (#{instanceId}, #{taskCode}, #{logType}, #{logContent})
     </insert>
 
     <!-- 批量插入 -->
@@ -33,7 +30,8 @@
 
     <!-- 根据实例ID查询 -->
     <select id="selectByInstanceId" resultMap="taskLogMap">
-        SELECT * FROM task_log
+        SELECT *
+        FROM task_log
         WHERE instance_id = #{instanceId}
         ORDER BY create_time ASC
     </select>
@@ -53,7 +51,8 @@
 
     <!-- 查询最新的错误日志 -->
     <select id="selectLatestErrors" resultMap="taskLogMap">
-        SELECT * FROM task_log
+        SELECT *
+        FROM task_log
         WHERE log_type = 5
         ORDER BY create_time DESC
             LIMIT #{limit}
@@ -70,13 +69,15 @@
 
     <!-- 清理历史日志 -->
     <delete id="cleanHistoryLogs">
-        DELETE FROM task_log
+        DELETE
+        FROM task_log
         WHERE create_time &lt; DATE_SUB(NOW(), INTERVAL #{daysBefore} DAY)
     </delete>
 
     <!-- 根据实例ID删除日志 -->
     <delete id="deleteByInstanceId">
-        DELETE FROM task_log
+        DELETE
+        FROM task_log
         WHERE instance_id = #{instanceId}
     </delete>
 </mapper>
