@@ -1,5 +1,12 @@
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+package com.study.collect.business.testcase.service.http;
+
+import com.study.collect.business.testcase.constant.CollectionConstants;
+import com.study.collect.business.testcase.model.param.CollectParam;
+import com.study.collect.business.testcase.model.param.PageParam;
+import com.study.collect.business.testcase.model.response.PageResponse;
+import com.study.collect.business.testcase.model.response.UriDetail;
+import com.study.collect.business.testcase.model.response.VersionInfo;
+import com.study.collect.business.testcase.model.response.parse.HttpResponseParser;
 import com.study.collect.business.testcase.utils.HttpUtil;
 import com.study.collect.business.testcase.utils.RateLimiter;
 import lombok.RequiredArgsConstructor;
@@ -8,17 +15,21 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class UriHttpService {
-    private final ObjectMapper objectMapper;
+
+    private final HttpResponseParser<PageResponse<VersionInfo>> versionParser;
+    private final HttpResponseParser<List<String>> uriListParser;
+    private final HttpResponseParser<List<UriDetail>> uriDetailParser;
+    private final HttpResponseParser<Integer> uriCountParser;
     private final RateLimiter rateLimiter;
 
     @Qualifier("httpExecutor")
@@ -27,29 +38,20 @@ public class UriHttpService {
     /**
      * 获取版本列表
      */
-    public CompletableFuture<List<VersionInfo>> getVersions(String serverUrl, String rootNode, int page, int size) {
+    public CompletableFuture<List<VersionInfo>> getVersions(
+            String serverUrl, String rootNode, int page, int size) {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 rateLimiter.acquire();
                 String response = HttpUtil.post(
                         serverUrl + "/api/versions",
-                        String.format("{\"rootNode\":\"%s\",\"page\":%d,\"size\":%d}", rootNode, page, size)
+                        String.format(
+                                "{\"rootNode\":\"%s\",\"page\":%d,\"size\":%d}",
+                                rootNode, page, size
+                        )
                 ).getBody();
 
-                JsonNode root = objectMapper.readTree(response);
-                JsonNode value = root.path("result").path("value");
-                List<VersionInfo> versions = new ArrayList<>();
-
-                // 解析嵌套的children结构
-                value.path("children").forEach(child -> {
-                    if ("children".equals(child.path("elementName").asText())) {
-                        child.path("children").forEach(version -> {
-                            versions.add(parseVersionInfo(version));
-                        });
-                    }
-                });
-
-                return versions;
+                return versionParser.parse(response).getItems();
             } catch (Exception e) {
                 log.error("Failed to get versions for rootNode: {}", rootNode, e);
                 throw new RuntimeException("Failed to get versions", e);
@@ -69,10 +71,7 @@ public class UriHttpService {
                         String.format("{\"version\":\"%s\"}", version)
                 ).getBody();
 
-                JsonNode root = objectMapper.readTree(response);
-                List<String> uris = new ArrayList<>();
-                root.path("result").path("value").forEach(uri -> uris.add(uri.asText()));
-                return uris;
+                return uriListParser.parse(response);
             } catch (Exception e) {
                 log.error("Failed to get URI list for version: {}", version, e);
                 throw new RuntimeException("Failed to get URI list", e);
@@ -81,7 +80,7 @@ public class UriHttpService {
     }
 
     /**
-     * 获取URI总数
+     * 获取URI数量
      */
     public CompletableFuture<Integer> getUriCount(String serverUrl, String version) {
         return CompletableFuture.supplyAsync(() -> {
@@ -92,8 +91,7 @@ public class UriHttpService {
                         String.format("{\"version\":\"%s\"}", version)
                 ).getBody();
 
-                JsonNode root = objectMapper.readTree(response);
-                return root.path("result").path("value").asInt();
+                return uriCountParser.parse(response);
             } catch (Exception e) {
                 log.error("Failed to get URI count for version: {}", version, e);
                 throw new RuntimeException("Failed to get URI count", e);
@@ -104,48 +102,34 @@ public class UriHttpService {
     /**
      * 批量获取URI详情
      */
-    public CompletableFuture<List<UriDetail>> getUriDetails(String serverUrl, List<String> uris) {
+    public CompletableFuture<List<UriDetail>> getUriDetails(
+            String serverUrl, List<String> uris) {
+        if (uris == null || uris.isEmpty()) {
+            return CompletableFuture.completedFuture(Collections.emptyList());
+        }
+
         return CompletableFuture.supplyAsync(() -> {
             try {
                 rateLimiter.acquire();
+                StringBuilder jsonBody = new StringBuilder("{\"uris\":[");
+                for (int i = 0; i < uris.size(); i++) {
+                    if (i > 0) {
+                        jsonBody.append(",");
+                    }
+                    jsonBody.append("\"").append(uris.get(i)).append("\"");
+                }
+                jsonBody.append("]}");
+
                 String response = HttpUtil.post(
                         serverUrl + "/api/details",
-                        objectMapper.writeValueAsString(Map.of("uris", uris))
+                        jsonBody.toString()
                 ).getBody();
 
-                JsonNode root = objectMapper.readTree(response);
-                List<UriDetail> details = new ArrayList<>();
-                root.path("result").path("value").forEach(detail -> {
-                    details.add(UriDetail.builder()
-                            .uri(detail.path("uri").asText())
-                            .realUri(detail.path("realUri").asText())
-                            .number(detail.path("number").asText())
-                            .name(detail.path("name").asText())
-                            .updateTime(parseDateTime(detail.path("updateTime").asText()))
-                            .build());
-                });
-                return details;
+                return uriDetailParser.parse(response);
             } catch (Exception e) {
                 log.error("Failed to get URI details for {} URIs", uris.size(), e);
                 throw new RuntimeException("Failed to get URI details", e);
             }
         }, httpExecutor);
-    }
-
-    private VersionInfo parseVersionInfo(JsonNode node) {
-        return VersionInfo.builder()
-                .version(node.path("version").asText())
-                .name(node.path("name").asText())
-                .updateTime(parseDateTime(node.path("updateTime").asText()))
-                .build();
-    }
-
-    private LocalDateTime parseDateTime(String dateTime) {
-        try {
-            return LocalDateTime.parse(dateTime);
-        } catch (Exception e) {
-            log.warn("Failed to parse datetime: {}", dateTime);
-            return null;
-        }
     }
 }

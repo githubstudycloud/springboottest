@@ -4,9 +4,9 @@ import java.io.IOException;
 
 /**
  * HTTP响应解析器接口
- * @param <T> 解析结果类型
  */
 public interface HttpResponseParser<T> {
+
     /**
      * 解析HTTP响应
      * @param response 响应字符串

@@ -2,42 +2,38 @@ package com.study.collect.business.testcase.model.response.parse;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.study.collect.business.testcase.model.response.UriDetail;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class UriDetailResponseParser implements HttpResponseParser<List<Map<String, Object>>> {
+public class UriDetailResponseParser implements HttpResponseParser<List<UriDetail>> {
+
     private final ObjectMapper objectMapper;
 
     @Override
-    public List<Map<String, Object>> parse(String response) throws IOException {
+    public List<UriDetail> parse(String response) throws IOException {
         try {
             JsonNode root = objectMapper.readTree(response);
-            validateResponse(root);
+            List<UriDetail> details = new ArrayList<>();
 
-            List<Map<String, Object>> details = new ArrayList<>();
-            JsonNode items = root.path("items");
-            if (items.isArray()) {
-                items.forEach(item -> {
-                    try {
-                        Map<String, Object> detail = convertToMap(item);
-                        if (detail != null && !detail.isEmpty()) {
-                            details.add(detail);
-                        }
-                    } catch (Exception e) {
-                        log.error("Failed to parse URI detail item: {}", item, e);
-                    }
-                });
-            }
+            root.path("result").path("value").forEach(detail -> {
+                details.add(UriDetail.builder()
+                        .uri(detail.path("uri").asText())
+                        .realUri(detail.path("realUri").asText())
+                        .number(detail.path("number").asText())
+                        .name(detail.path("name").asText())
+                        .updateTime(parseDateTime(detail.path("updateTime").asText()))
+                        .build());
+            });
 
             return details;
         } catch (Exception e) {
@@ -46,58 +42,12 @@ public class UriDetailResponseParser implements HttpResponseParser<List<Map<Stri
         }
     }
 
-    private Map<String, Object> convertToMap(JsonNode node) {
-        Map<String, Object> result = new LinkedHashMap<>();
-        node.fields().forEachRemaining(entry -> {
-            String key = entry.getKey();
-            JsonNode valueNode = entry.getValue();
-            Object value = convertJsonNode(valueNode);
-            if (value != null) {
-                result.put(key, value);
-            }
-        });
-        return result;
-    }
-
-    private Object convertJsonNode(JsonNode node) {
-        if (node.isNull()) {
-            return null;
-        } else if (node.isTextual()) {
-            return node.asText();
-        } else if (node.isNumber()) {
-            return node.numberValue();
-        } else if (node.isBoolean()) {
-            return node.asBoolean();
-        } else if (node.isArray()) {
-            List<Object> list = new ArrayList<>();
-            node.forEach(item -> {
-                Object value = convertJsonNode(item);
-                if (value != null) {
-                    list.add(value);
-                }
-            });
-            return list;
-        } else if (node.isObject()) {
-            return convertToMap(node);
-        } else {
-            return node.toString();
-        }
-    }
-
-    private void validateResponse(JsonNode root) throws IOException {
-        if (!root.has("items")) {
-            throw new IOException("Invalid response format: missing items field");
-        }
-    }
-
-    @Override
-    public String parseError(String errorResponse) {
+    private LocalDateTime parseDateTime(String dateTimeStr) {
         try {
-            JsonNode root = objectMapper.readTree(errorResponse);
-            return root.path("message").asText("Unknown error");
+            return LocalDateTime.parse(dateTimeStr);
         } catch (Exception e) {
-            log.error("Failed to parse error response: {}", errorResponse, e);
-            return "Failed to parse error response";
+            log.warn("Failed to parse datetime: {}", dateTimeStr);
+            return null;
         }
     }
 }

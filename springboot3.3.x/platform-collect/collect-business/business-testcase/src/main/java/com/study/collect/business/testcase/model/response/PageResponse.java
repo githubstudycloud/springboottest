@@ -1,19 +1,24 @@
 package com.study.collect.business.testcase.model.response;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
-//
-//
-// PageResponse.java
+
 @Data
+@Builder
 @NoArgsConstructor
+@AllArgsConstructor
 public class PageResponse<T> {
     private String code;
     private String message;
     private Long total;
     private List<T> items;
+    private int page;
+    private int size;
+    private int totalPages;
 
     public static <T> PageResponseBuilder<T> builder() {
         return new PageResponseBuilder<>();
@@ -24,6 +29,9 @@ public class PageResponse<T> {
         private String message;
         private Long total;
         private List<T> items;
+        private int page;
+        private int size;
+        private int totalPages;
 
         PageResponseBuilder() {
         }
@@ -48,13 +56,23 @@ public class PageResponse<T> {
             return this;
         }
 
+        public PageResponseBuilder<T> page(int page) {
+            this.page = page;
+            return this;
+        }
+
+        public PageResponseBuilder<T> size(int size) {
+            this.size = size;
+            return this;
+        }
+
+        public PageResponseBuilder<T> totalPages(int totalPages) {
+            this.totalPages = totalPages;
+            return this;
+        }
+
         public PageResponse<T> build() {
-            PageResponse<T> response = new PageResponse<>();
-            response.setCode(code);
-            response.setMessage(message);
-            response.setTotal(total);
-            response.setItems(items);
-            return response;
+            return new PageResponse<>(code, message, total, items, page, size, totalPages);
         }
     }
 }

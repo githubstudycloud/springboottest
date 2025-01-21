@@ -2,16 +2,16 @@ package com.study.collect.business.testcase.model.response;
 
 import lombok.Builder;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 import java.time.LocalDateTime;
 
 @Data
 @Builder
-public class AsyncResponse<T> {
+@EqualsAndHashCode(callSuper = false)
+public class AsyncResponse<T> extends BaseResponse {
     private String taskId;
-    private String status;
     private Double progress;
-    private String message;
     private LocalDateTime startTime;
     private LocalDateTime endTime;
     private T result;
