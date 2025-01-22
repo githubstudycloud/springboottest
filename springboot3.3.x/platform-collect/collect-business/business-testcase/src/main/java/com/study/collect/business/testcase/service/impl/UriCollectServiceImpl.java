@@ -9,10 +9,7 @@ import com.study.collect.business.testcase.manager.QueueManager;
 import com.study.collect.business.testcase.model.param.CollectParam;
 import com.study.collect.business.testcase.model.param.DeleteParam;
 import com.study.collect.business.testcase.model.param.QueryParam;
-import com.study.collect.business.testcase.model.response.AsyncResponse;
-import com.study.collect.business.testcase.model.response.TaskResponse;
-import com.study.collect.business.testcase.model.response.UriDetail;
-import com.study.collect.business.testcase.model.response.VersionInfo;
+import com.study.collect.business.testcase.model.response.*;
 import com.study.collect.business.testcase.repository.CollectTaskRepository;
 import com.study.collect.business.testcase.repository.UriRepository;
 import com.study.collect.business.testcase.repository.VersionRepository;
@@ -30,6 +27,7 @@ import org.springframework.util.StringUtils;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 
 @Slf4j
 @Service
@@ -98,13 +96,13 @@ public class UriCollectServiceImpl implements UriCollectService {
 
         try {
             // 获取版本列表
-            List<VersionInfo> versions = httpService.getVersions(
-                    param.getServerUrl(),
-                    param.getRootNode(),
-                    1,
-                    Integer.MAX_VALUE
-            ).get();
-
+//            List<VersionInfo> versions = httpService.getVersions(
+//                    param.getServerUrl(),
+//                    param.getRootNode(),
+//                    1,
+//                    Integer.MAX_VALUE
+//            ).get();
+            List<VersionInfo> versions = getAllVersions(param.getRootNode(), param.getServerUrl());
             if (StringUtils.hasText(param.getVersion())) {
                 versions = versions.stream()
                         .filter(v -> v.getVersion().equals(param.getVersion()))
@@ -130,52 +128,165 @@ public class UriCollectServiceImpl implements UriCollectService {
         }
     }
 
+//    private void processVersionUris(CollectParam param, VersionInfo version, int totalCount, String taskId) {
+//        try {
+//            // 分批获取URI列表
+//            int offset = 0;
+//            int batchSize = param.getBatchSize() != null ? param.getBatchSize() : HTTP_BATCH_SIZE;
+//
+//            while (offset < totalCount) {
+//                // 获取一批URI
+//                List<String> uris = httpService.getUriList(param.getServerUrl(), version.getVersion()).get();
+//
+//                // 获取URI详情
+//                List<UriDetail> details = httpService.getUriDetails(param.getServerUrl(), uris).get();
+//
+//                // 转换并保存实体
+//                List<UriEntity> entities = new ArrayList<>();
+//                for (UriDetail detail : details) {
+//                    UriEntity entity = entityPool.borrowObject();
+//                    try {
+//                        fillEntity(entity, param.getRootNode(), version, detail);
+//                        entities.add(entity);
+//                    } catch (Exception e) {
+//                        log.error("Failed to process URI: {}", detail.getUri(), e);
+//                        entityPool.returnObject(entity);
+//                    }
+//                }
+//
+//                if (!entities.isEmpty()) {
+//                    try {
+//                        uriRepository.batchUpsert(param.getRootNode(), entities);
+//                    } finally {
+//                        // 返还实体到对象池
+//                        for (UriEntity entity : entities) {
+//                            entityPool.returnObject(entity);
+//                        }
+//                    }
+//                }
+//
+//                // 更新进度
+//                offset += batchSize;
+//                double progress = (double) offset / totalCount * 100;
+//                taskManager.updateTaskProgress(taskId, offset, totalCount);
+//            }
+//
+//        } catch (Exception e) {
+//            log.error("Failed to process version: {}", version.getVersion(), e);
+//            throw new RuntimeException("Failed to process version", e);
+//        }
+//    }
+
     private void processVersionUris(CollectParam param, VersionInfo version, int totalCount, String taskId) {
         try {
-            // 分批获取URI列表
+            int processedCount = 0;
             int offset = 0;
             int batchSize = param.getBatchSize() != null ? param.getBatchSize() : HTTP_BATCH_SIZE;
 
-            while (offset < totalCount) {
+            // 先获取所有URI列表
+            List<String> allUris =httpService.getUriList(
+                    param.getServerUrl(),
+                    version.getVersion(),
+                    offset,
+                    Math.min(batchSize, totalCount - offset)
+//            while (offset < totalCount) {
                 // 获取一批URI
-                List<String> uris = httpService.getUriList(param.getServerUrl(), version.getVersion()).get();
+//                List<String> uris = httpService.getUriList(
+//                        param.getServerUrl(),
+//                        version.getVersion(),
+//                        offset,
+//                        Math.min(batchSize, totalCount - offset)
+//                ).get();
 
-                // 获取URI详情
-                List<UriDetail> details = httpService.getUriDetails(param.getServerUrl(), uris).get();
+//                if (uris.isEmpty()) {
+//                    break;
+//                }
+//
+//                allUris.addAll(uris);
+//                offset += uris.size();
+//
+//                // 更新任务进度
+//                taskManager.updateTaskProgress(taskId, processedCount, totalCount);
+//            }
+// 更新任务进度
+            taskManager.updateTaskProgress(taskId, processedCount, totalCount);
+            // 对获取到的URI列表进行分批处理
+            List<List<String>> uriBatches = Lists.partition(allUris, HTTP_BATCH_SIZE);
+            for (List<String> batch : uriBatches) {
+                try {
+                    // 获取URI详情
+                    List<UriDetail> details = httpService.getUriDetails(param.getServerUrl(), batch).get();
 
-                // 转换并保存实体
-                List<UriEntity> entities = new ArrayList<>();
-                for (UriDetail detail : details) {
-                    UriEntity entity = entityPool.borrowObject();
-                    try {
-                        fillEntity(entity, param.getRootNode(), version, detail);
-                        entities.add(entity);
-                    } catch (Exception e) {
-                        log.error("Failed to process URI: {}", detail.getUri(), e);
-                        entityPool.returnObject(entity);
-                    }
-                }
-
-                if (!entities.isEmpty()) {
-                    try {
-                        uriRepository.batchUpsert(param.getRootNode(), entities);
-                    } finally {
-                        // 返还实体到对象池
-                        for (UriEntity entity : entities) {
-                            entityPool.returnObject(entity);
+                    // 将详情转换为实体并保存
+                    List<UriEntity> entities = new ArrayList<>();
+                    for (UriDetail detail : details) {
+                        try {
+                            UriEntity entity = entityPool.borrowObject();
+                            try {
+                                fillEntity(entity, param.getRootNode(), version, detail);
+                                entities.add(entity);
+                            } catch (Exception e) {
+                                log.error("Failed to fill entity for URI: {}", detail.getUri(), e);
+                                entityPool.returnObject(entity);
+                            }
+                        } catch (Exception e) {
+                            log.error("Failed to borrow entity from pool for URI: {}", detail.getUri(), e);
                         }
                     }
-                }
 
-                // 更新进度
-                offset += batchSize;
-                double progress = (double) offset / totalCount * 100;
-                taskManager.updateTaskProgress(taskId, offset, totalCount);
+                    if (!entities.isEmpty()) {
+                        try {
+                            uriRepository.batchUpsert(param.getRootNode(), entities);
+                        } finally {
+                            // 返还实体到对象池
+                            for (UriEntity entity : entities) {
+                                try {
+                                    entityPool.returnObject(entity);
+                                } catch (Exception e) {
+                                    log.error("Failed to return entity to pool", e);
+                                }
+                            }
+                        }
+                    }
+
+                    // 更新处理进度
+                    processedCount += batch.size();
+                    taskManager.updateTaskProgress(taskId, processedCount, totalCount);
+
+                } catch (Exception e) {
+                    log.error("Failed to process URI batch of size {}", batch.size(), e);
+                    if (!param.getAllowDuplicate()) {
+                        throw e;
+                    }
+                }
+            }
+
+            // 如果所有URI都处理完成，执行清理操作
+            if (processedCount >= totalCount) {
+                cleanupUriData(param, allUris);
             }
 
         } catch (Exception e) {
             log.error("Failed to process version: {}", version.getVersion(), e);
             throw new RuntimeException("Failed to process version", e);
+        }
+    }
+
+    private void cleanupUriData(CollectParam param, List<String> allUris) {
+        if (!param.getHardDelete() && !param.getForceUpdate()) {
+            return;
+        }
+
+        try {
+            UriCleanupService cleanupService = new UriCleanupService(uriRepository);
+            cleanupService.cleanupUriDataAsync(
+                    allUris,
+                    param.getRootNode(),
+                    param.getVersion(),
+                    param.getHardDelete()
+            );
+        } catch (Exception e) {
+            log.error("Failed to cleanup URI data", e);
         }
     }
 
@@ -346,5 +457,32 @@ public class UriCollectServiceImpl implements UriCollectService {
                 .filter(task -> rootNode.equals(task.getParams().get("rootNode")))
                 .count());
         return stats;
+    }
+
+    @Override
+    public List<VersionInfo> getAllVersions(String rootNode, String serverUrl)
+            throws ExecutionException, InterruptedException {
+        List<VersionInfo> allVersions = new ArrayList<>();
+        int page = 1;
+        int pageSize = 100; // 较大的页面大小以减少请求次数
+
+        while (true) {
+            PageResponse<VersionInfo> response = httpService.getVersions(serverUrl, rootNode, page, pageSize).get();
+
+            if (response.getItems() == null || response.getItems().isEmpty()) {
+                break;
+            }
+
+            allVersions.addAll(response.getItems());
+
+            // 如果已经获取所有数据，退出循环
+            if (allVersions.size() >= response.getTotal()) {
+                break;
+            }
+
+            page++;
+        }
+
+        return allVersions;
     }
 }

@@ -10,8 +10,10 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Slf4j
 @Component
@@ -28,16 +30,21 @@ public class VersionResponseParser implements HttpResponseParser<PageResponse<Ve
 
             List<VersionInfo> versions = new ArrayList<>();
             // 解析嵌套的children结构
+            AtomicLong total = new AtomicLong(0);
             value.path("children").forEach(child -> {
-                if ("children".equals(child.path("elementName").asText())) {
+                if ("Children".equals(child.path("elementName").asText())) {
                     child.path("children").forEach(version -> {
                         versions.add(parseVersionInfo(version));
                     });
+                }
+                if ("total".equals(child.path("elementName").asText())) {
+                    total.set(child.path("total").asLong());
                 }
             });
 
             return PageResponse.<VersionInfo>builder()
                     .items(versions)
+                    .total(total.get())
                     .build();
         } catch (Exception e) {
             log.error("Failed to parse version response: {}", response, e);
@@ -56,7 +63,9 @@ public class VersionResponseParser implements HttpResponseParser<PageResponse<Ve
 
     private LocalDateTime parseDateTime(String dateTimeStr) {
         try {
-            return LocalDateTime.parse(dateTimeStr);
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+            LocalDateTime dateTime = LocalDateTime.parse(dateTimeStr, formatter);
+            return dateTime;
         } catch (Exception e) {
             log.warn("Failed to parse datetime: {}", dateTimeStr);
             return null;

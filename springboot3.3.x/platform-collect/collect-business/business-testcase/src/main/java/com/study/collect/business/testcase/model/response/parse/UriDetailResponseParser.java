@@ -9,8 +9,11 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Component
@@ -26,12 +29,15 @@ public class UriDetailResponseParser implements HttpResponseParser<List<UriDetai
             List<UriDetail> details = new ArrayList<>();
 
             root.path("result").path("value").forEach(detail -> {
+                Map<String, Object> detailsMap = new HashMap<>();
+                detailsMap.putAll(objectMapper.convertValue(detail,Map.class));
                 details.add(UriDetail.builder()
                         .uri(detail.path("uri").asText())
-                        .realUri(detail.path("realUri").asText())
+                        .realUri(detail.path("realURI").asText())
                         .number(detail.path("number").asText())
                         .name(detail.path("name").asText())
-                        .updateTime(parseDateTime(detail.path("updateTime").asText()))
+                                .details(detailsMap)
+                        .updateTime(parseDateTime(detail.path("lastModified").asText()))
                         .build());
             });
 
@@ -44,7 +50,9 @@ public class UriDetailResponseParser implements HttpResponseParser<List<UriDetai
 
     private LocalDateTime parseDateTime(String dateTimeStr) {
         try {
-            return LocalDateTime.parse(dateTimeStr);
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+            LocalDateTime dateTime = LocalDateTime.parse(dateTimeStr, formatter);
+            return dateTime;
         } catch (Exception e) {
             log.warn("Failed to parse datetime: {}", dateTimeStr);
             return null;

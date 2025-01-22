@@ -6,11 +6,13 @@ import com.study.collect.business.testcase.model.param.DeleteParam;
 import com.study.collect.business.testcase.model.param.QueryParam;
 import com.study.collect.business.testcase.model.response.AsyncResponse;
 import com.study.collect.business.testcase.model.response.TaskResponse;
+import com.study.collect.business.testcase.model.response.VersionInfo;
 import org.springframework.data.domain.Page;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 
 /**
  * URI采集服务接口
@@ -77,4 +79,8 @@ public interface UriCollectService {
      * 获取采集统计信息
      */
     Map<String, Object> getCollectionStats(String rootNode);
+    /**
+     * 获取所有版本信息
+     */
+    List<VersionInfo> getAllVersions(String rootNode, String serverUrl) throws ExecutionException, InterruptedException;
 }

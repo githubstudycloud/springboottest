@@ -432,7 +432,7 @@ public class UriRepository {
 
     private void ensureCollectionAndIndexes(String rootNode, String collectionName) {
         if (!mongoTemplate.collectionExists(collectionName)) {
-            indexConfiguration.createIndexesForCollection(rootNode);
+            indexConfiguration.createIndexesForCollection(collectionName);
         }
     }
 
