@@ -1,0 +1,41 @@
+fluxcore:
+  datasource:
+    # 公共库配置
+    public:
+      url: ${PUBLIC_DB_URL:jdbc:mysql://localhost:3306/public_db?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8}
+      username: ${PUBLIC_DB_USERNAME:root}
+      password: ${PUBLIC_DB_PASSWORD:root}
+      driver-class-name: com.mysql.cj.jdbc.Driver
+    
+    # 采集库配置
+    collection:
+      url: ${COLLECTION_DB_URL:jdbc:mysql://localhost:3306/collection_db?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8}
+      username: ${COLLECTION_DB_USERNAME:root}
+      password: ${COLLECTION_DB_PASSWORD:root}
+      driver-class-name: com.mysql.cj.jdbc.Driver
+    
+    # 业务库配置
+    business:
+      # 共同前缀，用于自动检索业务数据库
+      prefix: ${BIZ_DB_PREFIX:biz_}
+      default-db: ${BIZ_DEFAULT_DB:db1}
+      databases:
+        db1:
+          alias: db1
+          url: ${BIZ_DB1_URL:jdbc:mysql://localhost:3306/biz_db1?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8}
+          username: ${BIZ_DB1_USERNAME:root}
+          password: ${BIZ_DB1_PASSWORD:root}
+          driver-class-name: com.mysql.cj.jdbc.Driver
+        db2:
+          alias: db2
+          url: ${BIZ_DB2_URL:jdbc:mysql://localhost:3306/biz_db2?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8}
+          username: ${BIZ_DB2_USERNAME:root}
+          password: ${BIZ_DB2_PASSWORD:root}
+          driver-class-name: com.mysql.cj.jdbc.Driver
+        db3:
+          alias: db3
+          url: ${BIZ_DB3_URL:jdbc:mysql://localhost:3306/biz_db3?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8}
+          username: ${BIZ_DB3_USERNAME:root}
+          password: ${BIZ_DB3_PASSWORD:root}
+          driver-class-name: com.mysql.cj.jdbc.Driver
+        # 更多数据库可以在这里添加，也可以通过环境变量动态配置
