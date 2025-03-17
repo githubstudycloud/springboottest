@@ -1,0 +1,14 @@
+version: '3'
+
+services:
+  ai-adapter:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - THIRD_PARTY_API_KEY=${THIRD_PARTY_API_KEY}
+      - THIRD_PARTY_API_URL=${THIRD_PARTY_API_URL}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+    restart: always
+    volumes:
+      - ./logs:/app/logs
